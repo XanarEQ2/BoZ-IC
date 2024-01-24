@@ -24,4 +24,6 @@ Some notes about the IC files:
 
 - I have not tested zones skipping shinies, there could be pathing issues.
 
+I can't take full credit for all of the code, a lot of this was based on or copied from code that others have posted, especially Kordulek and Jiimbo.  So big thanks to everyone that has provided previous IC files/scripts/code snippets as I couldn't have done this without them.
+
 If there are any issues with the files or other feedback, feel free to let me know.  I have not run other BoZ IC files aside from the very first ones released, so I don't know how others are scripting fights.  There may be better ways to do things than what I came up with.
