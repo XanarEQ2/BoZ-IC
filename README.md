@@ -1,5 +1,5 @@
 # BoZ-IC
-OgreBot Instance Controller files for BoZ Solo/H1/H2 zones.  To use, put files in the InnerSpace\Scripts folder.  The Ogre IC main files are run from a "Default" folder.  I put my files in a "Custom" folder to not interfere with the main files.  You can navigate to the custom folder from within IC, or use an MCP button to run the instance.
+OgreBot Instance Controller files for BoZ Solo/H1/H2 zones.  To use, download the zip file and copy all of the files in the BoZ-IC-main folder to the InnerSpace\Scripts folder.  Everything should go in the folder structure that I have setup.  The Ogre IC main files are run from a "Default" folder.  I put my files in a "Custom" folder to not interfere with the main files.  You can navigate to the custom folder from within IC, or use an MCP button to run the instance.
 
 For the MCP, I have separate scripts for loading up the Solo/H1/H2 zones.  Right click an empty MCP button and paste in Inner Space console (not Ogre console):
 
