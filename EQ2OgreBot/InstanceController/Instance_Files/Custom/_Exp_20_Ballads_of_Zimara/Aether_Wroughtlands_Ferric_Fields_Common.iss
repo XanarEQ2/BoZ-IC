@@ -179,6 +179,13 @@ objectdef Object_Instance
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 		{
 			Ob_AutoTarget:Clear
+			; For H2, kill adds first
+			if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			{
+				Ob_AutoTarget:AddActor["an iron maedjinn saitahn",0,FALSE,FALSE]
+				Ob_AutoTarget:AddActor["an iron maedjinn saitihn",0,FALSE,FALSE]
+				Ob_AutoTarget:AddActor["an iron maedjinn guard",0,FALSE,FALSE]
+			}
 			Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
 			call Tank_n_Spank "${_NamedNPC}" "${KillSpot}"
 			Ob_AutoTarget:Clear
@@ -396,7 +403,7 @@ objectdef Object_Instance
 		; For Heroic, remove effect with Bulwark
 		elseif ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 		{
-			; For H2, run ZoneHelperScript to handle pillars and enable HO for Fighter
+			; For H2, run ZoneHelperScript to handle pillars, enable HO for Fighter, disable Heroic Setups
 			if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 			{
 				; Run ZoneHelperScript to detect incoming pillars and cast Bulwark
@@ -407,6 +414,8 @@ objectdef Object_Instance
 				call HO "Fighter" "FALSE"
 				oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript}
 				oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript} "${_NamedNPC}"
+				; Disable Heroic Setups (movement from setup can mess us CampSpots)
+				oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions FALSE TRUE
 			}
 			; Kill named
 			oc ${Me.Name} is pulling ${_NamedNPC}
@@ -421,7 +430,7 @@ objectdef Object_Instance
 			{
 				; Named has Ferrous Form effect, reduces damage done by 99%
 				; Have fighter cast Bulwark of Order to get past it
-				; 	this may not be needed anymore as Ogre seems to do it on its own, but leaving in anyways
+				; 	I believe Ogre also casts it as part of Heroic Setups
 				if ${TimeSinceBulwark:Inc} >= 30
 				{
 					oc !ci -CastAbility igw:${Me.Name}+fighter "Bulwark of Order"
@@ -431,9 +440,12 @@ objectdef Object_Instance
 				wait 10
 			}
 			Ob_AutoTarget:Clear
-			; For H2, disable HO for all
+			; For H2, disable HO for all and re-enable Heroic Setups
 			if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			{
 				call HO "Disable" "FALSE"
+				oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions TRUE TRUE	
+			}
 		}
 		
 		; Check named is dead

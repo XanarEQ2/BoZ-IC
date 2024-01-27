@@ -19,7 +19,8 @@ function SetInitialInstanceSettings()
 	; Assist
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_assist FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+notfighter checkbox_settings_assist TRUE TRUE
-	
+	; Enable Heroic Setups
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions TRUE TRUE
 	; Cast Stack
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure FALSE TRUE
