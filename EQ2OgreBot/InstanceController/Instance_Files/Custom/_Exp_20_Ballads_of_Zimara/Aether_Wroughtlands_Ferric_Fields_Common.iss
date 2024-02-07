@@ -113,6 +113,8 @@ objectdef Object_Instance
 		{
 			; Stop by shiny
 			call move_to_next_waypoint "91.21,14.41,-532.88" "15"
+			call move_to_next_waypoint "111.69,13.32,-538.91" "5"
+			call move_to_next_waypoint "91.21,14.41,-532.88" "15"
 			call move_to_next_waypoint "92.64,14.44,-570.30" "15"
 			call move_to_next_waypoint "74.75,13.72,-557.30" "1"
 			call move_to_next_waypoint "71.85,13.41,-554.82" "5"
@@ -184,6 +186,8 @@ objectdef Object_Instance
 			{
 				Ob_AutoTarget:AddActor["an iron maedjinn saitahn",0,FALSE,FALSE]
 				Ob_AutoTarget:AddActor["an iron maedjinn saitihn",0,FALSE,FALSE]
+				Ob_AutoTarget:AddActor["an iron maedjinn alharan",0,FALSE,FALSE]
+				Ob_AutoTarget:AddActor["an iron maedjinn alharin",0,FALSE,FALSE]
 				Ob_AutoTarget:AddActor["an iron maedjinn guard",0,FALSE,FALSE]
 			}
 			Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]

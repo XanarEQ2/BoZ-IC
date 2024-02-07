@@ -311,9 +311,9 @@ objectdef Object_Instance
 		call move_to_next_waypoint "165.13,3.76,-0.23" "5"
 		if !${Ogre_Instance_Controller.bSkipShinies}
 		{
-			call move_to_next_waypoint "170.36,3.76,5.02" "2"
+			call move_to_next_waypoint "170.36,3.76,5.02" "3"
 			call move_to_next_waypoint "165.13,3.76,-0.23" "5"
-			call move_to_next_waypoint "170.33,3.76,-5.03" "2"
+			call move_to_next_waypoint "170.33,3.76,-5.03" "3"
 			call move_to_next_waypoint "165.13,3.76,-0.23" "5"
 		}
 		call move_to_next_waypoint "167.70,3.76,-21.93" "5"

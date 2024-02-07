@@ -823,8 +823,10 @@ objectdef Object_Instance
 			call move_to_next_waypoint "404.61,3.51,-33.37" "10"
 			call move_to_next_waypoint "426.41,8.00,-40.88"
 			call move_to_next_waypoint "459.22,8.00,-23.56" "15"
-			call move_to_next_waypoint "426.41,8.00,-40.88"
-			call move_to_next_waypoint "404.61,3.51,-33.37" "10"
+			call move_to_next_waypoint "452.21,8.00,22.60" "10"
+			call move_to_next_waypoint "438.12,8.00,36.59" "10"
+			call move_to_next_waypoint "415.36,6.02,43.44" "10"
+			call move_to_next_waypoint "409.30,3.51,14.71" "20"
 			call move_to_next_waypoint "${KillSpot}"
 		}
 		
@@ -914,7 +916,7 @@ objectdef Object_Instance
 			Ob_AutoTarget:AddActor["${_NamedNPC1}",0,FALSE,FALSE]
 			Ob_AutoTarget:AddActor["${_NamedNPC2}",0,FALSE,FALSE]
 			; Pull named
-			oc ${Me.Name} is pulling ${_NamedNPC}
+			oc ${Me.Name} is pulling ${_NamedNPC1}
 			while !${Me.InCombat}
 			{
 				Actor["${_NamedNPC1}"]:DoTarget

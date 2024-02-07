@@ -195,6 +195,10 @@ objectdef Object_Instance
 				oc !ci -ChangeCampSpotWho "igw:${Me.Name}+fighter" ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				call Obj_OgreUtilities.HandleWaitForCampSpot 10
 			}
+			; Run ZoneHelperScript
+			oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
+			oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
+			; Kill Named
 			call Tank_at_KillSpot "${_NamedNPC}" "${KillSpot}"
 			Ob_AutoTarget:Clear
 			; Get Chest
@@ -215,7 +219,7 @@ objectdef Object_Instance
 		; Look for shinies
 		if !${Ogre_Instance_Controller.bSkipShinies}
 		{
-			call move_to_next_waypoint "-365.35,124.44,-652.00"
+			call move_to_next_waypoint "-365.35,124.44,-652.00" "40"
 		}
 		
 		; Finished with named

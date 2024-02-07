@@ -483,30 +483,26 @@ objectdef Object_Instance
 		; Kill named
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 		{
-			; If H2, run ZoneHelperScript
-			if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			{
-				oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
-				oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
-			}
 			; For solo, pull named back to KillSpot
 			if ${Zone.Name.Equals["${Solo_Zone_Name}"]}
 			{
 				Obj_OgreIH:ChangeCampSpot["-244.78,433.52,867.27"]
 				call Obj_OgreUtilities.HandleWaitForCampSpot 10
-				Obj_OgreIH:ChangeCampSpot["123.29,369.18,697.23"]
-				call Obj_OgreUtilities.HandleWaitForCampSpot 10
 			}
 			else
 			{
+				; Move up a bit
+				Obj_OgreIH:ChangeCampSpot["-226.64,432.08,891.58"]
+				call Obj_OgreUtilities.HandleWaitForCampSpot 10
 				; Send everyone except fighter directly to KillSpot
 				oc !ci -ChangeCampSpotWho "igw:${Me.Name}+notfighter" ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				; Have fighter pull back
 				oc !ci -ChangeCampSpotWho "igw:${Me.Name}+fighter" -244.78 433.52 867.27
 				call Obj_OgreUtilities.HandleWaitForCampSpot 10
-				oc !ci -ChangeCampSpotWho "igw:${Me.Name}+fighter" ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
-				call Obj_OgreUtilities.HandleWaitForCampSpot 10
 			}
+			; Run ZoneHelperScript
+			oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
+			oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
 			; Kill Named
 			Ob_AutoTarget:Clear
 			Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]

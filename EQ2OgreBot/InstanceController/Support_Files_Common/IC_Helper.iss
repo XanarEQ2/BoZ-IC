@@ -64,15 +64,15 @@ function mend_and_rune_swap(string FighterAdorn, string ScoutAdorn, string MageA
 	}
 	; Add short delay to allow all variables to be set, otherwise won't work properly
 	wait 1
-	; Run MendRuneSwapHelperScript on everyone in group to see if repair/swap is needed.
+	; Run MendRuneSwapHelperScript on everyone in group to see if repair/swap is needed
 	oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${MendRuneSwapHelperScript}
-	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+fighter ${MendRuneSwapHelperScript} "${FighterAdorn}"
-	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+scout ${MendRuneSwapHelperScript} "${ScoutAdorn}"
-	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+mage ${MendRuneSwapHelperScript} "${MageAdorn}"
-	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+priest ${MendRuneSwapHelperScript} "${PriestAdorn}"
-	; Wait for script to complete on each character (timeout if more than 2 seconds to run)
+	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+fighter ${MendRuneSwapHelperScript} "Check" "${FighterAdorn}"
+	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+scout ${MendRuneSwapHelperScript} "Check" "${ScoutAdorn}"
+	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+mage ${MendRuneSwapHelperScript} "Check" "${MageAdorn}"
+	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+priest ${MendRuneSwapHelperScript} "Check" "${PriestAdorn}"
+	; Wait for script to complete on each character (timeout if it takes too long to run)
 	variable int Counter = 0
-	while !${OgreBotAPI.Get_Variable["${Me.Name}_RuneSwapCheckComplete"]} && ${Counter:Inc} <= 20
+	while !${OgreBotAPI.Get_Variable["${Me.Name}_RuneSwapCheckComplete"]} && ${Counter:Inc} <= 40
 	{
 		wait 1
 	}
@@ -86,11 +86,11 @@ function mend_and_rune_swap(string FighterAdorn, string ScoutAdorn, string MageA
 		}
 	}
 	; Print some debug information just to make sure all values returned are correct
-	oc ${Me.Name} Waist%:${OgreBotAPI.Get_Variable["${Me.Name}_WaistCondition"]} Repair Avail:${OgreBotAPI.Get_Variable["${Me.Name}_RepairBotAvailable"]} Rune Need:${OgreBotAPI.Get_Variable["${Me.Name}_RuneSwapNeeded"]}
+	oc ${Me.Name}: Waist%:${OgreBotAPI.Get_Variable["${Me.Name}_WaistCondition"]} Repair Avail:${OgreBotAPI.Get_Variable["${Me.Name}_RepairBotAvailable"]} Rune Need:${OgreBotAPI.Get_Variable["${Me.Name}_RuneSwapNeeded"]}
 	GroupNum:Set[0]
 	while ${GroupNum:Inc} < ${Me.GroupCount}
 	{
-		oc ${Me.Group[${GroupNum}].Name} Waist%:${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_WaistCondition"]} Repair Avail:${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RepairBotAvailable"]} Rune Need:${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RuneSwapNeeded"]}
+		oc ${Me.Group[${GroupNum}].Name}: Waist%:${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_WaistCondition"]} Repair Avail:${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RepairBotAvailable"]} Rune Need:${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RuneSwapNeeded"]}
 	}
 	; Check to see if anyone needs rune swapped
 	variable bool RuneSwapNeeded=FALSE
@@ -153,28 +153,24 @@ function mend_and_rune_swap(string FighterAdorn, string ScoutAdorn, string MageA
 	; Perform rune swap if needed
 	if ${RuneSwapNeeded}
 	{
-		; Perform rune swap
-		oc !ci -ChangeBeltAdorn igw:${Me.Name}+fighter "${FighterAdorn}"
-		oc !ci -ChangeBeltAdorn igw:${Me.Name}+scout "${ScoutAdorn}"
-		oc !ci -ChangeBeltAdorn igw:${Me.Name}+mage "${MageAdorn}"
-		oc !ci -ChangeBeltAdorn igw:${Me.Name}+priest "${PriestAdorn}"
-		; Wait a bit for rune swap to get started
-		wait 50
-		; Set default values for WaistEquipped variables
-		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_WaistEquipped" "FALSE"
+		; Set default values for variables MendRuneSwapHelperScript uses
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_RuneSwapCheckComplete" "FALSE"
 		GroupNum:Set[0]
 		while ${GroupNum:Inc} < ${Me.GroupCount}
 		{
-			oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}_WaistEquipped" "FALSE"
+			oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}_RuneSwapCheckComplete" "FALSE"
 		}
 		; Add short delay to allow all variables to be set, otherwise won't work properly
 		wait 1
-		; Run MendRuneSwapHelperScript on everyone in group to check for Waist re-equipped (pass in "WaistCheck" as the RuneType)
+		; Run MendRuneSwapHelperScript on everyone in group to swap if needed
 		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${MendRuneSwapHelperScript}
-		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${MendRuneSwapHelperScript} "WaistCheck"
-		; Wait for script to complete on each character (timeout if more than 20 seconds to run)
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+fighter ${MendRuneSwapHelperScript} "Swap" "${FighterAdorn}"
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+scout ${MendRuneSwapHelperScript} "Swap" "${ScoutAdorn}"
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+mage ${MendRuneSwapHelperScript} "Swap" "${MageAdorn}"
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+priest ${MendRuneSwapHelperScript} "Swap" "${PriestAdorn}"
+		; Wait for script to complete on each character (timeout if it takes too long to run)
 		Counter:Set[0]
-		while !${OgreBotAPI.Get_Variable["${Me.Name}_WaistEquipped"]} && ${Counter:Inc} <= 200
+		while !${OgreBotAPI.Get_Variable["${Me.Name}_RuneSwapCheckComplete"]} && ${Counter:Inc} <= 200
 		{
 			wait 1
 		}
@@ -182,7 +178,7 @@ function mend_and_rune_swap(string FighterAdorn, string ScoutAdorn, string MageA
 		while ${GroupNum:Inc} < ${Me.GroupCount}
 		{
 			Counter:Set[0]
-			while !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_WaistEquipped"]} && ${Counter:Inc} <= 50
+			while !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RuneSwapCheckComplete"]} && ${Counter:Inc} <= 40
 			{
 				wait 1
 			}
@@ -718,5 +714,122 @@ function click_shiny()
 		Actor[Query,Name=="?"]:DoubleClick
 		wait 20
 		ShiniesLooted:Inc
+	}
+}
+
+function UseChronoDungeonItem()
+{
+	; Set default values for ChronoCount
+	oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_ChronoCount" "0"
+	oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_ChronoCountComplete" "FALSE"
+	variable int GroupNum=0
+	while ${GroupNum:Inc} < ${Me.GroupCount}
+	{
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}_ChronoCount" "0"
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}_ChronoCountComplete" "FALSE"
+	}
+	; Add short delay to allow all variables to be set, otherwise won't work properly
+	wait 1
+	; Run ChronoHelperScript on everyone in group to get number of Chrono Dungeon items they have
+	oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ChronoHelperScript}
+	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ChronoHelperScript}
+	; Wait for script to complete on each character (timeout if more than 2 seconds to run)
+	variable int Counter = 0
+	while !${OgreBotAPI.Get_Variable["${Me.Name}_ChronoCountComplete"]} && ${Counter:Inc} <= 20
+	{
+		wait 1
+	}
+	GroupNum:Set[0]
+	while ${GroupNum:Inc} < ${Me.GroupCount}
+	{
+		Counter:Set[0]
+		while !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_ChronoCountComplete"]} && ${Counter:Inc} <= 20
+		{
+			wait 1
+		}
+	}
+	; Get character that has the most Chrono Dungeon items
+	variable int ChronoCount=0
+	variable int MaxChronoCount=0
+	variable string MaxChronoCharacter
+	ChronoCount:Set[${OgreBotAPI.Get_Variable["${Me.Name}_ChronoCount"]}]
+	if ${ChronoCount} > ${MaxChronoCount}
+	{
+		MaxChronoCount:Set[${ChronoCount}]
+		MaxChronoCharacter:Set["${Me.Name}"]
+	}
+	GroupNum:Set[0]
+	while ${GroupNum:Inc} < ${Me.GroupCount}
+	{
+		ChronoCount:Set[${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_ChronoCount"]}]
+		if ${ChronoCount} > ${MaxChronoCount}
+		{
+			MaxChronoCount:Set[${ChronoCount}]
+			MaxChronoCharacter:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		; If characters have the same number of Chronos, set to character that would come first if sorted by Name
+		; 	This should prevent a character from potentially using twice in a row
+		elseif ${ChronoCount} == ${MaxChronoCount} && ${Me.Group[${GroupNum}].Name.Compare["${MaxChronoCharacter}"]} < 0
+		{
+			MaxChronoCount:Set[${ChronoCount}]
+			MaxChronoCharacter:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+	}
+	; Make sure a character was found with at least 1 Chrono Dungeon item
+	if ${MaxChronoCount} == 0
+	{
+		oc No Character found with a Chrono Dungeons: [Level 130] item
+		return FALSE
+	}
+	; Pause Ogre
+	oc !ci -Pause igw:${Me.Name}
+	wait 3
+	; Clear ability queue
+	relay ${OgreRelayGroup} eq2execute clearabilityqueue
+	; Cancel anything currently being cast
+	oc !ci -CancelCasting igw:${Me.Name}
+	; Have MaxChronoCharacter use Chrono Dungeon item
+	wait 20
+	oc !c -UseItem igw:${Me.Name}+${MaxChronoCharacter} "Chrono Dungeons: [Level 130]"
+	wait 60
+	; Confirm choice
+	oc !ci -ChoiceWindow igw:${Me.Name}+${MaxChronoCharacter} "1"
+	wait 40
+	; Wait for group to zone into new Chrono instance
+	call WaitForGroupToZoneIn
+	; Make sure in Chrono version of instance
+	if !${Actor[Query,(Type == "NPC" || Type == "NamedNPC") && Level >= 130].ID(exists)}
+	{
+		oc Failed to zone into Chrono version of instance
+		return FALSE
+	}
+	; Resume Ogre
+	oc !ci -Resume igw:${Me.Name}
+	; Chrono Dungeon item used
+	return TRUE
+}
+
+function WaitForGroupToZoneIn()
+{
+	; Wait for character to zone
+	call WaitForMeToZoneIn
+	; Loop through group members
+	variable int GroupNum=0
+	while ${GroupNum:Inc} < ${Me.GroupCount}
+	{
+		; Wait for group member to be within 20m of character
+		while ${GroupNum} < ${Me.GroupCount} && !${Actor[Query,Name=="${Me.Group[${GroupNum}].Name}" && Type == "PC" && Distance <= 20].ID(exists)}
+		{
+			wait 10
+		}
+	}
+}
+
+function WaitForMeToZoneIn()
+{
+	; Wait for character to zone by checking ID (will be NULL while zoning)
+	while ${Me.ID} == 0
+	{
+		wait 10
 	}
 }
