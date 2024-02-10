@@ -23,16 +23,45 @@ function SetInitialInstanceSettings()
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions TRUE TRUE
 	; Cast Stack
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_curecurse FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_ca FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_namedca FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_items FALSE TRUE
 	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+priest "Cure" TRUE TRUE
+	; Enable Cures and Interrupts
+	call SetupAllCures "TRUE"
+	call SetupAllInterrupts "TRUE"
 	; Auto Target
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_enabled TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+notfighter checkbox_autotarget_enabled FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+notfighter checkbox_autotarget_outofcombatscanning FALSE TRUE
+}
+
+function SetupAllCures(bool EnableCures)
+{
+	; Used for disabling all curing during certain fights that have detrimentals that need to not be cured
+	; Add any class-specific abilities that cure (and aren't disabled by Disable CS_Cure) to this list
+	variable bool SetCastStack
+	SetCastStack:Set[!${EnableCures}]
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure ${SetCastStack} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Crusader's Judgement" ${EnableCures} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Doom Judgment" ${EnableCures} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Zealous Smite" ${EnableCures} TRUE
+}
+
+function SetupAllInterrupts(bool EnableInterrupts)
+{
+	; Used for disabling all interrupts during certain fights that need you to not interrupt
+	; Add any class-specific abilities that interrupt (and aren't disabled by No Interrupts) to this list
+	variable bool SetCastStack
+	SetCastStack:Set[!${EnableInterrupts}]
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts ${SetCastStack} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Daring Advance" ${EnableInterrupts} TRUE
+	if !${EnableInterrupts}
+	{
+		oc !ci -CancelMaintainedForWho igw:${Me.Name}+swashbuckler "Daring Advance"
+	}
 }
 
 function SetLootForLastBoss()
@@ -672,8 +701,10 @@ function CastInterrupt()
 	oc !ci -CancelCasting igw:${Me.Name}
 	; Cast Interrupt ability depending on Class (modify as needed based on group setup)
 	oc !ci -CastAbility igw:${Me.Name}+berserker "Mock"
+	oc !ci -CastAbility igw:${Me.Name}+shadowknight "Blasphemy"
 	oc !ci -CastAbility igw:${Me.Name}+ranger "Hilt Strike"
 	oc !ci -CastAbility igw:${Me.Name}+dirge "Hymn of Horror"
+	oc !ci -CastAbility igw:${Me.Name}+swashbuckler "Tease"
 	oc !ci -CastAbility igw:${Me.Name}+coercer "Hemorrhage"
 	;oc !ci -CastAbility igw:${Me.Name}+coercer "Spellblade's Counter"
 	;oc !ci -CastAbilityNoChecks igw:${Me.Name}+fury "Maddening Swarm"
@@ -794,7 +825,7 @@ function UseChronoDungeonItem()
 	wait 60
 	; Confirm choice
 	oc !ci -ChoiceWindow igw:${Me.Name}+${MaxChronoCharacter} "1"
-	wait 40
+	wait 50
 	; Wait for group to zone into new Chrono instance
 	call WaitForGroupToZoneIn
 	; Make sure in Chrono version of instance
@@ -817,8 +848,8 @@ function WaitForGroupToZoneIn()
 	variable int GroupNum=0
 	while ${GroupNum:Inc} < ${Me.GroupCount}
 	{
-		; Wait for group member to be within 20m of character
-		while ${GroupNum} < ${Me.GroupCount} && !${Actor[Query,Name=="${Me.Group[${GroupNum}].Name}" && Type == "PC" && Distance <= 20].ID(exists)}
+		; Wait for group member to be within 30m of character
+		while ${GroupNum} < ${Me.GroupCount} && !${Actor[Query,Name=="${Me.Group[${GroupNum}].Name}" && Type == "PC" && Distance <= 30].ID(exists)}
 		{
 			wait 10
 		}
@@ -832,4 +863,41 @@ function WaitForMeToZoneIn()
 	{
 		wait 10
 	}
+}
+
+function ZoneOut(string ZoneOutName)
+{
+	; Check to see if Pause at end of zone is checked
+	if ${Ogre_Instance_Controller.bPauseAtEndOfZone}
+	{
+		; Pause Ogre
+		oc !ci -Pause igw:${Me.Name}
+		; Show pause message
+		oc ${Me.Name}: Pause at end of zone checked.  Resume Ogre Bot on this character to continue.
+		; Wait while OgreBot is paused
+		wait 10
+		while ${Script[${OgreBotScriptName}](exists)} && ${b_OB_Paused}
+		{
+			wait 10
+		}
+		; Resume Ogre
+		oc !ci -Resume igw:${Me.Name}
+	}
+	
+	; Get initial Zone Name
+	variable string InitialZoneName
+	InitialZoneName:Set["${Zone.Name}"]
+	
+	; Zone Out
+	oc !ci -Actor_Click igw:${Me.Name} "${ZoneOutName}" "TRUE"
+	wait 60
+	
+	; Wait for group to zone in
+	call WaitForGroupToZoneIn
+	
+	; Make sure zone has changed
+	if !${Zone.Name.Equal["${InitialZoneName}"]}
+		return TRUE
+	else
+		return FALSE
 }

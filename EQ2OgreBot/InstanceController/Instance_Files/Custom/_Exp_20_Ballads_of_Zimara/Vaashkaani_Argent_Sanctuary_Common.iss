@@ -110,11 +110,11 @@ objectdef Object_Instance
 		if ${_StartingPoint} == 6
 		{
 			call move_to_next_waypoint "111.48,10.32,-313.97"
-			call move_to_next_waypoint "105.10,7.94,-318.15"
+			call move_to_next_waypoint "107.27,7.94,-321.49" "1"
 			Ob_AutoTarget:Clear
 			Obj_OgreIH:LetsGo
 			oc ${Me.Name} looted ${ShiniesLooted} shinies
-			call Obj_OgreIH.ZoneNavigation.ZoneOut
+			call ZoneOut "zone_exit"
 			if !${Return}
 			{
 				Obj_OgreIH:Message_FailedZoneOut
@@ -658,7 +658,7 @@ objectdef Object_Instance
 		; Named casts noxious det Hubristic Pride (MainIconID 183, BackDropIconID 183)
 		; 	Deals damage, need to not cure or target dies
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure TRUE TRUE
+			call SetupAllCures "FALSE"
 		
 		; If named has not been spawned, kill adds and spawn named
 		variable string _NamedAdds="Ra'Zaal's ghul"
@@ -736,7 +736,7 @@ objectdef Object_Instance
 		
 		; If H2, re-enable Cure
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure FALSE TRUE
+			call SetupAllCures "TRUE"
 		
 		; Check named is dead
 		if ${Actor[namednpc,"${_NamedNPC}"].ID(exists)}

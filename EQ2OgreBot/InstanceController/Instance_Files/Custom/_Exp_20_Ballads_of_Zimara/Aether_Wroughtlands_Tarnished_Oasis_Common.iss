@@ -120,10 +120,11 @@ objectdef Object_Instance
 				call move_to_next_waypoint "-753.29,53.73,-402.12" "5"
 				call move_to_next_waypoint "-786.33,54.94,-400.36" "5"
 			}
+			call move_to_next_waypoint "-781.36,54.27,-403.11" "1"
 			Ob_AutoTarget:Clear
 			Obj_OgreIH:LetsGo
 			oc ${Me.Name} looted ${ShiniesLooted} shinies
-			call Obj_OgreIH.ZoneNavigation.ZoneOut
+			call ZoneOut "zone_exit"
 			if !${Return}
 			{
 				Obj_OgreIH:Message_FailedZoneOut

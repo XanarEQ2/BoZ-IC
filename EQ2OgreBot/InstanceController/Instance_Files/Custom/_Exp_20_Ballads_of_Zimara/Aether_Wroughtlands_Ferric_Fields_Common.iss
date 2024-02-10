@@ -121,10 +121,11 @@ objectdef Object_Instance
 			call move_to_next_waypoint "74.75,13.72,-557.30" "1"
 			call move_to_next_waypoint "92.64,14.44,-570.30" "15"
 			call move_to_next_waypoint "85.04,13.71,-574.45"
+			call move_to_next_waypoint "81.68,12.89,-576.44" "1"
 			Ob_AutoTarget:Clear
 			Obj_OgreIH:LetsGo
 			oc ${Me.Name} looted ${ShiniesLooted} shinies
-			call Obj_OgreIH.ZoneNavigation.ZoneOut
+			call ZoneOut "zone_exit"
 			if !${Return}
 			{
 				Obj_OgreIH:Message_FailedZoneOut
@@ -175,7 +176,7 @@ objectdef Object_Instance
 		; 	On termination evolves into a curse
 		; 	Want to leave on as long as possible so Cure Curse has enough time to refresh when it turns into a curse
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure TRUE TRUE
+			call SetupAllCures "FALSE"
 		
 		; Kill named
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
@@ -200,7 +201,7 @@ objectdef Object_Instance
 		
 		; If H2, re-enable Cure
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure FALSE TRUE
+			call SetupAllCures "TRUE"
 		
 		; Check named is dead
 		if ${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
@@ -650,7 +651,7 @@ objectdef Object_Instance
 		}
 		
 		; Disable Interrupts
-		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts TRUE TRUE
+		call SetupAllInterrupts "FALSE"
 		
 		; Set Loot settings for last boss
 		call SetLootForLastBoss
@@ -678,6 +679,8 @@ objectdef Object_Instance
 		; Named likes to stay back and range attack group
 		; 	Strategy is to try to pull named to a position near the center of the 4 platforms
 		; 	Then roate around as needed if the current platform is not allowed
+		; A character may be ported out and rooted during the fight
+		; 	If that happens, send the Priests to their location to cure them
 		elseif ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 		{
 			; Setup variables
@@ -709,6 +712,7 @@ objectdef Object_Instance
 			Obj_OgreIH:ChangeCampSpot["${KillSpots[${KillSpotNum}]}"]
 			call Obj_OgreUtilities.HandleWaitForCampSpot 10
 			; Kill named
+			variable int PriestAwayCount=-5
 			while ${Me.InCombat}
 			{
 				; Check to see if KillSpot platform is not allowed
@@ -717,11 +721,33 @@ objectdef Object_Instance
 					; Increment KillSpotNum, or go back to 1
 					if ${KillSpotNum:Inc} > 4
 						KillSpotNum:Set[1]
-					; Move to next KillSpot
-					Obj_OgreIH:ChangeCampSpot["${KillSpots[${KillSpotNum}]}"]
-					call Obj_OgreUtilities.HandleWaitForCampSpot 10
-					; Wait a second at new KillSpot
-					wait 10
+					; Move to next KillSpot (don't move Priest if they have been sent out)
+					if ${PriestAwayCount} < 0
+						oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpots[${KillSpotNum}].X} ${KillSpots[${KillSpotNum}].Y} ${KillSpots[${KillSpotNum}].Z}
+					else
+						oc !ci -ChangeCampSpotWho igw:${Me.Name}+notpriest ${KillSpots[${KillSpotNum}].X} ${KillSpots[${KillSpotNum}].Y} ${KillSpots[${KillSpotNum}].Z}
+					; Wait a couple of seconds to move to new KillSpot
+					wait 20
+				}
+				; Check to see if a group member has been ported out
+				; 	Need to send a Priest over to cure them so they can return to group
+				if ${PriestAwayCount} == -1
+				{
+					ActorLoc:Set[${Actor[Query,(Type == "PC" || Type == "Me") && Z < -550].Loc}]
+					if ${ActorLoc.X}!=0 || ${ActorLoc.Y}!=0 || ${ActorLoc.Z}!=0
+					{
+						; Send Priest to their Location
+						oc !ci -ChangeCampSpotWho igw:${Me.Name}+priest ${ActorLoc.X} ${ActorLoc.Y} ${ActorLoc.Z}
+						PriestAwayCount:Set[0]
+					}
+				}
+				else
+					PriestAwayCount:Inc
+				; If Priest has been away for more than 5 seconds, bring them back
+				if ${PriestAwayCount} > 5
+				{
+					oc !ci -ChangeCampSpotWho igw:${Me.Name}+priest ${KillSpots[${KillSpotNum}].X} ${KillSpots[${KillSpotNum}].Y} ${KillSpots[${KillSpotNum}].Z}
+					PriestAwayCount:Set[-5]
 				}
 				; Wait a second before looping
 				wait 10
@@ -730,7 +756,7 @@ objectdef Object_Instance
 		}
 		
 		; Re-enable Interrupts
-		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts FALSE TRUE
+		call SetupAllInterrupts "TRUE"
 		
 		; Check named is dead
 		if ${Actor[namednpc,"${_NamedNPC}"].ID(exists)}

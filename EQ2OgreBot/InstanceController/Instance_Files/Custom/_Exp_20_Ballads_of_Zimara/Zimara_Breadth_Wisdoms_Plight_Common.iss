@@ -85,12 +85,11 @@ objectdef Object_Instance
 		; Zone Out
 		if ${_StartingPoint} == 4
 		{
+			call move_to_next_waypoint "-781.77,190.66,214.18" "1"
 			Ob_AutoTarget:Clear
 			Obj_OgreIH:LetsGo
-			call Obj_OgreUtilities.NavToLoc "-783.65,190.32,216.07"
-			call Obj_OgreUtilities.HandleWaitForGroupDistance 5
 			oc ${Me.Name} looted ${ShiniesLooted} shinies
-			call Obj_OgreIH.ZoneNavigation.ZoneOut
+			call ZoneOut "Exit"
 			if !${Return}
 			{
 				Obj_OgreIH:Message_FailedZoneOut

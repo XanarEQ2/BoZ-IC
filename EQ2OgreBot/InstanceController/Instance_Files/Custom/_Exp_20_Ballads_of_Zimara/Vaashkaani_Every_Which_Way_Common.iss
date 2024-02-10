@@ -124,12 +124,12 @@ objectdef Object_Instance
 				call move_waypoint_custom "407.79,-10.60,309.64"
 				call move_waypoint_custom "453.65,-10.60,309.62"
 				call move_waypoint_custom "439.29,-10.55,292.06"
-				call move_waypoint_custom "431.81,-10.54,291.92" "TRUE"
+				call move_waypoint_custom "428.70,-10.54,292.13" "TRUE"
 			}
 			Ob_AutoTarget:Clear
 			Obj_OgreIH:LetsGo
 			oc ${Me.Name} looted ${ShiniesLooted} shinies
-			call Obj_OgreIH.ZoneNavigation.ZoneOut
+			call ZoneOut "zone_exit"
 			if !${Return}
 			{
 				Obj_OgreIH:Message_FailedZoneOut
