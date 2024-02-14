@@ -489,6 +489,9 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[48.46,37.84,-664.95]
 		
+		; Swap to stifle immunity rune (named has Hot Wrought effect that stifles if in front of)
+		call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "4"
 		call move_to_next_waypoint "294.80,36.78,-683.82"
@@ -502,9 +505,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; Swap to stifle immunity rune (named has Hot Wrought effect that stifles if in front of)
-		call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
 		; Kill named
 		; Named has Watcher's Weaves effect that reduces damage by 20% for each watcher's weave not in combat

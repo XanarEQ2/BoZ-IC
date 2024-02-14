@@ -136,8 +136,8 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[147.30,20.36,0.26]
 		
-		; Repair if needed
-		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
+		; Swap to stifle immunity rune (otherwise can get stifled and not able to complete HO in time and wipe)
+		call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "1"
@@ -161,9 +161,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "206.58,31.50,0.00" "1"
 			return TRUE
 		}
-		
-		; Swap to stifle immunity rune (otherwise can get stifled and not able to complete HO in time and wipe)
-		call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
 		; Disable HO for all and run HO_Helper script
 		call HO "Disable" "FALSE"
@@ -266,6 +263,9 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[262.11,31.25,54.39]
 		
+		; Swap to stun immunity rune
+		call mend_and_rune_swap "stun" "stun" "stun" "stun"
+		
 		; Look for shiny from last boss
 		if !${Ogre_Instance_Controller.bSkipShinies}
 		{
@@ -303,9 +303,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; Swap to stun immunity rune
-		call mend_and_rune_swap "stun" "stun" "stun" "stun"
 		
 		; Kill named
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
@@ -348,6 +345,9 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[262.24,31.25,-55.07]
 		
+		; Swap to stun immunity rune (otherwise can get stunned and not able to kill adds in time and wipe)
+		call mend_and_rune_swap "stun" "stun" "stun" "stun"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "3"
 		call move_to_next_waypoint "265.76,31.68,62.89"
@@ -361,9 +361,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}" "1"
 			return TRUE
 		}
-		
-		; Swap to stun immunity rune (otherwise can get stunned and not able to kill adds in time and wipe)
-		call mend_and_rune_swap "stun" "stun" "stun" "stun"
 		
 		; If H2, disable Absorb Magic in Cast Stack
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
@@ -553,6 +550,10 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[430.40,6.56,0.03]
 		
+		; If H2, swap to stifle immunity rune
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
+		
 		; Look for shiny from Isos
 		if !${Ogre_Instance_Controller.bSkipShinies}
 		{
@@ -581,10 +582,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; If H2, swap to stifle immunity rune
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
 		; Named info:
 		; Named spawns "a sand squall" adds
@@ -843,6 +840,9 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[615.62,71.11,-45.59]
 		
+		; Swap to fear immunity rune (need to stay in front of mirror to draw in named)
+		call mend_and_rune_swap "fear" "fear" "fear" "fear"
+		
 		; Setup and move to named, looking for shiny from Hezodhan along the way
 		call initialize_move_to_next_boss "${_NamedNPC1}" "5"
 		call move_to_next_waypoint "442.00,6.59,0.59"
@@ -894,9 +894,6 @@ objectdef Object_Instance
 			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC1}"]
 			return TRUE
 		}
-		
-		; Swap to fear immunity rune (need to stay in front of mirror to draw in named)
-		call mend_and_rune_swap "fear" "fear" "fear" "fear"
 		
 		; Disable HO for all and run HO_Helper script
 		call HO "Disable" "FALSE"

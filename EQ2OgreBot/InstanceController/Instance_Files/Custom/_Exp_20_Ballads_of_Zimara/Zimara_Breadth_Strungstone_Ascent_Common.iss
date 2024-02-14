@@ -358,6 +358,10 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[121.18,383.66,725.35]
 		
+		; If H2, swap to stun immunity rune for fighter/scout and stifle immunity rune for mage/priest
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "stun" "stun" "stifle" "stifle"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "4"
 		call move_to_next_waypoint "513.46,288.97,567.26"
@@ -380,10 +384,6 @@ objectdef Object_Instance
 			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]
 			return TRUE
 		}
-		
-		; If H2, swap to stun immunity rune for fighter/scout and stifle immunity rune for mage/priest
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "stun" "stun" "stifle" "stifle"
 		
 		; Kill named
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}

@@ -138,6 +138,10 @@ objectdef Object_Instance
 		; Repair if needed
 		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
 		
+		; If H2, swap to stun immunity rune for fighter/scout and stifle immunity rune for mage/priest
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "stun" "stun" "stifle" "stifle"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "1"
 		call move_to_next_waypoint "-568.09,168.35,-588.10"
@@ -158,10 +162,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "-365.35,124.44,-652.00"
 			return TRUE
 		}
-		
-		; If H2, swap to stun immunity rune for fighter/scout and stifle immunity rune for mage/priest
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "stun" "stun" "stifle" "stifle"
 		
 		; Kill named
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
@@ -234,6 +234,10 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[-289.37,93.86,-271.95]
 		
+		; If H2, swap to stifle immunity rune for fighter/scout and stun immunity rune for mage/priest
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "stifle" "stifle" "stun" "stun"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "2"
 		call move_to_next_waypoint "-334.17,124.55,-647.14"
@@ -249,10 +253,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; If H2, swap to stifle immunity rune for fighter/scout and stun immunity rune for mage/priest
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "stifle" "stifle" "stun" "stun"
 		
 		; Kill named
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
@@ -294,6 +294,10 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[72.20,149.70,-319.45]
 		
+		; If H2, swap to stun immunity rune for scout/mage
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "noswap" "stun" "stun" "noswap"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "3"
 		; Pick up shiny on way to next boss
@@ -312,10 +316,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; If H2, swap to stun immunity rune for scout/mage
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "noswap" "stun" "stun" "noswap"
 		
 		; If H2, disable single target Cure (there are a lot of detrimentals during the fight and don't want healers stuck doing nothing but curing them)
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
@@ -439,6 +439,10 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[144.26,161.85,44.14]
 		
+		; If H2, swap to stun immunity rune for scout/mage
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "noswap" "stun" "stun" "noswap"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "5"
 		call move_to_next_waypoint "-6.72,151.46,-25.94"
@@ -454,10 +458,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; If H2, swap to stun immunity rune for scout/mage
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "noswap" "stun" "stun" "noswap"
 		
 		; Set Loot settings for last boss
 		call SetLootForLastBoss

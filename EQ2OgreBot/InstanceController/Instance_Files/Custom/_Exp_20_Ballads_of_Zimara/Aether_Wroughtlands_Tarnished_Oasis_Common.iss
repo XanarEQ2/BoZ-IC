@@ -149,6 +149,10 @@ objectdef Object_Instance
 		; Repair if needed
 		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
 		
+		; If H2, swap to fear immunity rune
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "fear" "fear" "fear" "fear"
+		
 		; Enable HO for all (mobs have "Gritty" effect that reduces damage, dispel with HO)
 		eq2execute cancel_ho_starter
 		call HO "All" "FALSE"
@@ -195,10 +199,6 @@ objectdef Object_Instance
 			return TRUE
 		}
 		
-		; If H2, swap to fear immunity rune
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "fear" "fear" "fear" "fear"
-		
 		; Kill named
 		; For H2, summons adds and get "Zakir Rush" detrimental while adds are up
 		; 	just ignored the adds and detrimental and focused dps on the named and it was fine
@@ -235,6 +235,10 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[-556.06,52.66,-437.08]
 		
+		; If H2, swap to stun immunity rune
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "stun" "stun" "stun" "stun"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "2"
 		call move_to_next_waypoint "-588.06,40.68,-655.91"
@@ -250,10 +254,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; If H2, swap to stun immunity rune
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "stun" "stun" "stun" "stun"
 		
 		; For H2, enable HO for all
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
@@ -402,6 +402,10 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[-561.50,52.62,-188.03]
 		
+		; If H2, swap to stifle immunity rune
+		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "3"
 		; Look for shiny from last boss
@@ -440,10 +444,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; If H2, swap to stifle immunity rune
-		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
 		; Disable HO for all
 		call HO "Disable" "FALSE"
@@ -681,6 +681,9 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[-731.06,58.57,-352.89]
 		
+		; Swap to stun immunity rune
+		call mend_and_rune_swap "stun" "stun" "stun" "stun"
+		
 		; Setup AutoTarget for "a sandscaled wyvern"
 		; Other mobs gets 50% damage reduction when near a wyvern
 		Ob_AutoTarget:Clear
@@ -715,9 +718,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; Swap to stun immunity rune
-		call mend_and_rune_swap "stun" "stun" "stun" "stun"
 		
 		; Make sure Cure Curse is enabled in Cast Stack
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_curecurse FALSE TRUE

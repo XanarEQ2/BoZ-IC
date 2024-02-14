@@ -141,6 +141,23 @@ function SetupAscensions(bool EnableAscensions)
 		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Revocation of Life" ${EnableAscensions} TRUE
 		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Septic Strike" ${EnableAscensions} TRUE
 		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Virulent Outbreak" ${EnableAscensions} TRUE
+		; Geomancer Ascensions
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Accretion" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Bastion of Iron" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Domain of Earth" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Earthen Phalanx" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Erosion" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Geotic Rampage" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Granite Protector" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Mudslide" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Obsidian Mind" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "One with Stone" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Stone Hammer" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Stone Soul" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Telluric Rending" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Terrene Destruction" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Terrestrial Coffin" ${EnableAscensions} TRUE
+		oc !ci -ChangeCastStackListBoxItem ${Me.Name} "Xenolith" ${EnableAscensions} TRUE
 	}
 }
 

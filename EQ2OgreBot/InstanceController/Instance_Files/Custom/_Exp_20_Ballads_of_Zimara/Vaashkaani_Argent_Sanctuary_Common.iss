@@ -302,7 +302,6 @@ objectdef Object_Instance
 		KillSpot:Set[213.13,3.45,62.91]
 		
 		; If H1/H2, swap to stun immunity rune for fighter and mez immunity rune for scout/mage/priest
-		; 	doing here instead of right before boss because don't want to potentially be stuck in combat with a wandering add
 		if ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 			call mend_and_rune_swap "stun" "mez" "mez" "mez"
 		
@@ -402,6 +401,10 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[262.17,3.45,-65.12]
 		
+		; If H1/H2, swap to stifle immunity rune
+		if ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+			call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
+		
 		; Look for shiny from last boss
 		if !${Ogre_Instance_Controller.bSkipShinies}
 		{
@@ -423,10 +426,6 @@ objectdef Object_Instance
 			call Obj_OgreUtilities.HandleWaitForCampSpot 10
 			return TRUE
 		}
-		
-		; If H1/H2, swap to stifle immunity rune
-		if ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
-			call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
 		; Kill named
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]}
@@ -499,6 +498,9 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[86.74,11.43,-183.85]
 		
+		; Swap to fear immunity rune (before moving into room, otherwise could get caught in combat with a roaming mob when trying to swap)
+		call mend_and_rune_swap "fear" "fear" "fear" "fear"
+		
 		; Look for shiny from last boss
 		if !${Ogre_Instance_Controller.bSkipShinies}
 		{
@@ -512,9 +514,6 @@ objectdef Object_Instance
 		call initialize_move_to_next_boss "${_NamedNPC}" "4"
 		call move_to_next_waypoint "295.10,3.64,0.14"
 		call EnterPortal "portal_to_aviary"
-		
-		; Swap to fear immunity rune (before moving into room, otherwise could get caught in combat with a roaming mob when trying to swap)
-		call mend_and_rune_swap "fear" "fear" "fear" "fear"
 		
 		; Continue to move to named
 		call move_to_next_waypoint "-7.21,11.90,-247.23"
@@ -627,7 +626,6 @@ objectdef Object_Instance
 		KillSpot:Set[97.58,7.94,-303.69]
 		
 		; If H2, swap to mez immunity rune (Shifting Minds detrimental mesmerizes group
-		; 	(swapping at previous KillSpot because otherwise could get caught in combat with a roaming mob when trying to swap)
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 			call mend_and_rune_swap "mez" "mez" "mez" "mez"
 		

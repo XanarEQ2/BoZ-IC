@@ -135,9 +135,36 @@ function Syadun(string _NamedNPC)
 						WeaveID:Set[${Actor[Query,Name=="a watcher's weave" && Distance > 8 && Distance < 20 && Health == 100 && Type == "NPC"].ID}]
 						if !${WeaveID.Equal[0]}
 						{
+							; Target Weave
 							Actor[${WeaveID}]:DoTarget
-							; Wait a few seconds before looping again
+							; May have line of sight issues, so adjust position based on Weave Location
+							ActorLoc:Set[${Actor[${WeaveID}].Loc}]
+							if ${ActorLoc.X}!=0 || ${ActorLoc.Y}!=0 || ${ActorLoc.Z}!=0
+							{
+								if ${WeaveNum} == 1
+								{
+									if ${ActorLoc.Z} < -685
+										oc !ci -ChangeCampSpotWho "${Me.Name}" 52.31 38.43 -674.67
+									elseif  ${ActorLoc.X} > 54
+										oc !ci -ChangeCampSpotWho "${Me.Name}" 49.34 38.43 -686.12
+									else
+										oc !ci -ChangeCampSpotWho "${Me.Name}" 60.77 38.43 -682.60
+								}
+								else
+								{
+									if ${ActorLoc.X} < 30
+										oc !ci -ChangeCampSpotWho "${Me.Name}" 37.53 38.22 -664.08
+									elseif  ${ActorLoc.Z} < -664
+										oc !ci -ChangeCampSpotWho "${Me.Name}" 27.98 38.22 -659.31
+									else
+										oc !ci -ChangeCampSpotWho "${Me.Name}" 28.72 38.22 -670.24
+								}
+							}
+							; Wait a few seconds to pull weave
 							wait 30
+							; Move back to middle of platform
+							oc !ci -ChangeCampSpotWho "${Me.Name}" ${WeaveSpots[${WeaveNum}].X} ${WeaveSpots[${WeaveNum}].Y} ${WeaveSpots[${WeaveNum}].Z}
+							wait 20
 						}
 					}
 					while !${WeaveID.Equal[0]}

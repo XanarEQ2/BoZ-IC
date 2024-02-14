@@ -252,6 +252,12 @@ function HO(string Mode, bool Exclude_Healer1=TRUE)
 					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_ho_start TRUE TRUE
 					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+notpriest checkbox_settings_ho_start FALSE TRUE
 				}
+				; For mage + scout duo, let scout Start
+				elseif (${GroupedWithMage} && ${GroupedWithScout})
+				{
+					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_ho_start TRUE TRUE
+					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+notscout checkbox_settings_ho_start FALSE TRUE
+				}
 				; For other combinations, let any class Start
 				else
 					oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_start TRUE TRUE
@@ -383,6 +389,23 @@ function SetupAscensionsFighter(bool EnableAscensions)
 	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Revocation of Life" ${EnableAscensions} TRUE
 	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Septic Strike" ${EnableAscensions} TRUE
 	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Virulent Outbreak" ${EnableAscensions} TRUE
+	; Geomancer Ascensions
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Accretion" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Bastion of Iron" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Domain of Earth" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Earthen Phalanx" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Erosion" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Geotic Rampage" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Granite Protector" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Mudslide" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Obsidian Mind" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "One with Stone" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Stone Hammer" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Stone Soul" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Telluric Rending" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Terrene Destruction" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Terrestrial Coffin" ${EnableAscensions} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+fighter "Xenolith" ${EnableAscensions} TRUE
 }
 
 /**********************************************************************************************************

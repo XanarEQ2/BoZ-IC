@@ -151,8 +151,8 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[-453.78,277.41,613.61]
 		
-		; Repair if needed
-		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
+		; Swap to stun immunity rune
+		call mend_and_rune_swap "stun" "stun" "stun" "stun"
 		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "1"
@@ -186,9 +186,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; Swap to stun immunity rune
-		call mend_and_rune_swap "stun" "stun" "stun" "stun"
 		
 		; Make sure Cure Curse is enabled in Cast Stack
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_curecurse FALSE TRUE
@@ -245,6 +242,9 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[-613.12,279.65,763.11]
 		
+		; Swap to fear immunity rune
+		call mend_and_rune_swap "fear" "fear" "fear" "fear"
+		
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "2"
 		call move_to_next_waypoint "-421.61,252.65,606.20" "5"
@@ -298,9 +298,6 @@ objectdef Object_Instance
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
-		
-		; Swap to fear immunity rune
-		call mend_and_rune_swap "fear" "fear" "fear" "fear"
 		
 		; Kill named
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]}
