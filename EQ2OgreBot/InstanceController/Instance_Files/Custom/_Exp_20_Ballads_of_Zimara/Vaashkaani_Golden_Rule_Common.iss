@@ -919,6 +919,9 @@ objectdef Object_Instance
 				Actor["${_NamedNPC1}"]:DoTarget
 				wait 10
 			}
+			; Run ZoneHelperScript
+			oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
+			oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC2}"
 			; Kill named
 			while ${Me.InCombat}
 			{	

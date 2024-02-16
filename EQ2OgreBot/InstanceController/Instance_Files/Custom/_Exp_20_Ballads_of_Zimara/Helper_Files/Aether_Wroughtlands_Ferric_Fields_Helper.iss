@@ -132,7 +132,7 @@ function Syadun(string _NamedNPC)
 							break
 						}
 						; Check to see if there is a weave that needs to be pulled
-						WeaveID:Set[${Actor[Query,Name=="a watcher's weave" && Distance > 8 && Distance < 20 && Health == 100 && Type == "NPC"].ID}]
+						WeaveID:Set[${Actor[Query,Name=="a watcher's weave" && Y > 48 && Distance > 8 && Distance < 20 && Health == 100 && Type == "NPC"].ID}]
 						if !${WeaveID.Equal[0]}
 						{
 							; Target Weave

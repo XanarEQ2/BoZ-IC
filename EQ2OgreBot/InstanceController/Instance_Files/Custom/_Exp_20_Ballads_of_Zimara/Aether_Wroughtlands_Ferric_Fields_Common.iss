@@ -521,8 +521,8 @@ objectdef Object_Instance
 			variable int WeaveID=0
 			while ${Me.InCombat}
 			{
-				; Target "a watcher's weave" between 5m and 35m away if at full HP
-				WeaveID:Set[${Actor[Query,Name=="a watcher's weave" && Distance > 5 && Distance < 35 && Health == 100 && Type != "Corpse" && Type != "NoKill NPC"].ID}]
+				; Target "a watcher's weave" on pillar between 5m and 35m away if at full HP
+				WeaveID:Set[${Actor[Query,Name=="a watcher's weave" && Y > 48 && Distance > 5 && Distance < 35 && Health == 100 && Type != "Corpse" && Type != "NoKill NPC"].ID}]
 				if !${WeaveID.Equal[0]}
 					Actor[${WeaveID}]:DoTarget
 				; Otherwise target named

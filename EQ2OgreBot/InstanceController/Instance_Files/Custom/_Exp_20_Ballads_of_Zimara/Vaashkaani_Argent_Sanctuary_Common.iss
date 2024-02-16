@@ -416,7 +416,7 @@ objectdef Object_Instance
 		; Setup and move to named
 		call initialize_move_to_next_boss "${_NamedNPC}" "3"
 		call move_to_next_waypoint "253.54,3.46,-0.34"
-		call move_to_next_waypoint "262.17,3.75,-19.05"
+		call move_to_next_waypoint "262.17,3.75,-13.05"
 		
 		; Check if already killed
 		if !${Actor[namednpc,"${_NamedNPC}"].ID(exists)}

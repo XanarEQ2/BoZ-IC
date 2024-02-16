@@ -111,7 +111,10 @@ function PerformSwap(string RuneType)
 	call GetAdornmentSearchText "${RuneType}"
 	AdornmentSearchText:Set["${Return}"]
 	if ${AdornmentSearchText.Equal[Skip]}
+	{
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_RuneSwapSuccessful" "TRUE"
 		return
+	}
 	
 	; Loop through each adornment to see if it has the correct Rune
 	variable int AdornmentIndex=0
@@ -119,7 +122,10 @@ function PerformSwap(string RuneType)
 	{
 		; If Adornment Name contains AdornmentSearchText, return without needing a Rune Swap
 		if ${WaistItem.ToItemInfo.Adornment[${AdornmentIndex}].Name.Find[${AdornmentSearchText}]} >= 1
+		{
+			oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_RuneSwapSuccessful" "TRUE"
 			return
+		}
 	}
 	
 	; Look for Rune to swap to (searching from Tier 3 down)
@@ -137,6 +143,8 @@ function PerformSwap(string RuneType)
 	if !${RuneItem.ID(exists)}
 	{
 		oc ${Me.Name}: No ${RuneType} rune found to swap to
+		; Set Successful even though swap not performed because at least waist item wasn't unequipped
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_RuneSwapSuccessful" "TRUE"
 		return
 	}
 	else
@@ -185,7 +193,9 @@ function PerformSwap(string RuneType)
 	Event[EQ2_onIncomingText]:AttachAtom[IncomingText]
 	ApplyAdornComplete:Set[FALSE]
 	wait 10
-	; Calling PrepAdornmentForUse twice, for some reason it doesn't always work when just called once...
+	; Calling PrepAdornmentForUse multiple times, for some reason it doesn't always work when just called once...
+	RuneItem.ToItemInfo:PrepAdornmentForUse
+	wait 10
 	RuneItem.ToItemInfo:PrepAdornmentForUse
 	wait 10
 	RuneItem.ToItemInfo:PrepAdornmentForUse
@@ -210,8 +220,12 @@ function PerformSwap(string RuneType)
 	Counter:Set[0]
 	while !${WaistItem.Location.Equal[Equipment]} && ${Counter:Inc} <= 5
 	{
+		; Press Esc again just in case cursor is still weird for some reason
+		press Esc
+		wait 1
+		; Equip WaistItem
 		WaistItem:Equip
-		wait 10
+		wait 20
 	}
 	if !${WaistItem.Location.Equal[Equipment]}
 	{
@@ -245,7 +259,10 @@ function PerformSwap(string RuneType)
 	
 	; Check to see if swap was successful
 	if ${AdornmentFound}
+	{
 		oc ${Me.Name}: Swapped to ${RuneType} Immunity Rune in Waist Slot 2
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_RuneSwapSuccessful" "TRUE"
+	}
 	else
 		oc ${Me.Name}: Rune Swap Failed!
 	
