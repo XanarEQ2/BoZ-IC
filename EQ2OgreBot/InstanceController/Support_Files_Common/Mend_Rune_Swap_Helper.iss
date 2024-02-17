@@ -167,12 +167,12 @@ function PerformSwap(string RuneType)
 	}
 	
 	; Pause Ogre
-	oc !ci -Pause igw:${Me.Name}
+	oc !ci -Pause ${Me.Name}
 	wait 3
 	; Clear ability queue
-	relay ${OgreRelayGroup} eq2execute clearabilityqueue
+	eq2execute clearabilityqueue
 	; Cancel anything currently being cast
-	oc !ci -CancelCasting igw:${Me.Name}
+	oc !ci -CancelCasting ${Me.Name}
 	wait 10
 	
 	; Unequip Waist item
@@ -185,7 +185,6 @@ function PerformSwap(string RuneType)
 	if !${WaistItem.Location.Equal[Inventory]}
 	{
 		oc ${Me.Name}: Failed to UnEquip Waist item
-		oc !ci -Resume igw:${Me.Name}
 		return
 	}
 	
@@ -230,7 +229,6 @@ function PerformSwap(string RuneType)
 	if !${WaistItem.Location.Equal[Equipment]}
 	{
 		oc ${Me.Name}: Failed to Re-equip Waist item
-		oc !ci -Resume igw:${Me.Name}
 		return
 	}
 	
@@ -267,7 +265,7 @@ function PerformSwap(string RuneType)
 		oc ${Me.Name}: Rune Swap Failed!
 	
 	; Resume Ogre
-	oc !ci -Resume igw:${Me.Name}
+	oc !ci -Resume ${Me.Name}
 }
 
 atom atexit()

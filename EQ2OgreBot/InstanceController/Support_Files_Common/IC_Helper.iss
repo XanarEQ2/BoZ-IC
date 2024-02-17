@@ -371,16 +371,16 @@ function mend_and_rune_swap(string FighterAdorn, string ScoutAdorn, string MageA
 		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+scout ${MendRuneSwapHelperScript} "Swap" "${ScoutAdorn}"
 		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+mage ${MendRuneSwapHelperScript} "Swap" "${MageAdorn}"
 		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+priest ${MendRuneSwapHelperScript} "Swap" "${PriestAdorn}"
-		; Wait for script to complete on each character (timeout if it takes too long to run)
-		Counter:Set[0]
-		while !${OgreBotAPI.Get_Variable["${Me.Name}_RuneSwapCheckComplete"]} && ${Counter:Inc} <= 200
+		; Wait for script to complete on each character
+		; 	(no timeout, would rather get stuck in script than continue on without a belt equipped)
+		while !${OgreBotAPI.Get_Variable["${Me.Name}_RuneSwapCheckComplete"]}
 		{
 			wait 1
 		}
 		GroupNum:Set[0]
 		while ${GroupNum:Inc} < ${Me.GroupCount}
 		{
-			while !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RuneSwapCheckComplete"]} && ${Counter:Inc} <= 200
+			while !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RuneSwapCheckComplete"]}
 			{
 				wait 1
 			}
