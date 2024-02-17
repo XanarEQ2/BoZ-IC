@@ -158,7 +158,7 @@ objectdef Object_Instance
 		if !${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
 		{
 			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]
-			call move_to_next_waypoint "206.58,31.50,0.00" "1"
+			call move_to_next_waypoint "${KillSpot}" "1"
 			return TRUE
 		}
 		
@@ -247,9 +247,6 @@ objectdef Object_Instance
 		wait 10
 		call Obj_OgreIH.Get_Chest
 
-		; Move to start of next area (don't want to check shinies at this point)
-		call move_to_next_waypoint "206.58,31.50,0.00" "1"
-		
 		; Finished with named
 		return TRUE
 	}
@@ -265,6 +262,9 @@ objectdef Object_Instance
 		
 		; Swap to stun immunity rune
 		call mend_and_rune_swap "stun" "stun" "stun" "stun"
+		
+		; Move to start of next area (don't want to check shinies at this point)
+		call move_to_next_waypoint "206.58,31.50,0.00" "1"
 		
 		; Look for shiny from last boss
 		if !${Ogre_Instance_Controller.bSkipShinies}
