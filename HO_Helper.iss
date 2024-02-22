@@ -46,6 +46,15 @@ function main(string _NamedNPC)
 	; Setup loop to handle HO's based on _NamedNPC
 	switch ${_NamedNPC}
 	{
+		case InZone
+			; Keep script running as long as in zone
+			variable string ZoneName
+			ZoneName:Set["${Zone.Name}"]
+			while ${Zone.Name.Equal[${ZoneName}]} || ${Me.ID} == 0
+			{
+				call HandleHO
+			}
+			break
 		case InCombat
 			; Keep script running as long as in combat
 			while ${Me.InCombat}

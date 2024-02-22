@@ -36,6 +36,8 @@ function SetInitialInstanceSettings()
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+notfighter checkbox_autotarget_enabled FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+notfighter checkbox_autotarget_outofcombatscanning FALSE TRUE
+	; Disable Pack Pony, can be triggered at the wrong time and cause problems
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_packpony_enable FALSE TRUE
 	; Set Initial HO Settings
 	call SetInitialHOSettings
 }
@@ -557,28 +559,34 @@ function move_if_needed(string _NamedNPC, point3f NextKillSpot)
 
 function MoveInRelationToNamed(string ForWho, string _NamedNPC, float Distance, float DegreeOffset)
 {
+	; Get _NamedNPC ID, make sure it is valid
+	variable int NamedID
+	NamedID:Set[${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID}]
+	; Call MoveInRelationToActorID
+	call MoveInRelationToActorID "${ForWho}" "${NamedID}" "${Distance}" "${DegreeOffset}"
+}
+
+function MoveInRelationToActorID(string ForWho, int ActorID, float Distance, float DegreeOffset)
+{
 	; Note for how EQ2 coordinates work
 	; 	Positive X is West, Positive Z is South
 	; 	0 degree heading is North, 90 degree heading is East (goes clockwise)
 	
-	; Get _NamedNPC ID, make sure it is valid
-	variable int NamedID
-	NamedID:Set[${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID}]
-	if ${NamedID.Equal[0]} || !${Actor[${NamedID}].ID(exists)}
+	; Make sure ActorID is valid
+	if ${ActorID.Equal[0]} || !${Actor[${ActorID}].ID(exists)}
 		return
-	; Get _NamedNPC Location and Heading, make sure they are valid
-	variable point3f NamedLoc
-	variable float NamedHeading
-	NamedLoc:Set[${Actor[${NamedID}].Loc}]
-	NamedHeading:Set[${Actor[${NamedID}].Heading}]
-	if ${NamedLoc.X}==0 && ${NamedLoc.Y}==0 && ${NamedLoc.Z}==0
+	; Get actor Location and Heading, make sure they are valid
+	variable float ActorHeading
+	ActorLoc:Set[${Actor[${ActorID}].Loc}]
+	ActorHeading:Set[${Actor[${ActorID}].Heading}]
+	if ${ActorLoc.X}==0 && ${ActorLoc.Y}==0 && ${ActorLoc.Z}==0
 		return
 	; Get new Location at Distance and DegreeOffset from Named
 	; 	Note DegreeOffset is such that 0 degrees is in front of named and rotates clockwise around named
 	; 	ex. 90 degrees would move you to the named's right side, -90 to named's left
-	NewLoc:Set[${NamedLoc.X},${NamedLoc.Y},${NamedLoc.Z}]
-	NewLoc.X:Dec[${Distance}*${Math.Sin[${NamedHeading}+${DegreeOffset}]}]
-	NewLoc.Z:Dec[${Distance}*${Math.Cos[${NamedHeading}+${DegreeOffset}]}]
+	NewLoc:Set[${ActorLoc.X},${ActorLoc.Y},${ActorLoc.Z}]
+	NewLoc.X:Dec[${Distance}*${Math.Sin[${ActorHeading}+${DegreeOffset}]}]
+	NewLoc.Z:Dec[${Distance}*${Math.Cos[${ActorHeading}+${DegreeOffset}]}]
 	; Change Camp Spot to new Location
 	oc !ci -ChangeCampSpotWho ${ForWho} ${NewLoc.X} ${NewLoc.Y} ${NewLoc.Z}
 }
@@ -987,6 +995,9 @@ function ZoneOut(string ZoneOutName)
 	
 	; Zone Out
 	oc !ci -Actor_Click igw:${Me.Name} "${ZoneOutName}" "TRUE"
+	wait 10
+	; If there are multiple instances, choose first
+	oc !ci -ZoneDoorForWho igw:${Me.Name} "1"
 	wait 60
 	
 	; Wait for group to zone in

@@ -146,12 +146,12 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[-620.08,35.80,-693.02]
 		
-		; Repair if needed
-		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
-		
 		; If H2, swap to fear immunity rune
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 			call mend_and_rune_swap "fear" "fear" "fear" "fear"
+		; Otherwise, repair if needed
+		else
+			call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
 		
 		; Enable HO for all (mobs have "Gritty" effect that reduces damage, dispel with HO)
 		eq2execute cancel_ho_starter

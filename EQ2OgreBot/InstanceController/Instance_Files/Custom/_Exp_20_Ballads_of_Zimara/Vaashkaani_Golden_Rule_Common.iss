@@ -910,15 +910,21 @@ objectdef Object_Instance
 			; Need to cast an HO to send Zakir-Sar-Ussur into the mirror
 			; If not done within 60 seconds group wipes (40 H2)
 			Ob_AutoTarget:Clear
-			Ob_AutoTarget:AddActor["${_NamedNPC1}",0,FALSE,FALSE]
-			Ob_AutoTarget:AddActor["${_NamedNPC2}",0,FALSE,FALSE]
 			; Pull named
-			oc ${Me.Name} is pulling ${_NamedNPC1}
+			oc ${Me.Name} is pulling ${_NamedNPC1} and ${_NamedNPC2}
 			while !${Me.InCombat}
 			{
 				Actor["${_NamedNPC1}"]:DoTarget
 				wait 10
 			}
+			; Make sure Ashnu is pulled as well
+			while ${Actor[Query,Name=="${_NamedNPC2}" && Type != "Corpse" && Distance >= 20].ID(exists)}
+			{
+				Actor["${_NamedNPC2}"]:DoTarget
+				wait 10
+			}
+			Ob_AutoTarget:AddActor["${_NamedNPC1}",0,FALSE,FALSE]
+			Ob_AutoTarget:AddActor["${_NamedNPC2}",0,FALSE,FALSE]
 			; Run ZoneHelperScript
 			oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
 			oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC2}"
