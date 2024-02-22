@@ -6,6 +6,7 @@ For the MCP, I have separate scripts for loading up the Solo/H1/H2/Chrono zones.
 Obj_OgreMCP:PasteButton[OgreConsoleCommand,IC_Solo,-RunScriptOB_AP,\${Me.Name},IC_Custom_BOZ_Solo]
 Obj_OgreMCP:PasteButton[OgreConsoleCommand,IC_H1,-RunScriptOB_AP,\${Me.Name},IC_Custom_BOZ_H1]
 Obj_OgreMCP:PasteButton[OgreConsoleCommand,IC_H2,-RunScriptOB_AP,\${Me.Name},IC_Custom_BOZ_H2]
+Obj_OgreMCP:PasteButton[OgreConsoleCommand,IC_H3,-RunScriptOB_AP,\${Me.Name},IC_Custom_BOZ_H3]
 Obj_OgreMCP:PasteButton[OgreConsoleCommand,IC_Chro,-RunScriptOB_AP,\${Me.Name},IC_Custom_BOZ_Chrono]
 
 These will open IC, navigate to the appropriate Custom folder, then auto-add the current zone if it is in the list.  I disable Ogre IM-TSE and enable Pause at end of zone (except for Chrono), but you can modify that in the scripts if you want.  You can also uncomment out the last line if you want the zone to automatically be run instead of having to click Run Instances (for Chrono it auto-runs by default).  
@@ -26,6 +27,8 @@ Some notes about the IC files:
 - I have not tested zones skipping shinies, there could be pathing issues.
 
 - For Chrono zones the idea is use Coldborne EverPorter to zone to Kael, run 1 of the zones then evac out, run the other zone then Call to Guild Hall or port somewhere else.  They will auto-use the Chrono Dungeons: [Level 130] items starting from the person that has the most items, or in alphabetical order if people have the same number.  Give everyone the same number of items at the start (or -1 if a character currently has a Commandar lockout) and it will cycle through the characters using them evenly.  You could run the set of 2 zones 3 times a day and it would use the chrono items once on each character.
+
+- H3 is not a complete zone and very much a work in progress
 
 I can't take full credit for all of the code, a lot of this was based on or copied from code that others have posted, especially Kordulek and Jiimbo.  So big thanks to everyone that has provided previous IC files/scripts/code snippets as I couldn't have done this without them.
 
