@@ -544,7 +544,7 @@ function move_if_needed(string _NamedNPC, point3f NextKillSpot)
 {
 	if ${Move_Needed}
 	{
-		if ${Actor[Query,Name=="${_NamedNPC}" && Distance > 25](exists)}
+		if ${Actor[Query,Name=="${_NamedNPC}" && Distance > 25 && Target.ID == 0](exists)}
 		{
 			KillSpot:Set[${NextKillSpot}]
 			Obj_OgreIH:ChangeCampSpot["${NextKillSpot}"]

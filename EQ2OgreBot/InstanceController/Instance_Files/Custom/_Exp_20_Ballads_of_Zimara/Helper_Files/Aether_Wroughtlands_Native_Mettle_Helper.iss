@@ -28,6 +28,7 @@ function TheAurumOutlaw(string _NamedNPC)
 	; Default Variable values
 	oc !ci -Set_Variable ${Me.Name} "NeedsFlecksCure" "None"
 	oc !ci -Set_Variable ${Me.Name} "NeedsCurseCure" "None"
+	oc !ci -Set_Variable ${Me.Name} "PullBanditCharacter" "None"
 	; Run as long as named is alive or there is an aureate bandit alive
 	variable int CurseCounter=0
 	variable int FlecksCounter=0
@@ -47,21 +48,25 @@ function TheAurumOutlaw(string _NamedNPC)
 			{
 				; Set SneakNeeded back to FALSE
 				SneakNeeded:Set[FALSE]
-				; Pause Ogre
-				oc !ci -Pause ${Me.Name}
-				wait 3
-				; Clear ability queue
-				eq2execute clearabilityqueue
-				; Cancel anything currently being cast
-				oc !ci -CancelCasting ${Me.Name}
-				; Cast Stealth ability depending on class
-				oc !ci -CastAbility ${Me.Name}+assassin|ranger "Stealth"
-				oc !ci -CastAbility ${Me.Name}+beastlord "Spiritshroud"
-				oc !ci -CastAbility ${Me.Name}+brigand|swashbuckler "Sneak"
-				oc !ci -CastAbility ${Me.Name}+dirge|Troubador "Shroud"
-				wait 15
-				; Resume Ogre
-				oc !ci -Resume ${Me.Name}
+				; Make sure character is not being sent out to pull a bandit
+				if !${OgreBotAPI.Get_Variable["PullBanditCharacter"].Equal[${Me.Name}]}
+				{
+					; Pause Ogre
+					oc !ci -Pause ${Me.Name}
+					wait 3
+					; Clear ability queue
+					eq2execute clearabilityqueue
+					; Cancel anything currently being cast
+					oc !ci -CancelCasting ${Me.Name}
+					; Cast Stealth ability depending on class
+					oc !ci -CastAbility ${Me.Name}+assassin|ranger "Stealth"
+					oc !ci -CastAbility ${Me.Name}+beastlord "Spiritshroud"
+					oc !ci -CastAbility ${Me.Name}+brigand|swashbuckler "Sneak"
+					oc !ci -CastAbility ${Me.Name}+dirge|Troubador "Shroud"
+					wait 15
+					; Resume Ogre
+					oc !ci -Resume ${Me.Name}
+				}
 			}
 			; If character is a scout, check to see if there is a conversation bubble
 			; 	Appears when named preparing to cast barrage
@@ -79,9 +84,9 @@ function TheAurumOutlaw(string _NamedNPC)
 					{
 						; Choose option based on Equipment Appearance
 						; 	Slot 1 will be 42088 if Left side and 42138 if Right side
-						if ${Actor["The Aurum Outlaw"].EquipmentAppearance[1].ID} == 42088
+						if ${Actor["${_NamedNPC}"].EquipmentAppearance[1].ID} == 42088
 							oc !ci -ConversationBubble ${Me.Name} ${LeftOptionNum}
-						elseif ${Actor["The Aurum Outlaw"].EquipmentAppearance[1].ID} == 42138
+						elseif ${Actor["${_NamedNPC}"].EquipmentAppearance[1].ID} == 42138
 							oc !ci -ConversationBubble ${Me.Name} ${RightOptionNum}
 					}
 				}
@@ -191,8 +196,8 @@ function TheAurumOutlaw(string _NamedNPC)
 					if ${HOEnabled}
 						call DisableStartHO
 				}
-				; Check to see if maintaining Scout's Honor with at least 30 seconds left
-				elseif ${Me.Effect[Query, "Detrimental" && MainIconID == 814 && BackDropIconID == 814 && Duration >= 30].ID(exists)}
+				; Check to see if maintaining Scout's Honor with at least 50 seconds left
+				elseif ${Me.Effect[Query, "Detrimental" && MainIconID == 814 && BackDropIconID == 814 && Duration >= 50].ID(exists)}
 				{
 					; Don't need any HO's right now
 					if ${HOEnabled}

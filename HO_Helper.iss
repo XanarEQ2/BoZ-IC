@@ -219,15 +219,16 @@ function HandleRangerHO()
 			oc !ci -CancelCasting ${Me.Name}
 			; Cast Stealth
 			oc !ci -CastAbility ${Me.Name} "Stealth"
-			; Wait for Emberstrike to be ready (up to 3 seconds)
+			wait 10
+			; Wait for Emberstrike to be ready (up to 2 seconds)
 			WaitTime:Set[0]
-			while !${EmberStrike.IsReady} && ${WaitTime:Inc} < 30
+			while !${EmberStrike.IsReady} && ${WaitTime:Inc} < 20
 			{
 				wait 1
 			}
 			; Cast Emberstrike
 			EmberStrike:Use
-			wait 5
+			wait 10
 			; Resume Ogre
 			oc !ci -Resume ${Me.Name}
 			; Set as cast

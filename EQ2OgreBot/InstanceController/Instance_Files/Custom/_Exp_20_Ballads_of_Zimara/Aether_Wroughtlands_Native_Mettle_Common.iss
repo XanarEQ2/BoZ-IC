@@ -130,42 +130,29 @@ objectdef Object_Instance
     Named 1 **********************    Move to, spawn and kill - The Aurum Outlaw   ************************
 ***********************************************************************************************************/
 	
-	; Variables for Phase 1
-	variable int SpotNum=1
-	variable point3f BanditSpot[9]
+	; Setup Variables needed outside Named1 function
 	variable int TimeSinceBanditKill=0
-	; Variables for Phase 2
-	variable float MinArenaX=780
-	variable float MaxArenaX=820
-	variable float MinArenaZ=-190
-	variable float MaxArenaZ=-90
-	variable point3f CurrentArenaPoint
-	variable point3f NewArenaPoint[3,3]
-	variable float ArenaPointAeraquisDistance[3,3]
-	variable float MinAeraquisDistance
-	variable point3f MinArenaPoint
-	variable int PointX
-	variable int PointZ
-	variable int PreviousPetTargetID=-1
 	
 	function:bool Named1(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[774.73,207.03,-150.32]
+		KillSpot:Set[744.64,208.26,-84.55]
+			
+		; Setup Variables
+		variable int SpotNum=1
+		variable point3f BanditSpot[4]
+		variable bool MovedToKillSpot=FALSE
+		variable int Counter
+		
+		; Update BanditSpots
+		BanditSpot[1]:Set[774.73,207.03,-150.32]
+		BanditSpot[2]:Set[727.60,203.93,-179.31]
+		BanditSpot[3]:Set[708.94,206.49,-157.21]
+		BanditSpot[4]:Set[741.06,202.04,-132.95]
 		
 		; Update Variable default values
 		AuromQuickCurseIncoming:Set[FALSE]
 		AurumPhaseNum:Set[1]
-		
-		; Update BanditSpots
-		BanditSpot[1]:Set[861.36,202.50,-80.17]
-		BanditSpot[2]:Set[838.65,200.09,-100.14]
-		BanditSpot[3]:Set[804.56,202.35,-99.89]
-		BanditSpot[4]:Set[${KillSpot}]
-		BanditSpot[5]:Set[783.44,207.31,-180.44]
-		BanditSpot[6]:Set[806.55,206.81,-191.10]
-		BanditSpot[7]:Set[807.62,202.02,-166.71]
-		BanditSpot[8]:Set[821.56,207.15,-143.65]
 		
 		; Swap to stifle immunity rune
 		call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
@@ -188,13 +175,17 @@ objectdef Object_Instance
 		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
 		wait 60
 		
-		; Kill first 3 bandits (don't move to third one because don't want to accidentally aggro named)
-		SpotNum:Set[1]
-		call AurumFirstPhaseMove "${BanditSpot[${SpotNum}]}"
-		SpotNum:Set[2]
-		call AurumFirstPhaseMove "${BanditSpot[${SpotNum}]}"
-		SpotNum:Set[3]
-		call AurumFirstPhaseMove "${BanditSpot[${SpotNum}]}"
+		; Kill first 4 bandits closest to zone entrance
+		; 	Don't move to bandits because don't want any extra aggro at this point
+		; 	also wait a while after 2nd and third bandits because don't want respawns to happen too quickly in a row
+		call AurumBanditMove "861.36,202.50,-80.17" "FALSE"
+		call AurumBanditMove "838.65,200.09,-100.14" "FALSE"
+		if ${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
+			wait 200
+		call AurumBanditMove "831.50,208.57,-127.22" "FALSE"
+		if ${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
+			wait 200
+		call AurumBanditMove "804.56,202.35,-99.89" "FALSE"
 		
 		; Check if already killed
 		if !${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
@@ -211,7 +202,7 @@ objectdef Object_Instance
 		; Pull Named
 		Ob_AutoTarget:Clear
 		oc ${Me.Name} is pulling ${_NamedNPC}
-		Obj_OgreIH:ChangeCampSpot["${KillSpot}"]
+		Obj_OgreIH:ChangeCampSpot["774.73,207.03,-150.32"]
 		call Obj_OgreUtilities.HandleWaitForCampSpot 10
 		while !${Me.InCombat} || ${Actor[namednpc,"${_NamedNPC}"].Distance} > 10
 		{
@@ -226,35 +217,35 @@ objectdef Object_Instance
 		; 	Three of the bandits have "Hat Trick" effect
 		; 		They will dps from ranged and cannot be killed
 		; 		Dispelling the effect will move it to another bandit
-		; 	General strategy is to keep 7 bandits on the near side of the area killed and to not engage with the 3 bandits on the far side
+		; 	General strategy is to keep 7 bandits on the south side of the area killed and to not engage with the 3 bandits on the north side
 		; As the fight progresses, the named will start to summon æther æraquis
 		; 	These are NoKill NPC mobs that roam around the area
 		; 	If they collide with you they will knock you back
 		; 	If they collide with named he will hop on and ride the æraquis
 		; 		This does a lot of initial damage and he is effectively immune to damage until knocked off
-		; 		He gets knocked off bey a collision with another æraquis
-		; 	Want to avoid the whole situation and just try to move in a way to not come in contact with any æraquis
+		; 		He gets knocked off by a collision with another æraquis
+		; 	Want to avoid the whole situation and keep named in a position out of the roaming paths of any æraquis
 		oc !ci -PetAssist igw:${Me.Name}
 		variable actor Bandit
 		variable actor Aeraquis
 		variable int TimeSinceFlanking=0
 		while ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID(exists)}
 		{
+			; Make sure named is being targeted
+			Actor["${_NamedNPC}"]:DoTarget
 			; In phase 1, want to move around killing the bandits after a bit of a delay to space out the kills
 			if ${AurumPhaseNum} == 1
 			{
-				; Make sure named is being targeted
-				Actor["${_NamedNPC}"]:DoTarget
 				; Check to see if group needs to move
 				; 	Don't move if AuromQuickCurseIncoming
 				if !${AuromQuickCurseIncoming}
 				{
-					; Check to see if in combat with a bandit (may get an additional bandit aggroed during AurumFirstPhaseMove)
+					; Check to see if in combat with a bandit (may get an additional bandit aggroed during AurumBanditMove)
 					Bandit:Set[${Actor[Query,Name=="an aureate bandit" && Type != "Corpse" && Distance <= 50 && Target.ID > 0].ID}]
 					if ${Bandit.ID(exists)}
 					{
 						; Move to kill bandit
-						call AurumFirstPhaseMove "${Bandit.Loc}"
+						call AurumBanditMove "${Bandit.Loc}" "TRUE"
 						; Wait in case AuromQuickCurseIncoming
 						while ${AuromQuickCurseIncoming}
 						{
@@ -264,17 +255,17 @@ objectdef Object_Instance
 							TimeSinceBanditKill:Inc
 						}
 						; Move back to previous BanditSpot
-						call AurumFirstPhaseMove "${BanditSpot[${SpotNum}]}"
+						call AurumBanditMove "${BanditSpot[${SpotNum}]}" "TRUE"
 					}
-					; Get Golden Gang increments
-					; 	If more than 4 and it has been at least 30 seconds since the last bandit was killed, move to next BanditSpot
-					call GetTargetEffectIncrements "Golden Gang" "5"
-					if ${Return} > 4 && ${TimeSinceBanditKill} >= 30
+					; If it has been at least 30 seconds since the last bandit was killed, move to next BanditSpot
+					if ${TimeSinceBanditKill} >= 30
 					{
-						; Move to next BanditSpot (don't repeat spot 1)
-						if ${SpotNum:Inc} > ${BanditSpot.Size}
-							SpotNum:Set[2]
-						call AurumFirstPhaseMove "${BanditSpot[${SpotNum}]}"
+						; Move to next BanditSpot
+						if ${SpotNum:Inc} <= ${BanditSpot.Size}
+							call AurumBanditMove "${BanditSpot[${SpotNum}]}" "TRUE"
+						; If completed all BanditSpots, move to second phase early
+						else
+							AurumPhaseNum:Set[2]
 					}
 				}
 				; Send scouts to flanking position every few seconds as long as named is nearby
@@ -287,106 +278,51 @@ objectdef Object_Instance
 					}
 				}
 			}
-			; In phase 2 want to avoid the roaming æther æraquis, killing bandits along the way as they respawn
+			; In phase 2, move the group to a spot that will hopefully be out of the path of the roaming æther æraquis
+			; 	Helper script will send out a character to pull bandits that respawn back to the group
 			else
 			{
-				; If starting out Phase 2, move to center of Arena
-				if ${CurrentArenaPoint.X} == 0 && ${CurrentArenaPoint.Y} == 0 && ${CurrentArenaPoint.Z} == 0
+				; Move to KillSpot if needed
+				if !${MovedToKillSpot}
 				{
-					CurrentArenaPoint:Set[${Math.Calc[(${MinArenaX}+${MaxArenaX})/2]},200,${Math.Calc[(${MinArenaZ}+${MaxArenaZ})/2]}]
-					call AurumSecondPhaseMove "${CurrentArenaPoint}"
-				}
-				; Update NewArenaPoint and ArenaPointAeraquisDistance values based on Location and Heading of roaming NoKill NPC æther æraquis
-				call UpdateArenaAeraquisDistance
-				; Check to see if CurrentArenaPoint is within 30m of the path of an æraquis
-				; 	Will be point at [2,2] in arrays
-				if ${ArenaPointAeraquisDistance[2,2]} >= 0 && ${ArenaPointAeraquisDistance[2,2]} <= 30
-				{
-					; Reset MinAeraquisDistance and MinArenaPoint
-					MinAeraquisDistance:Set[-1]
-					MinArenaPoint:Set[0,0,0]
-					; Look for point with highest distance in ArenaPointAeraquisDistance
-					PointX:Set[0]
-					while ${PointX:Inc} <= 3
-					{
-						PointZ:Set[0]
-						while ${PointZ:Inc} <= 3
-						{
-							; Skip if distance is not valid
-							if ${ArenaPointAeraquisDistance[${PointX},${PointZ}]} == -1
-								continue
-							; Compare Distance with MinAeraquisDistance, update MinAeraquisDistance and MinArenaPoint if further away
-							if ${ArenaPointAeraquisDistance[${PointX},${PointZ}]} > ${MinAeraquisDistance}
-							{
-								MinAeraquisDistance:Set[${ArenaPointAeraquisDistance[${PointX},${PointZ}]}]
-								MinArenaPoint:Set[${NewArenaPoint[${PointX},${PointZ}]}]
-							}
-						}
-					}
-					; If a valid Point was found and it doesn't match CurrentArenaPoint, set as new CurrentArenaPoint
-					if ${MinArenaPoint.X} != 0 || ${MinArenaPoint.Y} != 0 || ${MinArenaPoint.Z} != 0
-					{
-						if ${MinArenaPoint.X} != ${CurrentArenaPoint.X} || ${MinArenaPoint.Y} != ${CurrentArenaPoint.Y} || ${MinArenaPoint.Z} != ${CurrentArenaPoint.Z}
-						{
-							CurrentArenaPoint:Set[${MinArenaPoint.X},${MinArenaPoint.Y},${MinArenaPoint.Z}]
-							call AurumSecondPhaseMove "${CurrentArenaPoint}"
-						}
-					}
-				}
-				; If in combat with a Bandit, target it
-				Bandit:Set[${Actor[Query,Name=="an aureate bandit" && Type != "Corpse" && Distance <= 30 && Target.ID > 0].ID}]
-				if ${Bandit.ID(exists)}
-				{
-					; Target Bandit
-					Bandit:DoTarget
-					; Send in pets if within 10m
-					if ${Bandit.Distance} <= 10 && ${PreviousPetTargetID} != ${Bandit.ID}
-					{
-						oc !ci -PetAssist igw:${Me.Name}
-						PreviousPetTargetID:Set[${Bandit.ID}]
-					}
+					; Move to KillSpot
+					Obj_OgreIH:ChangeCampSpot["${KillSpot}"]
+					call Obj_OgreUtilities.HandleWaitForCampSpot 10
+					; Wait a bit to arrive at KillSpot
+					wait 100
+					; Set MovedToKillSpot to TRUE
+					MovedToKillSpot:Set[TRUE]
 				}
 				else
 				{
-					; Otherwise if in combat with an æther æraquis, target it
-					Aeraquis:Set[${Actor[Query,Name=="an æther æraquis" && Type != "Corpse" && Distance <= 30 && Target.ID > 0].ID}]
-					if ${Aeraquis.ID(exists)}
-					{
-						; Target Aeraquis
-						Aeraquis:DoTarget
-						; Send in pets if within 10m
-						if ${Aeraquis.Distance} <= 10 && ${PreviousPetTargetID} != ${Aeraquis.ID}
-						{
-							oc !ci -PetAssist igw:${Me.Name}
-							PreviousPetTargetID:Set[${Aeraquis.ID}]
-						}
-					}
+					; Check to see if in combat with a bandit (may have a respawned bandit pulled back to group)
+					Bandit:Set[${Actor[Query,Name=="an aureate bandit" && Type != "Corpse" && Distance <= 30 && Target.ID > 0].ID}]
+					; Kill bandit if found
+					if ${Bandit.ID(exists)}
+						call AurumBanditMove "${KillSpot}" "FALSE"
+					; Otherwise, pull bandits that respawn
 					else
+						call PullBanditRespawns "${KillSpot}"
+					; Check to see if named needs to be re-positioned (want named as close to KillSpot as possible to avoid roaming æther æraquis)
+					ActorLoc:Set[${Actor["${_NamedNPC}"].Loc}]
+					if ${ActorLoc.X}!=0 || ${ActorLoc.Y}!=0 || ${ActorLoc.Z}!=0
 					{
-						; Otherwise if there is a nearby Bandit not in combat, target it
-						; 	Limit to X > 775 to not pull the Bandits on the right side of the arena (should be 3 with hats that we want to leave alone)
-						Bandit:Set[${Actor[Query,Name=="an aureate bandit" && Type != "Corpse" && Distance <= 30 && Target.ID == 0 && X > 775].ID}]
-						if ${Bandit.ID(exists)}
+						; Check to see if named is out of position
+						if ${ActorLoc.X} > 749 || ${ActorLoc.Z} < -89 || ${ActorLoc.Z} > -75
 						{
-							; Target Bandit
-							Bandit:DoTarget
-							; Send in pets if within 10m
-							if ${Bandit.Distance} <= 10 && ${PreviousPetTargetID} != ${Bandit.ID}
+							; Move away from KillSpot
+							Obj_OgreIH:ChangeCampSpot["730.62,207.47,-103.68"]
+							call Obj_OgreUtilities.HandleWaitForCampSpot 10
+							wait 50
+							; Move back to KillSpot
+							Obj_OgreIH:ChangeCampSpot["${KillSpot}"]
+							call Obj_OgreUtilities.HandleWaitForCampSpot 10
+							Counter:Set[0]
+							while (${Actor["${_NamedNPC}"].Loc.X} > 749 || ${Actor["${_NamedNPC}"].Loc.Z} < -89 || ${Actor["${_NamedNPC}"].Loc.Z} > -75) && ${Counter:Inc} <= 18
 							{
-								oc !ci -PetAssist igw:${Me.Name}
-								PreviousPetTargetID:Set[${Bandit.ID}]
+								wait 5
 							}
-						}
-						else
-						{
-							; Target named
-							Actor["${_NamedNPC}"]:DoTarget
-							; Send in pets if within 10m
-							if ${Actor["${_NamedNPC}"].Distance} <= 10 && ${PreviousPetTargetID} != ${Actor["${_NamedNPC}"].ID}
-							{
-								oc !ci -PetAssist igw:${Me.Name}
-								PreviousPetTargetID:Set[${Actor["${_NamedNPC}"].ID}]
-							}
+							wait 10
 						}
 					}
 				}
@@ -528,7 +464,7 @@ objectdef Object_Instance
 		wait 1
 	}
 
-	function AurumFirstPhaseMove(point3f MoveSpot)
+	function AurumBanditMove(point3f MoveSpot, bool MoveToBandit)
 	{
 		; Move to MoveSpot
 		oc !ci -resume igw:${Me.Name}
@@ -550,9 +486,8 @@ objectdef Object_Instance
 			; Get initial Bandit location
 			variable point3f BanditInitialLoc
 			BanditInitialLoc:Set[${Bandit.Loc}]
-			; Move characters to Bandit, putting fighter in front and rest flanking
-			; 	Only move for BanditSpot > 3
-			if ${BanditSpot} > 3
+			; If MoveToBandit, move characters to Bandit putting fighter in front and rest flanking
+			if ${MoveToBandit}
 			{
 				call MoveInRelationToActorID "igw:${Me.Name}+fighter" "${Bandit.ID}" "3" "0"
 				call MoveInRelationToActorID "igw:${Me.Name}+notfighter" "${Bandit.ID}" "3" "-90"
@@ -567,9 +502,8 @@ objectdef Object_Instance
 			variable float BanditLocDistanceChange
 			while ${Bandit.ID(exists)}
 			{
-				; Re-adjust position if needed (as long as Bandit within 10m of BanditInitialLoc)
-				; 	Only move for BanditSpot > 3
-				if ${BanditSpot} > 3
+				; If MoveToBandit, re-adjust position if needed (as long as Bandit within 10m of BanditInitialLoc)
+				if ${MoveToBandit}
 				{
 					BanditNewLoc:Set[${Bandit.Loc}]
 					BanditLocDistanceChange:Set[${Math.Distance[${BanditInitialLoc.X},${BanditInitialLoc.Z},${BanditNewLoc.X},${BanditNewLoc.Z}]}]
@@ -586,104 +520,186 @@ objectdef Object_Instance
 		variable actor Aeraquis
 		Aeraquis:Set[${Actor[Query,Name=="an æther æraquis" && Type != "Corpse" && Distance <= 30 && Target.ID > 0].ID}]
 		if ${Aeraquis.ID(exists)}
-		while ${Aeraquis.ID(exists)}
 		{
-			; Target Aeraquis
+			; Target Aeraquis and send in pets
 			Aeraquis:DoTarget
 			oc !ci -PetAssist igw:${Me.Name}
-			; Wait a few seconds before checking again
 			wait 30
-			; Increment TimeSinceBanditKill
 			TimeSinceBanditKill:Inc[3]
-		}
-	}
-
-	function AurumSecondPhaseMove(point3f MoveSpot)
-	{
-		; Move to MoveSpot
-		oc !ci -resume igw:${Me.Name}
-		oc !ci -letsgo igw:${Me.Name}
-		oc !ci -PetOff igw:${Me.Name}
-		Obj_OgreIH:SetCampSpot
-		Obj_OgreIH:ChangeCampSpot["${MoveSpot}"]
-		call Obj_OgreUtilities.HandleWaitForCampSpot 10
-	}
-
-	function UpdateArenaAeraquisDistance()
-	{
-		; Setup NewArenaPoint and reset ArenaPointAeraquisDistance
-		variable int PointX=0
-		variable int PointZ=0
-		variable float NewX
-		variable float NewZ
-		while ${PointX:Inc} <= 3
-		{
-			PointZ:Set[0]
-			while ${PointZ:Inc} <= 3
+			; Kill Aeraquis
+			while ${Aeraquis.ID(exists)}
 			{
-				; Calculate NewX and NewZ
-				NewX:Set[${CurrentArenaPoint.X}+(${PointX}-2)*10]
-				NewZ:Set[${CurrentArenaPoint.Z}+(${PointZ}-2)*10]
-				; Set NewArenaPoint if within the min/max bounds
-				if ${NewX} >= ${MinArenaX} && ${NewX} <= ${MaxArenaX} && ${NewZ} >= ${MinArenaZ} && ${NewZ} <= ${MaxArenaZ}
-					NewArenaPoint[${PointX},${PointZ}]:Set[${NewX},200,${NewZ}]
-				else
-					NewArenaPoint[${PointX},${PointZ}]:Set[0,0,0]
-				; Reset ArenaPointAeraquisDistance
-				ArenaPointAeraquisDistance[${PointX},${PointZ}]:Set[-1]
+				wait 10
+				TimeSinceBanditKill:Inc
 			}
 		}
-		; Search for all NoKill æther æraquis
-		variable index:actor Actors
-		variable iterator ActorIterator
-		variable float ActorHeading
+		
+	}
+	
+	function PullBanditRespawns(point3f KillSpot)
+	{
+		; Setup variables
+		variable index:actor Bandits
+		variable iterator BanditIterator
+		variable point3f BanditLoc
+		variable int BanditCount=0
+		variable point3f BanditRespawnPullSpot="758.51,207.65,-114.01"
+		variable point3f TravelSpots[6]
+		variable point3f HealPullSpot="753.89,205.49,-104.52"
+		variable int Counter
+		variable float Slope
+		variable float Intercept
+		variable float NewX
+		variable float NewZ
+		variable index:actor Aeraquis
+		variable iterator AeraquisIterator
+		variable point3f AeraquisLoc
+		variable float AeraquisHeading
 		variable int NumSteps
-		variable float CurrentDistance
-		variable float PreviousDistance
-		EQ2:QueryActors[Actors, Name=="an æther æraquis" && Type != "Corpse" && Type == "NoKill NPC" && Distance <= 100]
-		Actors:GetIterator[ActorIterator]
-		if ${ActorIterator:First(exists)}
+		variable bool CollisionFound=FALSE
+		variable actor ClosestBandit
+		variable actor ClosestSafeBandit
+		variable actor PullBandit
+		variable int GroupNum
+		variable string GroupCharacter
+		
+		; Search for any bandits that have respawned and are not in combat
+		; 	Skip the first bandit by zone in and the 3 bandits at the north side
+		EQ2:QueryActors[Bandits, Name=="an aureate bandit" && Type != "Corpse" && Distance <= 120 && X < 850 && (Z > -153 || X < 760) && Target.ID == 0]
+		Bandits:GetIterator[BanditIterator]
+		if ${BanditIterator:First(exists)}
 		{
+			; Search for all NoKill æther æraquis
+			EQ2:QueryActors[Aeraquis, Name=="an æther æraquis" && Type != "Corpse" && Type == "NoKill NPC" && Distance <= 200]
+			Aeraquis:GetIterator[AeraquisIterator]
+			; Loop through bandits
 			do
 			{
-			   ; Get æraquis Location and Heading, make sure they are valid
-				ActorLoc:Set[${ActorIterator.Value.Loc}]
-				ActorHeading:Set[${ActorIterator.Value.Heading}]
-				if ${ActorLoc.X}==0 && ${ActorLoc.Y}==0 && ${ActorLoc.Z}==0
+			   ; Get bandit Location, make sure it is valid
+				BanditLoc:Set[${BanditIterator.Value.Loc}]
+				if ${BanditLoc.X}==0 && ${BanditLoc.Y}==0 && ${BanditLoc.Z}==0
 					continue
-				; Loop through each NewArenaPoint
-				PointX:Set[0]
-				while ${PointX:Inc} <= 3
+				; Increment BanditCount
+				BanditCount:Inc
+				; Setup list of points between BanditRespawnPullSpot and Bandit
+				Slope:Set[(${BanditLoc.Z}-${BanditRespawnPullSpot.Z})/(${BanditLoc.X}-${BanditRespawnPullSpot.X})]
+				Intercept:Set[${BanditRespawnPullSpot.Z}-${Slope}*${BanditRespawnPullSpot.X}]
+				Counter:Set[0]
+				while ${Counter:Inc} <= ${TravelSpots.Size}
 				{
-					PointZ:Set[0]
-					while ${PointZ:Inc} <= 3
+					NewX:Set[${BanditRespawnPullSpot.X}+(${BanditLoc.X}-${BanditRespawnPullSpot.X})*((${Counter}-1)/(${TravelSpots.Size}-1))]
+					NewZ:Set[${Slope}*${NewX}+${Intercept}]
+					TravelSpots[${Counter}]:Set[${NewX},${BanditRespawnPullSpot.Y},${NewZ}]
+				}
+				; Default to no CollisionFound
+				CollisionFound:Set[FALSE]
+				; Loop through æraquis
+				if ${AeraquisIterator:First(exists)}
+				{
+					do
 					{
-						; Skip if NewArenaPoint is not valid
-						if ${NewArenaPoint[${PointX},${PointZ}].X} == 0 && ${NewArenaPoint[${PointX},${PointZ}].Y} == 0 && ${NewArenaPoint[${PointX},${PointZ}].Z} == 0
+					   ; Get æraquis Location and Heading, make sure they are valid
+						AeraquisLoc:Set[${AeraquisIterator.Value.Loc}]
+						AeraquisHeading:Set[${AeraquisIterator.Value.Heading}]
+						if ${AeraquisLoc.X}==0 && ${AeraquisLoc.Y}==0 && ${AeraquisLoc.Z}==0
 							continue
-						; Calculate minimum Distance æraquis will get to NewArenaPoint (with increments of 5m)
+						; See if æraquis is on a collision path with KillSpot or any TravelSpot
 						NumSteps:Set[-1]
-						PreviousDistance:Set[-1]
 						while ${NumSteps:Inc} <= 10
 						{
 							; Calculate future Location of æraquis moving 5m * NumSteps
-							NewLoc:Set[${ActorLoc.X},${ActorLoc.Y},${ActorLoc.Z}]
-							NewLoc.X:Dec[5*${NumSteps}*${Math.Sin[${ActorHeading}]}]
-							NewLoc.Z:Dec[5*${NumSteps}*${Math.Cos[${ActorHeading}]}]
-							; Compare CurrentDistance with ArenaPointAeraquisDistance
-							CurrentDistance:Set[${Math.Distance[${NewArenaPoint[${PointX},${PointZ}].X},${NewArenaPoint[${PointX},${PointZ}].Z},${NewLoc.X},${NewLoc.Z}]}]
-							if ${ArenaPointAeraquisDistance[${PointX},${PointZ}]} == -1 || ${CurrentDistance} < ${ArenaPointAeraquisDistance[${PointX},${PointZ}]}
-								ArenaPointAeraquisDistance[${PointX},${PointZ}]:Set[${CurrentDistance}]
-							; Compare CurrentDistance with PreviousDistance, stop checking if moving away
-							if ${PreviousDistance} != -1 && ${CurrentDistance} > ${PreviousDistance}
+							NewLoc:Set[${AeraquisLoc.X},${AeraquisLoc.Y},${AeraquisLoc.Z}]
+							NewLoc.X:Dec[5*${NumSteps}*${Math.Sin[${AeraquisHeading}]}]
+							NewLoc.Z:Dec[5*${NumSteps}*${Math.Cos[${AeraquisHeading}]}]
+							; Check to see if Distance is within 10m of KillSpot
+							if ${Math.Distance[${KillSpot.X},${KillSpot.Z},${NewLoc.X},${NewLoc.Z}]} < 10
+								CollisionFound:Set[TRUE]
+							; Check to see if Distance is within 10m of a TravelSpot
+							Counter:Set[0]
+							while ${Counter:Inc} <= ${TravelSpots.Size}
+							{
+								if ${Math.Distance[${TravelSpots[${Counter}].X},${TravelSpots[${Counter}].Z},${NewLoc.X},${NewLoc.Z}]} < 10
+									CollisionFound:Set[TRUE]
+							}
+							; Stop search if CollisionFound
+							if ${CollisionFound}
 								break
-							PreviousDistance:Set[${CurrentDistance}]
 						}
+						; Stop search if CollisionFound
+						if ${CollisionFound}
+							break
 					}
+					while ${AeraquisIterator:Next(exists)}
 				}
+				; Update ClosestBandit if not set or bandit is closer
+				if ${ClosestBandit.ID} == 0 || ${BanditIterator.Value.Distance} < ${ClosestBandit.Distance}
+					ClosestBandit:Set[${BanditIterator.Value.ID}]
+				; Update ClosestSafeBandit if no CollisionFound and not set or bandit is closer
+				if !${CollisionFound} && (${ClosestSafeBandit.ID} == 0 || ${BanditIterator.Value.Distance} < ${ClosestSafeBandit.Distance})
+					ClosestSafeBandit:Set[${BanditIterator.Value.ID}]
 			}
-			while ${ActorIterator:Next(exists)}
+			while ${BanditIterator:Next(exists)}
 		}
+		; Set PullBandit as ClosestSafeBandit if found
+		if ${ClosestSafeBandit.ID} != 0
+			PullBandit:Set[${ClosestSafeBandit.ID}]
+		; Otherwise set as ClosestBandit if there are multiple bandits
+		elseif ${ClosestBandit.ID} != 0 && ${BanditCount} > 1
+			PullBandit:Set[${ClosestBandit.ID}]
+		; Exit if no bandit to pull
+		if ${PullBandit.ID} == 0
+			return
+		
+		; Look for a character to pull the bandit
+		; 	Setup to pull using a bard or rogue, modify as needed based on group makeup
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			if ${Me.Group[${GroupNum}].Class.Equal[dirge]} || ${Me.Group[${GroupNum}].Class.Equal[troubador]} || ${Me.Group[${GroupNum}].Class.Equal[swashbuckler]} || ${Me.Group[${GroupNum}].Class.Equal[brigand]}
+				GroupCharacter:Set[${Me.Group[${GroupNum}].Name}]
+		}
+		; Make sure a GroupCharacter was found
+		if ${GroupCharacter.Length} == 0
+			return
+		; Set PullBanditCharacter variable
+		oc !ci -Set_Variable igw:${Me.Name} "PullBanditCharacter" "${GroupCharacter}"
+		; Have GroupCharacter cast Sprint so they can move quickly (may get out of range of group speed buffs if not a bard)
+		oc !ci -CastAbility ${GroupCharacter} "Sprint"
+		; Send GroupCharacter to bandit PullSpot and priests to HealPullSpot
+		; 	Send priests out a bit to extend heal range in case GroupCharacter needs heals while out
+		oc !ci -ChangeCampSpotWho ${GroupCharacter} ${BanditRespawnPullSpot.X} ${BanditRespawnPullSpot.Y} ${BanditRespawnPullSpot.Z}
+		oc !ci -ChangeCampSpotWho igw:${Me.Name}+priest ${HealPullSpot.X} ${HealPullSpot.Y} ${HealPullSpot.Z}
+		Counter:Set[0]
+		while ${Math.Distance[${Me.Group[${GroupCharacter}].Loc.X},${Me.Group[${GroupCharacter}].Loc.Z},${BanditRespawnPullSpot.X},${BanditRespawnPullSpot.Z}]} > 5 && ${Counter:Inc} <= 6
+		{
+			wait 5
+		}
+		; Send GroupCharacter to bandit to pull it
+		oc !ci -ChangeCampSpotWho ${GroupCharacter} ${PullBandit.Loc.X} ${PullBandit.Loc.Y} ${PullBandit.Loc.Z}
+		; Wait for Bandit to be aggroed (wait up to 20 seconds)
+		Counter:Set[0]
+		while ${PullBandit.ID(exists)} && ${PullBandit.Target.ID} == 0 && ${Counter:Inc} <= 40
+		{
+			wait 5
+		}
+		; Bring GroupCharacter back to BanditRespawnPullSpot
+		oc !ci -ChangeCampSpotWho ${GroupCharacter} ${BanditRespawnPullSpot.X} ${BanditRespawnPullSpot.Y} ${BanditRespawnPullSpot.Z}
+		Counter:Set[0]
+		while ${Math.Distance[${Me.Group[${GroupCharacter}].Loc.X},${Me.Group[${GroupCharacter}].Loc.Z},${BanditRespawnPullSpot.X},${BanditRespawnPullSpot.Z}]} > 5 && ${Counter:Inc} <= 16
+		{
+			wait 5
+		}
+		; Bring Character, priests, and bandit back (wait up to 20 seconds)
+		oc !ci -ChangeCampSpotWho igw:${Me.Name}+${GroupCharacter}|priest ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+		Counter:Set[0]
+		while ${PullBandit.ID(exists)} && ${PullBandit.Distance} > 30 && ${Counter:Inc} <= 40
+		{
+			wait 5
+		}
+		; Cancel Sprint on GroupCharacter
+		oc !c -CancelMaintainedForWho ${GroupCharacter} "Sprint"
+		; Clear PullBanditCharacter variable
+		oc !c -Set_Variable igw:${Me.Name} "PullBanditCharacter" "None"
 	}
 
 /**********************************************************************************************************

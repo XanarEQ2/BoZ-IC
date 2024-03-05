@@ -439,13 +439,8 @@ objectdef Object_Instance
 		; Need a character of that Archetype to go over to the add and hail it to activate
 		elseif ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 		{
-			; Setup AutoTarget
+			; Clear AutoTarget, will selectively target
 			Ob_AutoTarget:Clear
-			Ob_AutoTarget:AddActor["a fallen fighter",0,FALSE,FALSE]
-			Ob_AutoTarget:AddActor["a fallen scout",0,FALSE,FALSE]
-			Ob_AutoTarget:AddActor["a fallen mage",0,FALSE,FALSE]
-			Ob_AutoTarget:AddActor["a fallen priest",0,FALSE,FALSE]
-			Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
 			; Run ZoneHelperScript (will handle hailing adds)
 			oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
 			oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}" ""
@@ -458,9 +453,29 @@ objectdef Object_Instance
 			oc !ci -PetOff igw:${Me.Name}
 			wait 10
 			oc !ci -PetAssist igw:${Me.Name}
-			; Wait for named to be killed
+			; Kill named
+			variable int AddID=0
 			while ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID(exists)}
 			{
+				; If there is a current add to kill, make sure it still exists
+				if ${AddID} != 0
+					if !${Actor[Query,ID==${AddID} && Type != "Corpse"].ID(exists)}
+						AddID:Set[0]
+				; If there is not a current add, look for one
+				if ${AddID} == 0
+					AddID:Set[${Actor[Query,Name=="a fallen fighter" && Type != "NoKill NPC" && Distance <= 30].ID}]
+				if ${AddID} == 0
+					AddID:Set[${Actor[Query,Name=="a fallen scout" && Type != "NoKill NPC" && Distance <= 30].ID}]
+				if ${AddID} == 0
+					AddID:Set[${Actor[Query,Name=="a fallen mage" && Type != "NoKill NPC" && Distance <= 30].ID}]
+				if ${AddID} == 0
+					AddID:Set[${Actor[Query,Name=="a fallen priest" && Type != "NoKill NPC" && Distance <= 30].ID}]
+				; Target based on AddID
+				if ${AddID} != 0
+					Actor["${AddID}"]:DoTarget
+				else
+					Actor["${_NamedNPC}"]:DoTarget
+				; Wait a second before looping
 				wait 10
 			}
 			; Clear AutoTarget:Clear
