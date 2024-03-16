@@ -58,10 +58,54 @@ objectdef Object_Instance
 		; Move to and kill Named 2
 		if ${_StartingPoint} == 2
 		{
-			call This.Named2 "Praefectus Kriegr"
+			call This.Named2 "Vilmen Riggandr"
 			if !${Return}
 			{
-				Obj_OgreIH:Message_FailedZone["#2: Praefectus Kriegr"]
+				Obj_OgreIH:Message_FailedZone["#2: Vilmen Riggandr"]
+				return FALSE
+			}
+			_StartingPoint:Inc
+		}
+		; Move to and kill Named 3
+		if ${_StartingPoint} == 3
+		{
+			call This.Named3 "Grundr Kolfrodr"
+			if !${Return}
+			{
+				Obj_OgreIH:Message_FailedZone["#3: Grundr Kolfrodr"]
+				return FALSE
+			}
+			_StartingPoint:Inc
+		}
+		; Move to and kill Named 4
+		if ${_StartingPoint} == 4
+		{
+			call This.Named4 "Sjurd Randskeggr"
+			if !${Return}
+			{
+				Obj_OgreIH:Message_FailedZone["#4: Sjurd Randskeggr"]
+				return FALSE
+			}
+			_StartingPoint:Inc
+		}
+		; Move to and kill Named 5
+		if ${_StartingPoint} == 5
+		{
+			call This.Named5 "Halkon Tormax"
+			if !${Return}
+			{
+				Obj_OgreIH:Message_FailedZone["#5: Halkon Tormax"]
+				return FALSE
+			}
+			_StartingPoint:Inc
+		}
+		; Move to and kill Named 6
+		if ${_StartingPoint} == 6
+		{
+			call This.Named6 "Praefectus Kriegr"
+			if !${Return}
+			{
+				Obj_OgreIH:Message_FailedZone["#6: Praefectus Kriegr"]
 				return FALSE
 			}
 			_StartingPoint:Inc
@@ -77,6 +121,9 @@ objectdef Object_Instance
 
 	function:bool Named1(string _NamedNPC="Doesnotexist")
 	{
+		; Update KillSpot
+		KillSpot:Set[-564.24,106.19,117.67]
+		
 		; Use Chrono Dungeon item to make this a Chrono zone
 		call UseChronoDungeonItem
 		if !${Return}
@@ -91,55 +138,137 @@ objectdef Object_Instance
 		; Move to named and kill it
 		Ob_AutoTarget:Clear
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
-		oc !ci -ChangeCampSpotWho "igw:${Me.Name}" -559.90 91.43 64.55
+		oc !ci -ChangeCampSpotWho igw:${Me.Name} -559.90 91.43 64.55
 		call Obj_OgreUtilities.HandleWaitForCampSpot 10
-		call move_to_next_waypoint "-564.24,106.19,117.67" "1"
+		call move_to_next_waypoint "${KillSpot}" "1"
 		
 		; Finished with named
 		return TRUE
 	}
 
 /**********************************************************************************************************
- 	Named 2 ********************    Move to, spawn and kill - Praefectus Kriegr  **************************
+ 	Named 2 ********************    Move to, spawn and kill - Vilmen Riggandr  ****************************
 ***********************************************************************************************************/
 
 	function:bool Named2(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[-530.91,118.27,575.53]
+		KillSpot:Set[-454.97,118.27,577.41]
 		
 		; Move to named
-		call move_to_next_waypoint "-564.27,94.64,98.97" "1"
 		call move_to_next_waypoint "-564.22,118.70,185.58" "1"
 		call move_to_next_waypoint "-563.48,115.59,380.33" "1"
 		call move_to_next_waypoint "-562.65,115.59,447.80" "1"
-		call move_to_next_waypoint "-581.82,115.59,472.86" "1"
-		call move_to_next_waypoint "-551.63,118.27,518.44" "1"
-		call move_to_next_waypoint "${KillSpot}" "1"
-		
-		; Back off pets (will get aggro from other named at long range and don't want pets runing off and getting aggro)
-		oc !ci -PetOff igw:${Me.Name}
-		
-		; Wait for named to spawn
-		while !${Actor[Query,Name=="${_NamedNPC}" && Type == "NamedNPC" && Distance < 40].ID(exists)}
-		{
-			wait 10
-		}
-		
-		; Enter combat with named (will pull the rest of the named in the zone)
+		call move_to_next_waypoint "-552.01,115.59,461.53" "1"
+		call move_to_next_waypoint "-495.93,118.27,483.44" "1"
+		call move_to_next_waypoint "-501.11,118.27,510.32" "1"
+		call move_to_next_waypoint "-501.11,118.27,577.38" "1"
 		Ob_AutoTarget:Clear
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
-		while !${Me.InCombat}
-		{
-			Actor[Query,Name=="${_NamedNPC}"]:DoTarget
-			wait 10
-		}
+		call move_to_next_waypoint "${KillSpot}" "1"
 		
-		; Wait for combat to end
-		while ${Me.InCombat}
-		{
-			wait 10
-		}
+		; Finished with named
+		return TRUE
+	}
+
+/**********************************************************************************************************
+ 	Named 3 ********************    Move to, spawn and kill - Grundr Kolfrodr  ****************************
+***********************************************************************************************************/
+
+	function:bool Named3(string _NamedNPC="Doesnotexist")
+	{
+		; Update KillSpot
+		KillSpot:Set[-480.53,148.36,277.14]
+		
+		; Move to named
+		call move_to_next_waypoint "-460.47,117.52,472.87" "1"
+		call move_to_next_waypoint "-420.24,118.27,463.31" "1"
+		call move_to_next_waypoint "-420.95,117.66,350.55" "1"
+		call move_to_next_waypoint "-464.32,117.52,288.22" "1"
+		call move_to_next_waypoint "-440.11,121.06,291.19" "1"
+		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Lower Lift"
+		wait 80
+		call move_to_next_waypoint "-429.55,121.68,290.76" "1"
+		wait 60
+		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Raise Lift"
+		wait 100
+		Ob_AutoTarget:Clear
+		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
+		call move_to_next_waypoint "${KillSpot}" "1"
+		
+		; Finished with named
+		return TRUE
+	}
+
+/**********************************************************************************************************
+ 	Named 4 ********************    Move to, spawn and kill - Sjurd Randskeggr  ***************************
+***********************************************************************************************************/
+
+	function:bool Named4(string _NamedNPC="Doesnotexist")
+	{
+		; Update KillSpot
+		KillSpot:Set[-652.07,148.36,295.34]
+		
+		; Move to named
+		call move_to_next_waypoint "-490.76,117.52,348.08" "1"
+		call move_to_next_waypoint "-528.76,118.27,364.49" "1"
+		call move_to_next_waypoint "-604.54,118.27,362.45" "1"
+		call move_to_next_waypoint "-668.69,117.52,323.88" "1"
+		call move_to_next_waypoint "-666.80,117.52,290.66" "1"
+		call move_to_next_waypoint "-685.76,121.06,294.40" "1"
+		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Lower Lift"
+		wait 80
+		call move_to_next_waypoint "-695.29,121.68,294.02" "1"
+		wait 60
+		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Raise Lift"
+		wait 100
+		Ob_AutoTarget:Clear
+		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
+		call move_to_next_waypoint "${KillSpot}" "1"
+		
+		; Finished with named
+		return TRUE
+	}
+
+/**********************************************************************************************************
+ 	Named 5 ********************    Move to, spawn and kill - Halkon Tormax  ******************************
+***********************************************************************************************************/
+
+	function:bool Named5(string _NamedNPC="Doesnotexist")
+	{
+		; Update KillSpot
+		KillSpot:Set[-706.75,117.58,538.20]
+		
+		; Move to named
+		call move_to_next_waypoint "-643.17,148.36,311.69" "1"
+		call move_to_next_waypoint "-659.47,117.52,343.57" "1"
+		call move_to_next_waypoint "-707.74,117.88,350.21" "1"
+		call move_to_next_waypoint "-707.97,118.01,473.20" "1"
+		call move_to_next_waypoint "-695.70,117.52,497.62" "1"
+		Ob_AutoTarget:Clear
+		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
+		call move_to_next_waypoint "${KillSpot}" "1"
+		
+		; Finished with named
+		return TRUE
+	}
+
+/**********************************************************************************************************
+ 	Named 6 ********************    Move to, spawn and kill - Praefectus Kriegr  **************************
+***********************************************************************************************************/
+
+	function:bool Named6(string _NamedNPC="Doesnotexist")
+	{
+		; Update KillSpot
+		KillSpot:Set[-544.34,118.27,562.53]
+		
+		; Move to named
+		call move_to_next_waypoint "-697.76,117.52,513.94" "1"
+		call move_to_next_waypoint "-593.83,118.27,467.26" "1"
+		call move_to_next_waypoint "-564.20,118.27,496.97" "1"
+		Ob_AutoTarget:Clear
+		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
+		call move_to_next_waypoint "${KillSpot}" "1"
 		
 		; Finished with named
 		return TRUE

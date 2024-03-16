@@ -50,7 +50,7 @@ function main(string _NamedNPC)
 			; Keep script running as long as in zone
 			variable string ZoneName
 			ZoneName:Set["${Zone.Name}"]
-			while ${Zone.Name.Equal[${ZoneName}]} || ${Me.ID} == 0
+			while ${Zone.Name.Equal["${ZoneName}"]} || ${Me.ID} == 0
 			{
 				call HandleHO
 			}

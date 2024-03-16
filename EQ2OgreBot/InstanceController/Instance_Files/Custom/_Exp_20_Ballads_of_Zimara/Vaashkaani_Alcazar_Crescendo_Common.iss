@@ -275,6 +275,14 @@ objectdef Object_Instance
 		call move_to_next_waypoint "373.53,22.17,-356.34"
 		call move_to_next_waypoint "${KillSpot}"
 		
+		; Pause Ogre
+		oc !ci -Pause igw:${Me.Name}
+		wait 3
+		; Clear ability queue
+		relay ${OgreRelayGroup} eq2execute clearabilityqueue
+		; Cancel anything currently being cast
+		oc !ci -CancelCasting igw:${Me.Name}
+		
 		; Hail Lyrissa Nostrolo
 		wait 20
 		oc !ci -HailNPC igw:${Me.Name} "Lyrissa Nostrolo"
@@ -297,21 +305,29 @@ objectdef Object_Instance
 		wait 20
 		oc !ci -ConversationBubble igw:${Me.Name} "1"
 		
+		; Resume Ogre
+		oc !ci -Resume igw:${Me.Name}
+		
 		; Setup AutoTarget
 		Ob_AutoTarget:Clear
 		Ob_AutoTarget:AddActor["a copper maedjinn",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["an iron maedjinn",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["a maedjinn saitahn",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["a maedjinn saitihn",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a maedjinn zakhan",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["a maedjinn zakhin",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a maedjinn alharan",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a maedjinn alharin",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a maedjinn elzhan",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a maedjinn elzhin",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
 		
 		; Will have a series of mobs spawn followed by named
-		; 	Wait until 15 seconds have passed without combat
+		; 	Wait until 10 seconds have passed without combat or a mob spawning
 		Counter:Set[0]
-		while ${Counter:Inc} <= 150
+		while ${Counter:Inc} <= 100
 		{
-			if ${Me.InCombat}
+			if ${Me.InCombat} || ${Actor[Query,(Name=-"maedjinn" || Name=="${_NamedNPC}") && Type != "Corpse" && Distance <= 50].ID(exists)}
 				Counter:Set[0]
 			wait 1
 		}
@@ -331,6 +347,14 @@ objectdef Object_Instance
 	{
 		; Update KillSpot
 		KillSpot:Set[321.18,20.88,-356.00]
+		
+		; Pause Ogre
+		oc !ci -Pause igw:${Me.Name}
+		wait 3
+		; Clear ability queue
+		relay ${OgreRelayGroup} eq2execute clearabilityqueue
+		; Cancel anything currently being cast
+		oc !ci -CancelCasting igw:${Me.Name}
 		
 		; Hail Lyrissa Nostrolo
 		wait 20
@@ -353,6 +377,9 @@ objectdef Object_Instance
 			oc !ci -ConversationBubble igw:${Me.Name} "1"
 			wait 10
 		}
+		
+		; Resume Ogre
+		oc !ci -Resume igw:${Me.Name}
 		
 		; Wait for named to spawn
 		call move_to_next_waypoint "349.76,20.88,-356.28"

@@ -275,9 +275,6 @@ objectdef Object_Instance
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
 		call move_to_next_waypoint "${KillSpot}" "1"
 		
-		; Should be finished here and have enough kills to get the best reward, but have had issues with some kills not registering
-		; 	so continuing on to fill the final boss to make sure we have enough
-		
 		; Finished with named
 		return TRUE
 	}

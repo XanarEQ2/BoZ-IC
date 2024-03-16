@@ -16,7 +16,7 @@ Some notes about the IC files:
 
 - I disable "Smart Loot", then right before the last boss disable "Loot everything" so it pauses on No-Trade items like CBOC gear.  You can modify this behavior if you want in IC_Helper SetInitialInstanceSettings/SetLootForLastBoss.
 
-- My group when creating/testing these files was Zerker/Ranger/Dirge/Coercer/Fury/Mystic.  Solos were done with 3 sets of 2: Zerker+Dirge, Ranger+Fury, Coercer+Mystic.  I have not tried any other classes or using Mercenaries.  I tried to code things in a way that wasn't too specific to my group, but there are some class-specific sections of code that may need to be modified to support other classes.  Also if a group doesn't have range dps or requires positionals to dps there will probably be issues.
+- My group when creating/testing these files was initially Zerker/Ranger/Dirge/Coercer/Fury/Mystic, now SK/Ranger/Swash/Coercer/BL/Mystic.  Solos were done with 3 sets of 2 characters.  I have not tried any other classes or using Mercenaries.  I tried to code things in a way that wasn't too specific to my group, but there are some class-specific sections of code that may need to be modified to support other classes.  Also if a group doesn't have range dps or requires positionals to dps there will probably be issues.
 
 - I perform Archetype-specific immunity rune swapping for many fights in order to make them as reliable as possible.  The immunity runes will be put in the second slot (first purple slot) so if you have a double purple slot belt put the rune you want to keep in the last slot.
 

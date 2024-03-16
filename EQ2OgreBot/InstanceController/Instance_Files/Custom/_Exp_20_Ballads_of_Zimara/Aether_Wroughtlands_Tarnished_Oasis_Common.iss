@@ -1005,7 +1005,7 @@ objectdef Object_Instance
 				MarkerNum:Set[1]
 			; Move to Marker
 			Obj_OgreIH:ChangeCampSpot["${MarkerSpot[${MarkerNum}]}"]
-			call Obj_OgreUtilities.HandleWaitForCampSpot 10
+			call Obj_OgreUtilities.HandleWaitForCampSpot 20
 		}
 		Obj_OgreIH:ChangeCampSpot["-823.73,54.20,-425.53"]
 		call Obj_OgreUtilities.HandleWaitForCampSpot 10

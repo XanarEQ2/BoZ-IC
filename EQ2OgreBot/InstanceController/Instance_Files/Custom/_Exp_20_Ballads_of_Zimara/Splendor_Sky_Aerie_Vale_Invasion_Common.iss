@@ -278,10 +278,10 @@ objectdef Object_Instance
 		; Look for shinies
 		if !${Ogre_Instance_Controller.bSkipShinies}
 		{
-			call move_to_next_waypoint "-989.73,175.41,740.62"
-			call move_to_next_waypoint "-1011.02,176.60,704.50"
-			call move_to_next_waypoint "-1024.02,180.07,753.28"
-			call move_to_next_waypoint "-1043.16,178.05,695.55"
+			call move_to_next_waypoint "-989.73,175.41,740.62" "40"
+			call move_to_next_waypoint "-1011.02,176.60,704.50" "40"
+			call move_to_next_waypoint "-1024.02,180.07,753.28" "40"
+			call move_to_next_waypoint "-1043.16,178.05,695.55" "40"
 		}
 		
 		; Finished with named

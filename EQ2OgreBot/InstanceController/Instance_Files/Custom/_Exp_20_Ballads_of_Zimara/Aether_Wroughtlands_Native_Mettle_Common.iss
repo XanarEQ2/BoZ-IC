@@ -4,9 +4,15 @@ variable string HOHelperScript="HO_Helper"
 variable string MendRuneSwapHelperScript="EQ2OgreBot/InstanceController/Support_Files_Common/Mend_Rune_Swap_Helper"
 #include "${LavishScript.HomeDirectory}/Scripts/EQ2OgreBot/InstanceController/Support_Files_Common/IC_Helper.iss"
 
-; Custom variables
+; Custom variables for The Aurum Outlaw
 variable bool AuromQuickCurseIncoming=FALSE
 variable int AurumPhaseNum=1
+; Custom variables for Nugget
+variable bool ClustersSpawned=FALSE
+variable int AdditionalClusters=0
+variable bool StupendousSweepIncoming=FALSE
+variable bool NuggetStupendousSlamIncoming=FALSE
+variable bool NuggetAbsorbAndCrushArmorIncoming=FALSE
 
 #include "${LavishScript.HomeDirectory}/Scripts/EQ2OgreBot/InstanceController/Ogre_Instance_Include.iss"
 
@@ -64,10 +70,10 @@ objectdef Object_Instance
 		; Move to and kill Named 2
 		if ${_StartingPoint} == 2
 		{
-			call This.Named2 ""
+			call This.Named2 "Nugget"
 			if !${Return}
 			{
-				Obj_OgreIH:Message_FailedZone["#2: "]
+				Obj_OgreIH:Message_FailedZone["#2: Nugget"]
 				return FALSE
 			}
 			_StartingPoint:Inc
@@ -157,6 +163,9 @@ objectdef Object_Instance
 		; Swap to stifle immunity rune
 		call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
+		; Setup for named
+		call initialize_move_to_next_boss "${_NamedNPC}" "1"
+		
 		; Set custom settings for The Aurum Outlaw
 		call SetupAurom "TRUE"
 		
@@ -168,8 +177,7 @@ objectdef Object_Instance
 		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
 		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
 		
-		; Setup and move to named
-		call initialize_move_to_next_boss "${_NamedNPC}" "1"
+		; Move to named
 		call move_to_next_waypoint "883.28,203.71,-68.62"
 		; Enable PreCastTag to allow priest to setup wards before engaging first mob
 		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
@@ -198,7 +206,7 @@ objectdef Object_Instance
 		; Handle text events
 		Event[EQ2_onIncomingText]:AttachAtom[TheAurumOutlawIncomingText]
 		Event[EQ2_onIncomingChatText]:AttachAtom[TheAurumOutlawIncomingChatText]
-	
+		
 		; Pull Named
 		Ob_AutoTarget:Clear
 		oc ${Me.Name} is pulling ${_NamedNPC}
@@ -336,7 +344,7 @@ objectdef Object_Instance
 		; Detach Atoms
 		Event[EQ2_onIncomingText]:DetachAtom[TheAurumOutlawIncomingText]
 		Event[EQ2_onIncomingChatText]:DetachAtom[TheAurumOutlawIncomingChatText]
-	
+		
 		; Check named is dead
 		if ${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
 		{
@@ -361,7 +369,7 @@ objectdef Object_Instance
 		; Setup Cures
 		variable bool SetDisable
 		SetDisable:Set[!${EnableAurom}]
-		call SetupAurumCures "${SetDisable}"
+		call SetupAllCures "${SetDisable}"
 		; Set HO settings
 		call SetupAurumHO "${EnableAurom}"
 		; Setup class-specific HO abilities
@@ -369,19 +377,6 @@ objectdef Object_Instance
 		; Set Bulwark
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_bulwark_of_order ${EnableAurom} TRUE
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_bulwark_of_order_defensives ${EnableAurom} TRUE
-	}
-
-	function SetupAurumCures(bool EnableCures)
-	{
-		; Set Cast Stack Cure and Cure Curse
-		variable bool SetDisable
-		SetDisable:Set[!${EnableCures}]
-		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure ${SetDisable} TRUE
-		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_curecurse ${SetDisable} TRUE
-		; Setup class-specific abilities with cures attached
-		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Crusader's Judgement" ${EnableCures} TRUE
-		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Zealous Smite" ${EnableCures} TRUE
-		wait 1
 	}
 
 	function SetupAurumHO(bool EnableAurom)
@@ -575,7 +570,7 @@ objectdef Object_Instance
 			; Loop through bandits
 			do
 			{
-			   ; Get bandit Location, make sure it is valid
+				; Get bandit Location, make sure it is valid
 				BanditLoc:Set[${BanditIterator.Value.Loc}]
 				if ${BanditLoc.X}==0 && ${BanditLoc.Y}==0 && ${BanditLoc.Z}==0
 					continue
@@ -697,24 +692,772 @@ objectdef Object_Instance
 			wait 5
 		}
 		; Cancel Sprint on GroupCharacter
-		oc !c -CancelMaintainedForWho ${GroupCharacter} "Sprint"
+		oc !ci -CancelMaintainedForWho ${GroupCharacter} "Sprint"
 		; Clear PullBanditCharacter variable
-		oc !c -Set_Variable igw:${Me.Name} "PullBanditCharacter" "None"
+		oc !ci -Set_Variable igw:${Me.Name} "PullBanditCharacter" "None"
 	}
 
 /**********************************************************************************************************
- 	Named 2 ********************    Move to, spawn and kill - ???  ****************************
+ 	Named 2 ********************    Move to, spawn and kill - Nugget  *************************************
 ***********************************************************************************************************/
 
+	; Setup Variables needed outside Named2 function
+	variable bool NuggetExists
+	variable string GroupMembers[6]
+	variable point3f OreSpot[25]
+	variable int OreNum
+	variable int TargetAurumCount[5]
+	variable point3f UnearthedSpot[8]
+	
 	function:bool Named2(string _NamedNPC="Doesnotexist")
 	{
+		; Update KillSpot (if changing, make sure to change in Helper code as well)
+		KillSpot:Set[752.10,200.11,156.93]
+		
 		; Undo The Aurum Outlaw custom settings
 		call SetupAurom "FALSE"
 		
-		; End ZoneHelperScript
+		; Setup Variables
+		variable int GroupNum
+		variable int Counter
+		variable point3f NuggetLoc
+		variable point3f TreeSpot[5]
+		variable string CharacterTree[5]
+		variable int NuggetCheckCount
+		variable float FighterNamedOffset
+		
+		; Get GroupMembers
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			GroupMembers[${GroupNum}]:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		GroupMembers[6]:Set["${Me.Name}"]
+	
+		; Update TreeSpots
+		TreeSpot[1]:Set[721.81,201.65,191.29]
+		TreeSpot[2]:Set[777.72,203.99,162.75]
+		TreeSpot[3]:Set[797.06,203.15,161.76]
+		TreeSpot[4]:Set[737.85,204.26,90.90]
+		TreeSpot[5]:Set[690.42,199.91,136.58]
+		
+		; Assign characters to trees
+		; 	Assume this character is a fighter and doesn't need a tree
+		; 	Start with priests to keep them close to center
+		Counter:Set[0]
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["priest"]}
+				CharacterTree[${Counter:Inc}]:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if !${Return.Equal["priest"]} && !${Return.Equal["fighter"]}
+				CharacterTree[${Counter:Inc}]:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		
+		; Assign Target Aurum Count
+		; 	This character will have a count of 1
+		; 	Then set as 2 3 4 6 9 (25 total aurum clusters exist, assume a full group of 6 characters)
+		Counter:Set[2]
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["priest"]}
+			{
+				TargetAurumCount[${GroupNum}]:Set[${Counter}]
+				if ${Counter:Inc} == 5
+					Counter:Inc
+				elseif ${Counter} == 7
+					Counter:Inc[2]
+			}
+		}
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if !${Return.Equal["priest"]}
+			{
+				TargetAurumCount[${GroupNum}]:Set[${Counter}]
+				if ${Counter:Inc} == 5
+					Counter:Inc
+				elseif ${Counter} == 7
+					Counter:Inc[2]
+			}
+		}
+		; Set TargetAurumCount variable value for each group member
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}TargetAurumCount" "1"
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}TargetAurumCount" "${TargetAurumCount[${GroupNum}]}"
+		}
+		wait 1
+		
+		; Update OreSpots
+		OreSpot[1]:Set[730.52,218.29,-5.34]
+		OreSpot[2]:Set[726.07,215.54,40.51]
+		OreSpot[3]:Set[731.57,205.00,84.24]
+		OreSpot[4]:Set[726.74,200.35,116.97]
+		OreSpot[5]:Set[741.46,200.14,115.16]
+		OreSpot[6]:Set[746.32,200.08,141.34]
+		OreSpot[7]:Set[758.23,200.41,135.69]
+		OreSpot[8]:Set[785.39,203.66,165.01]
+		OreSpot[9]:Set[794.40,203.59,156.01]
+		OreSpot[10]:Set[769.92,205.42,200.81]
+		OreSpot[11]:Set[769.60,209.89,211.55]
+		OreSpot[12]:Set[750.81,208.95,207.50]
+		OreSpot[13]:Set[728.09,200.06,183.93]
+		OreSpot[14]:Set[735.41,200.94,168.37]
+		OreSpot[15]:Set[737.78,200.43,152.51]
+		OreSpot[16]:Set[729.88,201.31,152.77]
+		OreSpot[17]:Set[710.29,202.13,149.11]
+		OreSpot[18]:Set[680.57,200.19,152.08]
+		OreSpot[19]:Set[693.47,199.95,139.30]
+		OreSpot[20]:Set[707.18,202.67,95.88]
+		OreSpot[21]:Set[707.71,205.69,76.67]
+		OreSpot[22]:Set[685.31,201.95,81.48]
+		OreSpot[23]:Set[694.82,202.58,88.46]
+		OreSpot[24]:Set[680.09,208.35,52.73]
+		OreSpot[25]:Set[680.91,214.70,5.60]
+		
+		; Update UnearthedSpots
+		UnearthedSpot[1]:Set[${KillSpot}]
+		UnearthedSpot[2]:Set[751.50,200.10,176.17]
+		UnearthedSpot[3]:Set[724.49,200.07,174.85]
+		UnearthedSpot[4]:Set[690.77,200.43,155.08]
+		UnearthedSpot[5]:Set[701.66,199.38,122.64]
+		UnearthedSpot[6]:Set[686.26,200.91,88.73]
+		UnearthedSpot[7]:Set[706.82,205.32,65.62]
+		UnearthedSpot[8]:Set[737.48,200.59,108.64]
+		
+		; Setup for named
+		call initialize_move_to_next_boss "${_NamedNPC}" "2"
+		
+		; Set custom settings for Nugget
+		call SetupNugget "TRUE"
+		
+		; Run HOHelperScript to help complete HO's
+		; 	In this fight don't actually need it to help complete HO's, but it does disable Ascension abilities
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript} "InZone"
+		
+		; Run ZoneHelperScript to handle dealing with named
 		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
 		
+		; Move to named
+		call move_to_next_waypoint "762.34,214.57,-64.10"
+		call move_to_next_waypoint "730.52,218.29,-5.34"
 		
+		; Check if already killed
+		call CheckNuggetExists
+		if !${NuggetExists}
+		{
+			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]
+			call move_to_next_waypoint "707.13,213.49,28.45"
+			call move_to_next_waypoint "728.60,204.25,91.12"
+			call move_to_next_waypoint "${KillSpot}"
+			return TRUE
+		}
+		
+		; Mine ore as long as aurum clusters exist or OreNum is not 1
+		OreNum:Set[1]
+		while ${Actor[Query, Name == "aurum cluster"].ID(exists)} || ${OreNum} != 1
+		{
+			call MineOreSpot
+			; Wait a second before looping
+			wait 10
+		}
+		
+		; Handle text events
+		Event[EQ2_onIncomingText]:AttachAtom[NuggetIncomingText]
+		Event[EQ2_onIncomingChatText]:AttachAtom[NuggetIncomingChatText]
+		Event[EQ2_onAnnouncement]:AttachAtom[NuggetAnnouncement]
+		
+		; Wait until Nugget not within 40m of path to KillSpot
+		; 	Don't want to aggro early and have a hard time curing Flecks from all characters before handling additional scripts
+		variable bool ReadyForPull=FALSE
+		while !${ReadyForPull}
+		{
+			; Get Location of Nugget
+			NuggetLoc:Set[${Actor[Query,Name=="Nugget" && Type != "Corpse"].Loc}]
+			if ${NuggetLoc.X}!=0 || ${NuggetLoc.Y}!=0 || ${NuggetLoc.Z}!=0
+			{
+				if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},707.13,28.45]} > 40
+					if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},728.60,91.12]} > 40
+						if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},${KillSpot.X},${KillSpot.Z}]} > 40
+							ReadyForPull:Set[TRUE]
+			}
+		}
+		
+		; Enable PreCastTag to allow priest to setup wards before engaging Named
+		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
+		wait 60
+		
+		; Pull Named
+		Ob_AutoTarget:Clear
+		Ob_AutoTarget:AddActor["a gleaming goldslug",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
+		oc ${Me.Name} is pulling ${_NamedNPC}
+		Obj_OgreIH:ChangeCampSpot["707.13,213.49,28.45"]
+		call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		Obj_OgreIH:ChangeCampSpot["728.60,204.25,91.12"]
+		call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		Obj_OgreIH:ChangeCampSpot["${KillSpot}"]
+		call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		while ${NuggetExists} && !${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse" && Distance <= 10].ID(exists)}
+		{
+			Actor["${_NamedNPC}"]:DoTarget
+			oc !ci -PetOff igw:${Me.Name}
+			wait 30
+			; Update NuggetExists
+			call CheckNuggetExists
+		}
+		; Kill named
+		oc !ci -PetAssist igw:${Me.Name}
+		NuggetCheckCount:Set[0]
+		while ${NuggetExists}
+		{
+			; Handle Absorb and Crush Armor
+			; 	Nugget begins to absorb your armor, and will soon crush them unless interrupted somehow!
+			; 	Named will cast an ability that disarms armor on non-fighters and needs to be interrupted
+			; 	If not interrupted, will destroy some of your ore and disarmed armor, and likely wipe the group
+			; 	Have fighter complete an HO to interrupt it
+			; 		The reason specifically calling out abilities here is because the window to complete the HO can
+			; 		be very tight at the end and the default method of doing HO's just wasn't reliably quick enough
+			if ${NuggetAbsorbAndCrushArmorIncoming}
+			{
+				; Pause Ogre
+				oc !ci -Pause igw:${Me.Name}
+				wait 1
+				; Clear ability queue
+				relay ${OgreRelayGroup} eq2execute clearabilityqueue
+				wait 1
+				; Cancel anything currently being cast
+				oc !ci -CancelCasting igw:${Me.Name}
+				wait 5
+				; Cast Fighting Chance to bring up HO window
+				oc !ci -CastAbility igw:${Me.Name}+fighter "Fighting Chance"
+				wait 1
+				; Wait for HO window to pop up (up to 2 seconds)
+				Counter:Set[0]
+				while ${EQ2.HOWindowState} != 2 && ${Counter:Inc} <= 20
+				{
+					wait 1
+				}
+				; Cast Ability to start HO
+				oc !ci -CastAbility igw:${Me.Name}+shadowknight "Siphon Strike"
+				oc !ci -CastAbility igw:${Me.Name}+berserker "Rupture"
+				wait 8
+				; Cast Ability to complete HO
+				oc !ci -CastAbility igw:${Me.Name}+shadowknight "Hateful Slam"
+				oc !ci -CastAbility igw:${Me.Name}+berserker "Body Check"
+				wait 8
+				; Resume Ogre
+				oc !ci -Resume igw:${Me.Name}
+				; Wait for Absorb and Crush Armor to be cast (up to 10 seconds)
+				Counter:Set[0]
+				while ${NuggetAbsorbAndCrushArmorIncoming} && ${Counter:Inc} <= 100
+				{
+					wait 1
+				}
+				; Set Absorb and Crush Armor as handled
+				NuggetAbsorbAndCrushArmorIncoming:Set[FALSE]
+			}
+			; Handle Stupendous Slam (ID: 1177407465, Time = 3 sec)
+			; 	Get message "Quick! Hold onto something! But not the same thing as anyone else!"
+			; 	Named will cast a very large knockback that will most likely wipe the group
+			; 	To avoid, have characters move to a tree and "Hold on!" giving them a temporary detrimental that roots them and prevents the knockback
+			;		Holding on tight (MainIconID: 187, BackDropIconID 187)
+			; 	Fighter will get message "As a fighter, you shrug off the attempted knock up.", so they don't need to move for this
+			if ${NuggetStupendousSlamIncoming}
+			{
+				; Send characters with the longest travel time out as soon as they don't need Flecks cured
+				; 	Want to do this before sending people out to trees as they can die if they still have the detrimental
+				while ${OgreBotAPI.Get_Variable["${CharacterTree[4]}NeedsFlecksCure"].Equal["TRUE"]}
+				{
+					wait 1
+				}
+				oc !ci -ChangeCampSpotWho ${CharacterTree[4]} ${TreeSpot[4].X} ${TreeSpot[4].Y} ${TreeSpot[4].Z}
+				while ${OgreBotAPI.Get_Variable["${CharacterTree[5]}NeedsFlecksCure"].Equal["TRUE"]}
+				{
+					wait 1
+				}
+				oc !ci -ChangeCampSpotWho ${CharacterTree[5]} ${TreeSpot[5].X} ${TreeSpot[5].Y} ${TreeSpot[5].Z}
+				
+				; Wait for Flecks of Regret detrimental to be cured from everyone else that needs it
+				call WaitForFlecksCure
+				; Send remaining characters to Trees (keeping tank near the Priest)
+				oc !ci -ChangeCampSpotWho ${Me.Name} ${TreeSpot[1].X} ${TreeSpot[1].Y} ${TreeSpot[1].Z}
+				oc !ci -ChangeCampSpotWho ${CharacterTree[1]} ${TreeSpot[1].X} ${TreeSpot[1].Y} ${TreeSpot[1].Z}
+				oc !ci -ChangeCampSpotWho ${CharacterTree[2]} ${TreeSpot[2].X} ${TreeSpot[2].Y} ${TreeSpot[2].Z}
+				oc !ci -ChangeCampSpotWho ${CharacterTree[3]} ${TreeSpot[3].X} ${TreeSpot[3].Y} ${TreeSpot[3].Z}
+				; Wait for Stupendous Slam to be cast (up to 10 seconds)
+				Counter:Set[0]
+				while ${NuggetStupendousSlamIncoming} && ${Counter:Inc} <= 100
+				{
+					wait 1
+				}
+				; Bring characters back to KillSpot
+				oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+				; Set Stupendous Slam as handled
+				NuggetStupendousSlamIncoming:Set[FALSE]
+			}
+			; Handle Stupendous Sweep
+			; 	Ability casting ID 9122154, time = 4 sec
+			; 	Frontal AoE with a knockback and detriments
+			; 	May also aggro adds in the bushes if hit by the spell
+			if ${StupendousSweepIncoming}
+			{
+				; Want fighter in front of named and rest of group in back, but first want the named looking at direction without a bush in the line of fire
+				; 	Heading 150 should get it pointed in a good direction from KillSpot
+				FighterNamedOffset:Set[150 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
+				call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+				FighterNamedOffset:Inc[180]
+				call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+				wait 20
+				; Wait until sweep is about to go off, then send fighter to side to joust it (wait up to 6 seconds)
+				Counter:Set[0]
+				while ${Counter:Inc} <= 20 || (${Me.GetGameData["Target.Casting"].Percent} > 0 && ${Counter} <= 60)
+				{
+					; Move fighter to side when sweep >= 70% cast
+					if ${Me.GetGameData["Target.Casting"].Percent} >= 70
+					{
+						FighterNamedOffset:Set[90]
+						call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+					}
+					; Otherwise if not >= 50% cast reposition again just to make sure
+					elseif !${Me.GetGameData["Target.Casting"].Percent} >= 50
+					{
+						FighterNamedOffset:Set[150 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
+						call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+						FighterNamedOffset:Inc[180]
+						call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+						wait 5
+					}
+					wait 1
+				}
+				; Move everyone back to KillSpot when finished
+				Counter:Set[0]
+				while ${Counter:Inc} <= 10 && !${NuggetAbsorbAndCrushArmorIncoming}
+				{
+					wait 1
+				}
+				oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+				; Set Stupendous Sweep as handled
+				StupendousSweepIncoming:Set[FALSE]
+			}
+			; Check to see if new unearthed aurum clusters have spawned
+			; 	Nugget buries itself into the ground, unearthing 2 aurum clusters around the Giltglen!
+			if ${ClustersSpawned}
+			{
+				; Mine new unearthed aurum clusters
+				call MineUnearthedClusters
+				; Handled ClustersSpawned
+				ClustersSpawned:Set[FALSE]
+			}
+			; Short wait before looping (to respond as quickly as possible to events)
+			wait 1
+			; Update NuggetExists every 3 seconds
+			if ${NuggetCheckCount:Inc} >= 30
+			{
+				call CheckNuggetExists
+				NuggetCheckCount:Set[0]
+			}
+		}
+		
+		; Detach Atoms
+		Event[EQ2_onIncomingText]:DetachAtom[NuggetIncomingText]
+		Event[EQ2_onIncomingChatText]:DetachAtom[NuggetIncomingChatText]
+		Event[EQ2_onAnnouncement]:DetachAtom[NuggetAnnouncement]
+		
+		; Check named is dead
+		if ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID(exists)}
+		{
+			Obj_OgreIH:Message_FailedToKill["${_NamedNPC}"]
+			return FALSE
+		}
+		
+		; Get Chest
+		eq2execute summon
+		wait 10
+		call Obj_OgreIH.Get_Chest
+		
+		; Send all characters back to KillSpot after fight
+		call move_to_next_waypoint "${KillSpot}" "1"
+		
+		; Finished with named
+		return TRUE
+	}
+
+	function SetupNugget(bool EnableNugget)
+	{
+		; Setup Cures
+		variable bool SetDisable
+		SetDisable:Set[!${EnableNugget}]
+		call SetupAllCures "${SetDisable}"
+		; Set HO settings
+		call SetupNuggetHO "${EnableNugget}"
+		; Setup Interrupts (don't want to interrupt All Mine when cast or will soft lock the fight)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts ${EnableNugget} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Daring Advance" ${SetDisable} TRUE
+		wait 1
+		if ${EnableNugget}
+			oc !ci -CancelMaintainedForWho igw:${Me.Name}+swashbuckler "Daring Advance"
+	}
+
+	function SetupNuggetHO(bool EnableNugget)
+	{
+		; Setup general HO settings
+		if ${EnableNugget}
+		{
+			; Disable HO Start/Starter/Wheel on all characters
+			oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_start FALSE TRUE
+			oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
+			oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
+		}
+		else
+			call SetInitialHOSettings
+		; Setup class-specific abilities to use during HO's
+		; 	Don't want these abilities to be on a cool down when trying to use them
+		variable bool SetDisable
+		SetDisable:Set[!${EnableNugget}]
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Siphon Strike" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Hateful Slam" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Rupture" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Body Check" ${SetDisable} TRUE
+		; Disable Walk the Plank, don't want Nugget potentially facing the wrong direction during a sweep
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Walk the Plank" ${SetDisable} TRUE
+	}
+
+	function CheckNuggetExists()
+	{
+		; Assume NuggetExists if in Combat
+		if ${Me.InCombat}
+		{
+			NuggetExists:Set[TRUE]
+			return
+		}
+		; Have seen him disappear briefly even when not killed, so repeat check multiple times just to make sure he is actually gone
+		variable int Counter=0
+		while ${Counter:Inc} <= 5
+		{
+			; Check to see if Nugget exists
+			if ${Actor[Query,Name=="Nugget" && Type != "Corpse"].ID(exists)}
+			{
+				NuggetExists:Set[TRUE]
+				return
+			}
+		}
+		; Nugget not found
+		NuggetExists:Set[FALSE]
+	}
+	
+	function MineOreSpot()
+	{
+		; Get Location of Nugget (try up to 3 times if get Location failed)
+		variable point3f NuggetLoc
+		NuggetLoc:Set[${Actor[Query,Name=="Nugget" && Type != "Corpse"].Loc}]
+		if ${NuggetLoc.X}==0 && ${NuggetLoc.Y}==0 && ${NuggetLoc.Z}==0
+		{
+			wait 10
+			NuggetLoc:Set[${Actor[Query,Name=="Nugget" && Type != "Corpse"].Loc}]
+		}
+		if ${NuggetLoc.X}==0 && ${NuggetLoc.Y}==0 && ${NuggetLoc.Z}==0
+		{
+			wait 10
+			NuggetLoc:Set[${Actor[Query,Name=="Nugget" && Type != "Corpse"].Loc}]
+		}
+		; Get Next/Current/Previous OreSpots
+		variable int NextOreNum
+		variable int PreviousOreNum
+		NextOreNum:Set[${OreNum}+1]
+		if ${NextOreNum} > ${OreSpot.Size}
+			NextOreNum:Set[1]
+		PreviousOreNum:Set[${OreNum}-1]
+		if ${PreviousOreNum} < 1
+			PreviousOreNum:Set[${OreSpot.Size}]
+		variable point3f NextOreSpot
+		variable point3f CurrentOreSpot
+		variable point3f PreviousOreSpot
+		NextOreSpot:Set[${OreSpot[${NextOreNum}]}]
+		CurrentOreSpot:Set[${OreSpot[${OreNum}]}]
+		PreviousOreSpot:Set[${OreSpot[${PreviousOreNum}]}]
+		; Calculate Distance of Nugget from each OreSpot
+		variable float NextDistance
+		variable float CurrentDistance
+		variable float PreviousDistance
+		NextDistance:Set[${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},${NextOreSpot.X},${NextOreSpot.Z}]}]
+		CurrentDistance:Set[${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},${CurrentOreSpot.X},${CurrentOreSpot.Z}]}]
+		PreviousDistance:Set[${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},${PreviousOreSpot.X},${PreviousOreSpot.Z}]}]
+		; If Nugget not within 50m of NextOreSpot, move to NextOreSpot
+		if ${NextDistance} > 50
+		{
+			OreNum:Set[${NextOreNum}]
+			Obj_OgreIH:ChangeCampSpot["${NextOreSpot}"]
+			call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		}
+		; Otherwise if Nugget within 40m of current OreSpot, move to either Next/PreviousOreSpot if either has a greater distance
+		elseif ${CurrentDistance} < 40
+		{
+			if ${NextDistance} > ${CurrentDistance}
+			{
+				OreNum:Set[${NextOreNum}]
+				Obj_OgreIH:ChangeCampSpot["${NextOreSpot}"]
+				call Obj_OgreUtilities.HandleWaitForCampSpot 10
+			}
+			elseif ${PreviousDistance} > ${CurrentDistance}
+			{
+				OreNum:Set[${PreviousOreNum}]
+				Obj_OgreIH:ChangeCampSpot["${PreviousOreSpot}"]
+				call Obj_OgreUtilities.HandleWaitForCampSpot 10
+			}
+		}
+		; Wait for any aurum cluster within 8m to be mined (up to 20 seconds)
+		variable int Counter
+		Counter:Set[0]
+		while ${Actor[Query, Name == "aurum cluster" && Distance < 8].ID(exists)} && ${Counter:Inc} <= 20
+		{
+			; Break out of loop early if Nugget gets within 40m
+			if ${Actor[Query,Name=="Nugget" && Type != "Corpse" && Distance < 40].ID(exists)}
+				break
+			; Wait a second before looping
+			wait 10
+		}
+	}
+	
+	function MineUnearthedClusters()
+	{
+		; Setup Variables
+		variable int GroupNum
+		variable int Counter
+		variable int MaxAurumCountGroupNum
+		variable bool TargetAurumCountUpdated[5]
+		variable int UnearthedNum=1
+		variable index:actor Unearthed
+		variable iterator UnearthedIterator
+		variable actor ClosestUnearthed
+		variable point3f UnearthedLoc
+		variable int ClosestUnearthedNum
+		variable int UnearthedForwardSteps
+		variable int UnearthedBackwardSteps
+		variable int UnearthedMoveInc
+		variable bool FoundCluster=TRUE
+		variable bool NeedsFlecksCure
+		
+		; Add AdditionalClusters to TargetAurumCount
+		while ${AdditionalClusters} > 0
+		{
+			; Loop through TargetAurumCount, searching for highest count that has not already been updated
+			GroupNum:Set[0]
+			MaxAurumCountGroupNum:Set[0]
+			while ${GroupNum:Inc} < ${Me.GroupCount}
+			{
+				; Skip if TargetAurumCountUpdated
+				if ${TargetAurumCountUpdated[${GroupNum}]}
+					continue
+				; Set MaxAurumCountGroupNum if 0
+				elseif ${MaxAurumCountGroupNum} == 0
+					MaxAurumCountGroupNum:Set[${GroupNum}]
+				; Set MaxAurumCountGroupNum if TargetAurumCount is higher
+				elseif ${TargetAurumCount[${GroupNum}]} > ${TargetAurumCount[${MaxAurumCountGroupNum}]}
+					MaxAurumCountGroupNum:Set[${GroupNum}]
+			}
+			; Update TargetAurumCount for MaxAurumCountGroupNum
+			TargetAurumCount[${MaxAurumCountGroupNum}]:Inc
+			oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${MaxAurumCountGroupNum}].Name}TargetAurumCount" "${TargetAurumCount[${MaxAurumCountGroupNum}]}"
+			TargetAurumCountUpdated[${MaxAurumCountGroupNum}]:Set[TRUE]
+			; Decrement AdditionalClusters
+			AdditionalClusters:Dec
+		}
+		; Make sure clusters have spawned (wait up to 5 seconds)
+		Counter:Set[0]
+		while !${Actor[Query, Name == "unearthed aurum cluster"].ID(exists)} && ${Counter:Inc} <= 50
+		{
+			wait 1
+		}
+		; Handle unearthed aurum cluster until they no longer exist
+		while ${FoundCluster}
+		{
+			; Clear ClosestUnearthed and FoundCluster
+			ClosestUnearthed:Set[0]
+			FoundCluster:Set[FALSE]
+			; Search for all unearthed aurum clusters
+			EQ2:QueryActors[Unearthed, Name == "unearthed aurum cluster"]
+			Unearthed:GetIterator[UnearthedIterator]
+			if ${UnearthedIterator:First(exists)}
+			{
+				; Loop through clusters
+				do
+				{
+					; Update ClosestUnearthed if not set or cluster is closer
+					; 	Want to mine the closer clusters first to minimize chance of pulling extra slugs on the way to a cluster
+					if ${ClosestUnearthed.ID} == 0 || ${Math.Distance[${UnearthedIterator.Value.X},${UnearthedIterator.Value.Z},${Me.X},${Me.Z}]} < ${Math.Distance[${ClosestUnearthed.X},${ClosestUnearthed.Z},${Me.X},${Me.Z}]}
+						ClosestUnearthed:Set[${UnearthedIterator.Value.ID}]
+				}
+				while ${UnearthedIterator:Next(exists)}
+			}
+			; Make sure a cluster was found
+			if ${ClosestUnearthed.ID} != 0
+			{
+				; Set FoundCluster = TRUE
+				FoundCluster:Set[TRUE]
+				; Get cluster Location, make sure it is valid
+				UnearthedLoc:Set[${ClosestUnearthed.Loc}]
+				if ${UnearthedLoc.X}!=0 || ${UnearthedLoc.Y}!=0 || ${UnearthedLoc.Z}!=0
+				{
+					; Loop through each UnearthedSpot, see which is closest to cluster
+					ClosestUnearthedNum:Set[1]
+					Counter:Set[1]
+					while ${Counter:Inc} <= ${UnearthedSpot.Size}
+					{
+						if ${Math.Distance[${UnearthedLoc.X},${UnearthedLoc.Z},${UnearthedSpot[${Counter}].X},${UnearthedSpot[${Counter}].Z}]} < ${Math.Distance[${UnearthedLoc.X},${UnearthedLoc.Z},${UnearthedSpot[${ClosestUnearthedNum}].X},${UnearthedSpot[${ClosestUnearthedNum}].Z}]}
+							ClosestUnearthedNum:Set[${Counter}]
+					}
+					; Figure out if we can get from UnearthedNum to ClosestUnearthedNum faster moving in forward or backward direction looping through UnearthedSpots
+					UnearthedForwardSteps:Set[0]
+					Counter:Set[${UnearthedNum}]
+					while ${Counter} != ${ClosestUnearthedNum}
+					{
+						Counter:Inc
+						if ${Counter} > ${UnearthedSpot.Size}
+							Counter:Set[1]
+						UnearthedForwardSteps:Inc
+					}
+					UnearthedBackwardSteps:Set[0]
+					Counter:Set[${UnearthedNum}]
+					while ${Counter} != ${ClosestUnearthedNum}
+					{
+						Counter:Dec
+						if ${Counter} < 1
+							Counter:Set[${UnearthedSpot.Size}]
+						UnearthedBackwardSteps:Inc
+					}
+					; Set UnearthedMoveInc to move forward or backward
+					UnearthedMoveInc:Set[1]
+					if ${UnearthedBackwardSteps} < ${UnearthedForwardSteps}
+						UnearthedMoveInc:Set[-1]
+					; Move between UnearthedSpots to get to ClosestUnearthedNum
+					while ${UnearthedNum} != ${ClosestUnearthedNum}
+					{
+						; Update UnearthedNum
+						UnearthedNum:Inc[${UnearthedMoveInc}]
+						if ${UnearthedNum} > ${UnearthedSpot.Size}
+							UnearthedNum:Set[1]
+						elseif ${UnearthedNum} < 1
+							UnearthedNum:Set[${UnearthedSpot.Size}]
+						; Check to make sure not in combat with a gleaming goldslug, otherwise wait to kill it before moving
+						while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0].ID(exists)}
+						{
+							wait 10
+						}
+						; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
+						while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
+						{
+							wait 10
+						}
+						; Move to new UnearthedSpot
+						Obj_OgreIH:ChangeCampSpot["${UnearthedSpot[${UnearthedNum}]}"]
+						call Obj_OgreUtilities.HandleWaitForCampSpot 10
+					}
+					; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
+					while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
+					{
+						wait 10
+					}
+					; Move from UnearthedSpot to cluster, but stop just short of it
+					; 	Clusters can spawn right by bushes, so don't want to potentially run into a bush and get adds
+					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "5"
+					Obj_OgreIH:ChangeCampSpot["${Return}"]
+					call Obj_OgreUtilities.HandleWaitForCampSpot 10
+					; Wait as long as cluster exists (up to 60 seconds)
+					Counter:Set[0]
+					while ${ClosestUnearthed.ID(exists)} && ${Counter:Inc} <= 600
+					{
+						wait 1
+					}
+					; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
+					while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
+					{
+						wait 10
+					}
+					; Move back to UnearthedSpot
+					Obj_OgreIH:ChangeCampSpot["${UnearthedSpot[${UnearthedNum}]}"]
+					call Obj_OgreUtilities.HandleWaitForCampSpot 10
+				}
+			}
+		}
+		; Figure out if we can get UnearthedNum back to 1 faster moving in forward or backward direction looping through UnearthedSpots
+		UnearthedForwardSteps:Set[0]
+		Counter:Set[${UnearthedNum}]
+		while ${Counter} != 1
+		{
+			Counter:Inc
+			if ${Counter} > ${UnearthedSpot.Size}
+				Counter:Set[1]
+			UnearthedForwardSteps:Inc
+		}
+		UnearthedBackwardSteps:Set[0]
+		Counter:Set[${UnearthedNum}]
+		while ${Counter} != 1
+		{
+			Counter:Dec
+			if ${Counter} < 1
+				Counter:Set[${UnearthedSpot.Size}]
+			UnearthedBackwardSteps:Inc
+		}
+		; Set UnearthedMoveInc to move forward or backward
+		UnearthedMoveInc:Set[1]
+		if ${UnearthedBackwardSteps} < ${UnearthedForwardSteps}
+			UnearthedMoveInc:Set[-1]
+		; Move between UnearthedSpots to get back to 1 (which is KillSpot)
+		while ${UnearthedNum} != 1
+		{
+			; Update UnearthedNum
+			UnearthedNum:Inc[${UnearthedMoveInc}]
+			if ${UnearthedNum} > ${UnearthedSpot.Size}
+				UnearthedNum:Set[1]
+			elseif ${UnearthedNum} < 1
+				UnearthedNum:Set[${UnearthedSpot.Size}]
+			; Move to new UnearthedSpot
+			Obj_OgreIH:ChangeCampSpot["${UnearthedSpot[${UnearthedNum}]}"]
+			call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		}
+	}
+
+	function WaitForFlecksCure()
+	{
+		; Wait for Flecks of Regret detrimental to be cured from everyone that needs it
+		; 	Wait up to 10 seconds
+		variable bool NeedsFlecksCure=TRUE
+		variable int Counter=0
+		while ${NeedsFlecksCure} && ${Counter:Inc} <= 20
+		{
+			; Check to see if anyone NeedsFlecksCure
+			call CheckNeedsFlecksCure
+			NeedsFlecksCure:Set[${Return}]
+			; Short wait before looping again
+			wait 5
+		}
+	}
+
+	function CheckNeedsFlecksCure()
+	{
+		; Check to see if anyone NeedsFlecksCure
+		variable int GroupNum=0
+		while ${GroupNum:Inc} <= ${GroupMembers.Size}
+		{
+			; Return TRUE if NeedsFlecksCure is TRUE
+			if ${OgreBotAPI.Get_Variable["${GroupMembers[${GroupNum}]}NeedsFlecksCure"].Equal["TRUE"]}
+				return TRUE
+		}
+		; No one needs Flecks Cure
 		return FALSE
 	}
 
@@ -724,6 +1467,12 @@ objectdef Object_Instance
 
 	function:bool Named3(string _NamedNPC="Doesnotexist")
 	{
+		; Update KillSpot
+		KillSpot:Set[0,0,0]
+		
+		; Undo Nugget custom settings
+		call SetupNugget "FALSE"
+		
 		return FALSE
 	}
 
@@ -742,6 +1491,11 @@ objectdef Object_Instance
 
 	function:bool Named5(string _NamedNPC="Doesnotexist")
 	{
+		
+		
+		; Set Loot settings for last boss
+		call SetLootForLastBoss
+		
 		return FALSE
 	}
 }
@@ -771,4 +1525,57 @@ atom TheAurumOutlawIncomingChatText(int ChatType, string Message, string Speaker
 	
 	; Debug text to see messages
 	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
+}
+
+atom NuggetIncomingText(string Text)
+{
+	; Look for message that Stupendous Slam has been cast
+	if ${Text.Find["As a fighter, you shrug off the attempted knock up."]}
+		NuggetStupendousSlamIncoming:Set[FALSE]
+	; Look for message that Stupendous Slam is incoming
+	elseif ${Text.Find["Hold on tight!"]}
+		NuggetStupendousSlamIncoming:Set[TRUE]
+	; Look for message that Absorb and Crush Armor is incoming
+	; Nugget begins to absorb your armor, and will soon crush them unless interrupted somehow!
+	; Nugget begins to absorb your armor, and will crush them sooner than before!
+	elseif ${Text.Find["Nugget begins to absorb your armor"]}
+		NuggetAbsorbAndCrushArmorIncoming:Set[TRUE]
+}
+
+atom NuggetIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
+{
+	; Look for message that 2 unearthed aurum clusters have spawned
+	if ${Message.Find["buries itself into the ground, unearthing 2 aurum clusters around the Giltglen!"]}
+	{
+		ClustersSpawned:Set[TRUE]
+		AdditionalClusters:Set[2]
+	}
+	; Look for message that 3 unearthed aurum clusters have spawned
+	elseif ${Message.Find["buries itself into the ground, unearthing 3 aurum clusters around the Giltglen!"]}
+	{
+		ClustersSpawned:Set[TRUE]
+		AdditionalClusters:Set[3]
+	}
+	; Look for message that 4 unearthed aurum clusters have spawned
+	elseif ${Message.Find["buries itself into the ground, unearthing 4 aurum clusters around the Giltglen!"]}
+	{
+		ClustersSpawned:Set[TRUE]
+		AdditionalClusters:Set[4]
+	}
+	; Look for Stupendous Sweep being cast
+	elseif ${Message.Find["plants itself and prepares to sweep away everyone in front of it!"]}
+		StupendousSweepIncoming:Set[TRUE]
+	; Look for message that Absorb and Crush Armor has been interrupted
+	elseif ${Message.Find["is interrupted by a successful Heroic Opportunity initiated by Fighting Chance! Your armor returns!"]}
+		NuggetAbsorbAndCrushArmorIncoming:Set[FALSE]
+	
+	; Debug text to see messages
+	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
+}
+
+atom NuggetAnnouncement(string Text, string SoundType, float Timer)
+{
+	; Look for message that Stupendous Slam is incoming
+	if ${Text.Find["Quick! Hold onto something! But not the same thing as anyone else!"]}
+		NuggetStupendousSlamIncoming:Set[TRUE]
 }

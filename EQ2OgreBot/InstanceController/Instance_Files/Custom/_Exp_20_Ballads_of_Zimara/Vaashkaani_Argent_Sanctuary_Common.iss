@@ -269,7 +269,7 @@ objectdef Object_Instance
 					oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				}
 				; Wait before looping again
-				Wait 30
+				Wait 10
 			}
 		}
 		

@@ -23,7 +23,6 @@ function SetInitialInstanceSettings()
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions TRUE TRUE
 	; Cast Stack
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_curecurse FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_ca FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_namedca FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_items FALSE TRUE
@@ -49,8 +48,9 @@ function SetupAllCures(bool EnableCures)
 	variable bool SetCastStack
 	SetCastStack:Set[!${EnableCures}]
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure ${SetCastStack} TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_curecurse ${SetCastStack} TRUE
+	; Setup class-specific abilities with cures attached
 	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Crusader's Judgement" ${EnableCures} TRUE
-	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Doom Judgment" ${EnableCures} TRUE
 	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Zealous Smite" ${EnableCures} TRUE
 }
 
@@ -217,23 +217,45 @@ function CheckGroupSetup()
 
 function CheckGroupClass(string Class)
 {
-	; Check ArcheType based on Class
+	; Get Archetype based on Class
+	call GetArchetypeFromClass "${Class}"
+	; Set Grouped With variable based on Archetype
+	switch ${Return}
+	{
+		case fighter
+			GroupedWithFighter:Set[TRUE]
+			break
+		case scout
+			GroupedWithScout:Set[TRUE]
+			break
+		case mage
+			GroupedWithMage:Set[TRUE]
+			break
+		case priest
+			GroupedWithPriest:Set[TRUE]
+			break
+	}
+}
+
+function GetArchetypeFromClass(string Class)
+{
+	; Return Archetype based on Class
 	if ${Class.Equal[berserker]} || ${Class.Equal[guardian]} || ${Class.Equal[shadowknight]}
-		GroupedWithFighter:Set[TRUE]
+		return "fighter"
 	elseif ${Class.Equal[paladin]} || ${Class.Equal[bruiser]} || ${Class.Equal[monk]}
-		GroupedWithFighter:Set[TRUE]
+		return "fighter"
 	elseif ${Class.Equal[beastlord]} || ${Class.Equal[ranger]} || ${Class.Equal[assassin]} || ${Class.Equal[brigand]}
-		GroupedWithScout:Set[TRUE]
+		return "scout"
 	elseif ${Class.Equal[swashbuckler]} || ${Class.Equal[dirge]} || ${Class.Equal[troubador]}
-		GroupedWithScout:Set[TRUE]
+		return "scout"
 	elseif ${Class.Equal[wizard]} || ${Class.Equal[warlock]} || ${Class.Equal[necromancer]}
-		GroupedWithMage:Set[TRUE]
+		return "mage"
 	elseif ${Class.Equal[conjuror]} || ${Class.Equal[coercer]} || ${Class.Equal[illusionist]}
-		GroupedWithMage:Set[TRUE]
-	elseif ${Class.Equal[inquisitor]} || ${Class.Equal[templar]} || ${Class.Equal[fury]}
-		GroupedWithPriest:Set[TRUE]
+		return "mage"
+	elseif ${Class.Equal[channeler]} || ${Class.Equal[inquisitor]} || ${Class.Equal[templar]} || ${Class.Equal[fury]}
+		return "priest"
 	elseif ${Class.Equal[warden]} || ${Class.Equal[mystic]} || ${Class.Equal[defiler]}
-		GroupedWithPriest:Set[TRUE]
+		return "priest"
 }
 
 function SetLootForLastBoss()
@@ -588,7 +610,43 @@ function MoveInRelationToActorID(string ForWho, int ActorID, float Distance, flo
 	NewLoc.X:Dec[${Distance}*${Math.Sin[${ActorHeading}+${DegreeOffset}]}]
 	NewLoc.Z:Dec[${Distance}*${Math.Cos[${ActorHeading}+${DegreeOffset}]}]
 	; Change Camp Spot to new Location
+	oc !ci -campspot ${ForWho}
 	oc !ci -ChangeCampSpotWho ${ForWho} ${NewLoc.X} ${NewLoc.Y} ${NewLoc.Z}
+}
+
+function CalcSpotOffset(point3f InitialSpot, point3f FinalSpot, float Offset)
+{
+	; Given an InitialSpot and FinalSpot, calculate a new FinalSpot along the path but at an Offset from FinalSpot
+	; 	For when you want to move to a new location, but stop just short of it
+	
+	; Calculate Slope in degrees based on a line from InitialSpot to FinalSpot
+	; 	SlopeDegrees is number of degrees from the positive X Axis
+	variable float SlopeDegrees
+	if ${FinalSpot.X} != ${InitialSpot.X}
+		SlopeDegrees:Set[${Math.Atan[(${FinalSpot.Z}-${InitialSpot.Z})/(${FinalSpot.X}-${InitialSpot.X})]}]
+	elseif ${FinalSpot.Z} > ${InitialSpot.Z}
+		SlopeDegrees:Set[90]
+	else
+		SlopeDegrees:Set[-90]
+	
+	; Correct SlopeDegrees if in the -X direction (Atan only gives values from -90 to +90)
+	if ${FinalSpot.X} < ${InitialSpot.X}
+		if ${FinalSpot.Z} > ${InitialSpot.Z}
+			SlopeDegrees:Inc[180]
+		else
+			SlopeDegrees:Dec[180]
+			
+	; Calculate Distance, adding in Offset
+	variable float Distance
+	Distance:Set[${Math.Distance[${InitialSpot.X},${InitialSpot.Z},${FinalSpot.X},${FinalSpot.Z}]}-${Offset}]
+	
+	; Return NewSpot from InitialSpot with the calculated Distance and SlopeDegrees
+	variable point3f NewSpot
+	NewSpot:Set[${InitialSpot}]
+	NewSpot.X:Inc[${Distance}*${Math.Cos[${SlopeDegrees}]}]
+	NewSpot.Z:Inc[${Distance}*${Math.Sin[${SlopeDegrees}]}]
+	return ${NewSpot}
+	
 }
 
 /**********************************************************************************************************
@@ -616,7 +674,8 @@ function kill_trash()
 
 function Tank_n_Spank(string _NamedNPC, point3f KillSpot)
 {
-	variable int iCount="0"
+	variable int iCount=0
+	variable int Counter=0
 	oc ${Me.Name} is pulling ${_NamedNPC}
 	Obj_OgreIH:SetCampSpot
 	Obj_OgreIH:ChangeCampSpot["${KillSpot}"]
@@ -639,8 +698,14 @@ function Tank_n_Spank(string _NamedNPC, point3f KillSpot)
 		if (!${Obj_OgreIH.DuoMode} && !${Obj_OgreIH.SoloMode})
 		{
 			Obj_OgreIH:CCS_Actor_Position["${Actor[Query,Name=="${_NamedNPC}"].ID}"]
-			wait 100
+			Counter:Set[0]
+			while ${Counter:Inc} <= 10
+			{
+				if ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID(exists)}
+					wait 10
+			}
 		}
+		wait 10
 	}
 	call Obj_OgreUtilities.HandleWaitForCombat
 	call Obj_OgreUtilities.WaitWhileGroupMembersDead
