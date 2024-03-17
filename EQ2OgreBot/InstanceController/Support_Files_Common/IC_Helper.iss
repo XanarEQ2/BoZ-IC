@@ -998,7 +998,12 @@ function UseChronoDungeonItem()
 	wait 60
 	; Wait for group to zone into new Chrono instance
 	call WaitForGroupToZoneIn
-	; Make sure in Chrono version of instance
+	; Make sure in Chrono version of instance (sometimes doesn't always work the first time, so check a few times just in case)
+	Counter:Set[0]
+	while !${Actor[Query,(Type == "NPC" || Type == "NamedNPC") && Level >= 130].ID(exists)} && ${Counter:Inc} <= 3
+	{
+		wait 10
+	}
 	if !${Actor[Query,(Type == "NPC" || Type == "NamedNPC") && Level >= 130].ID(exists)}
 	{
 		oc Failed to zone into Chrono version of instance
