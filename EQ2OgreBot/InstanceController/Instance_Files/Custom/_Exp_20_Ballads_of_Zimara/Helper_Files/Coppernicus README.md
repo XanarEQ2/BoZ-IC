@@ -1,0 +1,33 @@
+Same disclaimer applies as with all previous H3 named, kind of sketchy and class specific code.  Specific notes about the fight:
+- Fighter will pull/tank celestial materia.  Priest initially, then scout will tank the named.
+- Prior to pull there is a bunch of setup my script does to prepare a scout to tank
+	- First select a scout that will tank, my script prioritizes ranger if your group has one, otherwise will look for a non-bard scout
+	- Disable anything that could cause a positional de-aggro on the scout and give them all hate gain/transfer possible
+		- This part is really important as keeping the named in place aggroed to the scout is pretty key to survival.  Losing aggro at a bad time could easily cause a wipe.
+		- Make sure not to check just the scout's spells, but other gorup member spells that could cause problems
+	- Remove Scoundrel's Slip adorn from first purple slot on ranged item
+		- I use it on all my non-fighter characters in the slot so the script looks for it to remove
+	- Add an "Aggressiveness" hate gain adornment in the hand item (I use Ensorcelled Hizite Adornment of Aggressiveness)
+	- Use a Scroll of Animosity on scout for extra hate gain
+- Before pull, fighter will aggro the 2 celestial materia around named without aggroing the named
+- At pull, group will aggro the named and Priest completes an HO
+	- Fighter will port out to pull remaining 2 celestial materia then rejoin group with all 4 aggroed
+	- This part can be really sketchy as the named changes increments shortly after aggro and the timing can be very tight getting back with all of the materia and not having them wander in/out of the ring messing up the count.
+- After pull and first Changing Theory expires, fighter bulwarks and attempts to complete an HO to remove hate lock from priest
+	- Doesn't really matter if HO completes as long as an ability triggers Overpowering Barrage
+- At this point scout should tank for the majority of the remainder of the fight	
+	- Characters joust as needed to match increments
+	- Named will cast "Absorb Celestial Materia" on a timer
+		- Need to interrupt, will try first to interrupt on the scout tank but will use other characters if needed
+		- The character that gets the interrupt will gain aggro, so in case it isn't the selected scout tank the script will try to move other characters next to named when expecting absorb to occur so if they get aggro at least the named will stay in place.
+	- Characters will get Heliocentric detrimental on a timer requiring them to be a specific distance away from named
+	- Changing Theory triggers at start of fight then every 10% requiring matching new increments as it expires or a wipe
+	- The general strategy throughout the fight is to try to not have Changing Theory go off at the same time as Absorb/Helio
+		- The script keeps track of the last time an Absorb was done and a character got Helio and when they expect to happen again
+		- When coming up on an HP threshold to trigger Changing Theory will stop dps until it is safe to continue at a time when Absorb/Helio shouldn't happen
+		- This makes the fight take a very long time, but should make it more reliable (my first kill was 24 minutes)
+- At ~60% the named will start casting Mezzy Situation on group
+	- Will use Mage/Priest to cure, but don't want them to cure from fighter as that would remove Flecks of Regret and re-apply to rest of group
+	- So have it setup for fighter to use a Zimaran Cure Arcane pot to cure themselves
+- After fight, will try to restore the scout tank adorns be putting back Scoundrel's Slip and putting a Double Cast adorn in the hands
+- If you wipe, end the script and clear campspot, then revive at "The Golden Terrace" and start the script up again.  It will recognize the respawn point as a start to jump to 3rd named.
