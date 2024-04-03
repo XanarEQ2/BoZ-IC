@@ -153,7 +153,7 @@ objectdef Object_Instance
 	function:bool Named2(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[-454.97,118.27,577.41]
+		KillSpot:Set[-457.16,118.24,570.04]
 		
 		; Move to named
 		call move_to_next_waypoint "-564.22,118.70,185.58" "1"
@@ -181,11 +181,13 @@ objectdef Object_Instance
 		KillSpot:Set[-480.53,148.36,277.14]
 		
 		; Move to named
+		call move_to_next_waypoint "-457.16,118.24,570.04" "1"
 		call move_to_next_waypoint "-460.47,117.52,472.87" "1"
 		call move_to_next_waypoint "-420.24,118.27,463.31" "1"
 		call move_to_next_waypoint "-420.95,117.66,350.55" "1"
 		call move_to_next_waypoint "-464.32,117.52,288.22" "1"
 		call move_to_next_waypoint "-440.11,121.06,291.19" "1"
+		wait 20
 		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Lower Lift"
 		wait 80
 		call move_to_next_waypoint "-429.55,121.68,290.76" "1"
@@ -216,6 +218,7 @@ objectdef Object_Instance
 		call move_to_next_waypoint "-668.69,117.52,323.88" "1"
 		call move_to_next_waypoint "-666.80,117.52,290.66" "1"
 		call move_to_next_waypoint "-685.76,121.06,294.40" "1"
+		wait 20
 		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Lower Lift"
 		wait 80
 		call move_to_next_waypoint "-695.29,121.68,294.02" "1"

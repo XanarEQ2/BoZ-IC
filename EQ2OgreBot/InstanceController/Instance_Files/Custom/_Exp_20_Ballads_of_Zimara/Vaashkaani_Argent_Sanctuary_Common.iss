@@ -325,8 +325,7 @@ objectdef Object_Instance
 		if !${Actor[namednpc,"${_NamedNPC1}"].ID(exists)} && !${Actor[namednpc,"${_NamedNPC2}"].ID(exists)}
 		{
 			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC1}"]
-			Obj_OgreIH:ChangeCampSpot["213.68,3.46,-0.04"]
-			call Obj_OgreUtilities.HandleWaitForCampSpot 10
+			call move_to_next_waypoint "${KillSpot}" "1"
 			return TRUE
 		}
 		
@@ -378,15 +377,13 @@ objectdef Object_Instance
 			return FALSE
 		}
 		
+		; Move group back to KillSpot
+		call move_to_next_waypoint "${KillSpot}" "1"
+		
 		; Get Chest
 		eq2execute summon
 		wait 10
 		call Obj_OgreIH.Get_Chest
-		
-		; Move back to center of hallway (don't want to check shinies at this point)
-		call move_to_next_waypoint "${KillSpot}"
-		Obj_OgreIH:ChangeCampSpot["213.68,3.46,-0.04"]
-		call Obj_OgreUtilities.HandleWaitForCampSpot 10
 		
 		; Finished with named
 		return TRUE
@@ -405,6 +402,9 @@ objectdef Object_Instance
 		if ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 			call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
+		; Move back to center of hallway (don't want to check shinies at this point)
+		call move_to_next_waypoint "213.68,3.46,-0.04" "1"
+		
 		; Look for shiny from last boss
 		if !${Ogre_Instance_Controller.bSkipShinies}
 		{
@@ -422,8 +422,7 @@ objectdef Object_Instance
 		if !${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
 		{
 			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]
-			Obj_OgreIH:ChangeCampSpot["269.64,3.46,-0.70"]
-			call Obj_OgreUtilities.HandleWaitForCampSpot 10
+			call move_to_next_waypoint "${KillSpot}" "1"
 			return TRUE
 		}
 		
@@ -494,11 +493,8 @@ objectdef Object_Instance
 		wait 10
 		call Obj_OgreIH.Get_Chest
 		
-		; Move back to hallway (don't want to check shinies at this point)
-		Obj_OgreIH:ChangeCampSpot["262.17,3.75,-19.05"]
-		call Obj_OgreUtilities.HandleWaitForCampSpot 10
-		Obj_OgreIH:ChangeCampSpot["269.64,3.46,-0.70"]
-		call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		; Move group back to KillSpot
+		call move_to_next_waypoint "${KillSpot}" "1"
 		
 		; Finished with named
 		return TRUE
@@ -515,6 +511,10 @@ objectdef Object_Instance
 		
 		; Swap to fear immunity rune (before moving into room, otherwise could get caught in combat with a roaming mob when trying to swap)
 		call mend_and_rune_swap "fear" "fear" "fear" "fear"
+		
+		; Move back to hallway (don't want to check shinies at this point)
+		call move_to_next_waypoint "262.17,3.75,-19.05" "1"
+		call move_to_next_waypoint "269.64,3.46,-0.70" "1"
 		
 		; Look for shiny from last boss
 		if !${Ogre_Instance_Controller.bSkipShinies}

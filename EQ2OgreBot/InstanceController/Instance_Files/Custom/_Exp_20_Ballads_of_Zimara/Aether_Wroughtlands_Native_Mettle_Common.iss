@@ -13,6 +13,12 @@ variable int AdditionalClusters=0
 variable bool StupendousSweepIncoming=FALSE
 variable bool NuggetStupendousSlamIncoming=FALSE
 variable bool NuggetAbsorbAndCrushArmorIncoming=FALSE
+; Custom variable for Coppernicus
+variable bool CoppernicusRespawn=FALSE
+variable time ChangingTheoryExpirationTimestamp
+variable time CoppernicusExpectedAbsorbTime
+variable time CoppernicusAbsorbTimeChanged
+variable time CoppernicusExpectedHelioTime
 
 #include "${LavishScript.HomeDirectory}/Scripts/EQ2OgreBot/InstanceController/Ogre_Instance_Include.iss"
 
@@ -51,10 +57,12 @@ objectdef Object_Instance
 			Obj_OgreIH:SetCampSpot
 			call Obj_OgreUtilities.PreCombatBuff 5
 			_StartingPoint:Inc
-
-			; Change starting point below to start script after a certain named. (for debugging only)		
-			_StartingPoint:Set[0]
-			_StartingPoint:Inc
+			; Check to see if at "The Golden Terrace" respawn point after wiping to Coppernicus
+			if ${Math.Distance[${Me.X},${Me.Y},${Me.Z},745.04,312.38,68.43]} < 50
+			{
+				_StartingPoint:Set[3]
+				CoppernicusRespawn:Set[TRUE]
+			}
 		}
 		; Move to and kill Named 1
 		if ${_StartingPoint} == 1
@@ -81,10 +89,10 @@ objectdef Object_Instance
 		; Move to and kill Named 3
 		if ${_StartingPoint} == 3
 		{
-			call This.Named3 ""
+			call This.Named3 "Coppernicus"
 			if !${Return}
 			{
-				Obj_OgreIH:Message_FailedZone["#3: "]
+				Obj_OgreIH:Message_FailedZone["#3: Coppernicus"]
 				return FALSE
 			}
 			_StartingPoint:Inc
@@ -1104,8 +1112,31 @@ objectdef Object_Instance
 		call SetupAllCures "${SetDisable}"
 		; Set HO settings
 		call SetupNuggetHO "${EnableNugget}"
-		; Setup Interrupts (don't want to interrupt All Mine when cast or will soft lock the fight)
+		; Disable Heroic Setups (doesn't work well alongside mine)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions ${SetDisable} TRUE
+		; Disable abilities that may cause problems with named movement/direction
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Walk the Plank" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+beastlord "Noxious Grasp" ${SetDisable} TRUE
+		; Disable Interrupts and various abilities during fight
+		; 	Have had it happen where after casting "All Mine" none of the characters in the group get the curse and it softlocks the fight
+		; 	Not sure what causes it, so turning off Interrupts and and other abilities that might interfere with it somehow
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nostuns ${EnableNugget} TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nodazes ${EnableNugget} TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nostifles ${EnableNugget} TRUE
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts ${EnableNugget} TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_noaeblockers ${EnableNugget} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Aura of the Crusader" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Death March" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Hammer Ground" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Hateful Slam" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Soulrend" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+scout "Cheap Shot" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+ranger "Point Blank Shot" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+ranger "Sniper Shot" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Dashing Swathe" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Shanghai" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Ancestral Support" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Immunization" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Daring Advance" ${SetDisable} TRUE
 		wait 1
 		if ${EnableNugget}
@@ -1132,8 +1163,6 @@ objectdef Object_Instance
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Hateful Slam" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Rupture" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Body Check" ${SetDisable} TRUE
-		; Disable Walk the Plank, don't want Nugget potentially facing the wrong direction during a sweep
-		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Walk the Plank" ${SetDisable} TRUE
 	}
 
 	function CheckNuggetExists()
@@ -1462,18 +1491,901 @@ objectdef Object_Instance
 	}
 
 /**********************************************************************************************************
- 	Named 3 *********************    Move to, spawn and kill - ??? **********************************
+ 	Named 3 *********************    Move to, spawn and kill - Coppernicus ********************************
 ***********************************************************************************************************/
-
+	
+	; Setup Variables needed outside Named3 function
+	variable bool CoppernicusExists
+	variable string CoppernicusScoutTank
+	variable string CoppernicusPriestTank
+	
 	function:bool Named3(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[0,0,0]
+		KillSpot:Set[904.63,328.05,82.13]
 		
 		; Undo Nugget custom settings
 		call SetupNugget "FALSE"
 		
-		return FALSE
+		; Set Loot settings for last boss (not the last boss, but does drop NO-TRADE Bell)
+		call SetLootForLastBoss
+		
+		; Setup variables
+		variable int GroupNum
+		variable int Counter
+		variable string JoustCharacter[5]
+		variable bool JoustCharacterPositionSet[5]
+		variable int CoppernicusID
+		variable int SecondLoopCount=10
+		variable int CoppernicusExistsCount=0
+		variable int CentralFireIncrements=0
+		variable int OrbitingBodiesIncrements=0
+		variable int ChangingTheoryIncrements=-1
+		variable int CoppernicusTargetID
+		variable point3f CoppernicusLoc
+		variable index:actor Materia
+		variable iterator MateriaIterator
+		variable int MateriaTotalCount
+		variable int MateriaInCount
+		variable int TargetIncrements
+		variable point3f JoustInLoc
+		variable point3f JoustOutLoc
+		variable point3f FighterJoustInLoc
+		variable point3f FighterJoustOutLoc
+		variable float HelioDistance
+		variable float HelioDuration
+		variable point3f HelioLoc
+		variable bool NeedPriestScoutTankSwap=FALSE
+		variable bool NeedScoutPriestTankSwap=FALSE
+		variable bool HelioActive=FALSE
+		variable bool FoundHelio=FALSE
+		variable bool DPSEnabled=TRUE
+		variable bool DPSAllowed=TRUE
+		variable int CoppernicusHPRemainder
+		
+		; Swap to mez immunity rune
+		call mend_and_rune_swap "mez" "mez" "mez" "mez"
+		
+		; Setup for named
+		call initialize_move_to_next_boss "${_NamedNPC}" "3"
+		
+		; Move to named from Nugget
+		if !${CoppernicusRespawn}
+		{
+			call move_to_next_waypoint "742.42,200.10,177.75"
+			call move_to_next_waypoint "682.43,205.56,170.69"
+			call move_to_next_waypoint "609.59,238.68,230.09"
+			call move_to_next_waypoint "549.60,248.19,252.95"
+			call move_to_next_waypoint "573.85,256.26,284.47"
+			call move_to_next_waypoint "641.49,267.66,262.60"
+			call move_to_next_waypoint "715.35,276.07,230.56"
+			call move_to_next_waypoint "728.95,275.88,194.88"
+			call EnterPortal "teleporter_lower" "Teleport"
+		}
+		; Otherwise move from respawn point
+		else
+			call move_to_next_waypoint "770.42,312.89,53.38"
+		
+		; Determine scout who will tank Coppernicus
+		; 	Use this character, which is assumed to be a fighter, to tank the adds and joust them in/out as needed
+		; 	Use another scout character to tank the boss
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			switch ${Me.Group[${GroupNum}].Class}
+			{
+				; Use ranger if they exist
+				; 	Need a character that can keep aggro
+				case ranger
+					CoppernicusScoutTank:Set["${Me.Group[${GroupNum}].Name}"]
+					GroupNum:Set[${Me.GroupCount}]
+					break
+				; Use non-bard scout if no ranger
+				case assassin
+				case beastlord
+				case swashbuckler
+				case brigand
+					CoppernicusScoutTank:Set["${Me.Group[${GroupNum}].Name}"]
+					break
+				; Use bard if no other scout
+				default
+					call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+					if ${Return.Equal["scout"]} && ${CoppernicusScoutTank.Length} == 0
+						CoppernicusScoutTank:Set["${Me.Group[${GroupNum}].Name}"]
+			}
+		}
+		; Determine priest who will tank Coppernicus
+		; 	To pull remaining 2 celestial materia need to complete a priest HO, which will lock aggro to the priest
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			switch ${Me.Group[${GroupNum}].Class}
+			{
+				; Use mystic if they exist
+				case mystic
+					CoppernicusPriestTank:Set["${Me.Group[${GroupNum}].Name}"]
+					GroupNum:Set[${Me.GroupCount}]
+					break
+				; Use other priest if no mystic
+				default
+					call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+					if ${Return.Equal["priest"]} && ${CoppernicusPriestTank.Length} == 0
+						CoppernicusPriestTank:Set["${Me.Group[${GroupNum}].Name}"]
+			}
+		}
+		
+		; Set variables to use in helper script
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusPhase" "PrePull"
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusScoutTank" "${CoppernicusScoutTank}"
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusPriestTank" "${CoppernicusPriestTank}"
+		; Set CoppernicusCurrentTank as CoppernicusPriestTank (after HO will have named locked as target to them due to Celestial Disconnect)
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusCurrentTank" "${CoppernicusPriestTank}"
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusNeedPriestHO" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusPriestDisconnectActive" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "NeedPriestScoutTankSwap" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}HelioDistance" "0"
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}HelioDuration" "0"
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}HelioDistance" "0"
+			oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}HelioDuration" "0"
+		}
+		oc !ci -Set_Variable igw:${Me.Name} "DPSEnabled" "TRUE"
+		wait 1
+		
+		; Check if already killed
+		call CheckCoppernicusExists
+		
+		; If CoppernicusExists, make sure CoppernicusScoutTank character is setup with runes for hate generation
+		; 	For hands, will apply "Aggressiveness" adorn
+		; 	For ranged, will remove "Scoundrel's Slip" rune, which is where I put it on my characters
+		; 	Doing this here because there are roaming mobs near boss and don't want to get aggro in the middle of adorn swapping
+		if ${CoppernicusExists}
+			call ApplyHateRune "${CoppernicusScoutTank}"
+		
+		; Disable PBAE abilities before moving to named
+		; 	Will also disable as part of SetupCoppernicus, but want to make sure don't aggro celestial materia when near named
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_donotsave_dynamicignorepbae TRUE TRUE
+		
+		; Continue move to named
+		call move_to_next_waypoint "811.52,313.29,19.79"
+		call move_to_next_waypoint "864.66,321.10,18.19"
+		call move_to_next_waypoint "846.19,329.14,90.04"
+		call move_to_next_waypoint "840.13,329.07,111.56"
+		Obj_OgreIH:ChangeCampSpot["898.91,327.96,108.51"]
+		call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		call move_to_next_waypoint "892.28,328.48,87.36"
+		Obj_OgreIH:ChangeCampSpot["887.56,327.96,64.84"]
+		call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		call move_to_next_waypoint "892.28,328.48,87.36"
+		
+		; Skip if already killed
+		if !${CoppernicusExists}
+		{
+			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]
+			call move_to_next_waypoint "${KillSpot}"
+			return TRUE
+		}
+		
+		; Assign characters to Joust
+		; 	Exclude this character who will be used to tank adds and handled separately
+		; 	Assign priests last so they will be out if anyone is (they get range buff by being out, so everyone in and out should be in range of heals)
+		Counter:Set[0]
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			; Add if not priest
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if !${Return.Equal["priest"]}
+				JoustCharacter[${Counter:Inc}]:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			; Add if priest
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["priest"]}
+				JoustCharacter[${Counter:Inc}]:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		
+		; Set custom settings for Coppernicus
+		call SetupCoppernicus "TRUE"
+		
+		; Run HOHelperScript to help complete HO's
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript} "InZone"
+		
+		; Handle text events
+		Event[EQ2_onIncomingChatText]:AttachAtom[CoppernicusIncomingChatText]
+		
+		; Get CoppernicusID
+		CoppernicusID:Set[${Actor[Query,Name=="Coppernicus" && Type != "Corpse"].ID}]
+		
+		; Enable PreCastTag to allow priest to setup wards before engaging Named
+		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
+		wait 60
+		
+		; ************************************************************
+		; Pre-Pull
+		; 	aggro 2 celestial materia around named, but not the named
+		; ************************************************************
+		
+		; Wait until no celestial materia within 15m of named
+		CoppernicusLoc:Set[${Actor[${CoppernicusID}].Loc}]
+		while ${Actor[Query,Name=="celestial materia" && Type != "Corpse" && ${Math.Distance[${X},${Z},${CoppernicusLoc.X},${CoppernicusLoc.Z}]} < 15].ID(exists)}
+		{
+			wait 10
+		}
+		
+		; Pull Named (Helper script will handle targeting)
+		Ob_AutoTarget:Clear
+		oc ${Me.Name} is pulling ${_NamedNPC}
+		
+		; Back off pets (and keep off the whole fight, Coppernicus does not like pets)
+		oc !ci -PetOff igw:${Me.Name}
+		
+		; Move to Pull Spot
+		Obj_OgreIH:ChangeCampSpot["917.36,328.29,76.56"]
+		call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		
+		; Pause Ogre
+		oc !ci -Pause igw:${Me.Name}
+		wait 1
+		
+		; Run ZoneHelperScript (at start should aggro celestial materia on this character, which is assumed to be a fighter)
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
+		
+		; Wait a couple of seconds for helper script to update everyone's target, then Resume Ogre
+		wait 20
+		oc !ci -Resume igw:${Me.Name}
+		
+		; Wait until there are no un-aggroed celestial materia near named
+		while ${Actor[Query,Name=="celestial materia" && Type != "Corpse" && Distance < 50 && Target.ID == 0].ID(exists)}
+		{
+			wait 10
+		}
+		
+		; Cast single target ward on fighter to protect them
+		oc !ci -CastAbilityOnPlayer igw:${Me.Name}+mystic "Ancestral Ward" "${Me.Name}" "0"
+		wait 30
+		
+		; Move fighter to portal
+		oc !ci -ChangeCampSpotWho igw:${Me.Name}+fighter 892.09 327.92 59.25
+		wait 30
+		
+		; **********************************************************************************
+		; Pull
+		; 	aggro named
+		; 	immediately complete priest HO to enable portals
+		; 	have fighter port over and pull 2 remaining celestial materia, then rejoin group
+		; **********************************************************************************
+		
+		; Set phase to Pull (will cause group to target Coppernicus in helper script)
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusPhase" "Pull"
+		
+		; Wait for Coppernicus to be aggroed
+		while ${Actor[Query,Name=="Coppernicus" && Type != "Corpse" && Target.ID == 0].ID(exists)}
+		{
+			wait 1
+		}
+		
+		; Set CoppernicusNeedPriestHO = TRUE
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusNeedPriestHO" "TRUE"
+		
+		; Have fighter cast damage prevention so they don't die while away from group
+		oc !ci -Pause ${Me.Name}
+		wait 1
+		eq2execute clearabilityqueue
+		wait 1
+		oc !ci -CancelCasting ${Me.Name}
+		wait 5
+		oc !ci -CastAbility ${Me.Name}+crusader "Divine Aura"
+		wait 10
+		oc !ci -Resume ${Me.Name}
+		
+		; Wait for CoppernicusPriestDisconnectActive
+		while !${OgreBotAPI.Get_Variable["CoppernicusPriestDisconnectActive"]}
+		{
+			wait 1
+		}
+		
+		; Have fighter port over to aggro 3rd celestial materia
+		oc !ci -LetsGo ${Me.Name}
+		Obj_OgreIH:Set_NoMove
+		wait 1
+		while ${Me.Z} > 0
+		{
+			oc !ci -ApplyVerbForWho ${Me.Name} "teleporter_mid_02" "Teleport"
+			wait 1
+		}
+		Obj_OgreIH:SetCampSpot
+		wait 5
+		
+		; Once fighter is over, have priest cure Flecks of Regret from everyone
+		; 	Normally can't use group cure, but since fighter will be out of range can use it to cure everyone else at this point
+		oc !ci -CastAbility igw:${Me.Name}+mystic "Ebbing Spirit"
+		
+		; Move fighter to next portal
+		oc !ci -ChangeCampSpotWho ${Me.Name} 666.34 313.70 -56.77
+		wait 20
+		
+		; Wait until nearby celestial materia has been pulled (helper script should target it)
+		while ${Actor[Query,Name=="celestial materia" && Type != "Corpse" && Distance < 50 && Target.ID == 0].ID(exists)}
+		{
+			wait 1
+		}
+		
+		; Have fighter port over to aggro 4th celestial materia
+		oc !ci -LetsGo ${Me.Name}
+		Obj_OgreIH:Set_NoMove
+		wait 1
+		while ${Me.Z} < 0
+		{
+			oc !ci -ApplyVerbForWho ${Me.Name} "teleporter_side_04" "Teleport"
+			wait 1
+		}
+		Obj_OgreIH:SetCampSpot
+		wait 5
+		
+		; Send everyone else back to KillSpot
+		oc !ci -ChangeCampSpotWho igw:${Me.Name}+-${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+		
+		; Move fighter to next portal
+		oc !ci -ChangeCampSpotWho ${Me.Name} 776.25 322.69 333.77
+		wait 20
+		
+		; Wait until nearby celestial materia has been pulled (helper script should target it)
+		while ${Actor[Query,Name=="celestial materia" && Type != "Corpse" && Distance < 50 && Target.ID == 0].ID(exists)}
+		{
+			wait 1
+		}
+		
+		; Have fighter port over to rejoin group
+		oc !ci -LetsGo ${Me.Name}
+		Obj_OgreIH:Set_NoMove
+		wait 1
+		while ${Me.Z} > 200
+		{
+			oc !ci -ApplyVerbForWho ${Me.Name} "teleporter_side_02" "Teleport"
+			wait 1
+		}
+		; Setting CampSpot to use _MinDistance = 1 instead of the default 2 to make sure characters are close enough to Helio distances
+		oc !ci -campspot igw:${Me.Name} "1" "200"
+		wait 1
+		
+		; Set phase to Fight (for helper script)
+		oc !ci -Set_Variable igw:${Me.Name} "CoppernicusPhase" "Fight"
+		
+		; Set default Time values
+		CoppernicusExpectedAbsorbTime:Set[${Time.Timestamp}]
+		CoppernicusAbsorbTimeChanged:Set[${Time.Timestamp}]
+		CoppernicusExpectedHelioTime:Set[${Time.Timestamp}]
+		
+		; Kill named
+		; There is a swirling ring around named
+		; 	"The Central Fire" effect shows the number of enemies that must be within his orbit to damage him
+		; 		This is based on the number of increments and includes both players and celestial materia mobs
+		; 		Fight initally starts with 2 celestial materia mobs spawned and they will roam around, potentially going in and out of ring
+		; 	"Orbiting Bodies" effect shows number of players + celestial materia currently in the ring
+		; 		Keep number of increments equal to "The Central Fire" increments in order to damage named
+		; 	"Changing Theory" effect shows the next number of increments that "The Central Fire" will swap to when "Changing Theory" expires
+		; 		Occurs every 10% HP (~91%, 81% etc.)
+		; 		If number doesn't match on expiration (15 seconds later) it will be a wipe
+		; Will need to joust players in and out of orbit as needed to match effect increments
+		; "Celestial Connection" detrimental shows HO information
+		; 	Completing HO started by priest can respawn up to 4 celestial materias
+		; 	Completing HO started by fighter clears the reuse of Bulwark of Order
+		; Absorb Celestial Materia
+		; 	Occurs every ~41-55 seconds, need to interrupt
+		; Heliocentric
+		; 	Occurs every ~55 seconds to 1 minute 38 seconds
+		; 	Expires after ~15-24 seconds
+		; 	Character needs to be at a specific range or they die
+		while ${CoppernicusExists}
+		{
+			; Handle updates every second
+			if ${SecondLoopCount:Inc} >= 10
+			{
+				; Update increments
+				call GetActorEffectIncrements "${CoppernicusID}" "The Central Fire" "5"
+				CentralFireIncrements:Set[${Return}]
+				call GetActorEffectIncrements "${CoppernicusID}" "Orbiting Bodies" "5"
+				OrbitingBodiesIncrements:Set[${Return}]
+				call GetActorEffectIncrements "${CoppernicusID}" "Changing Theory" "5"
+				ChangingTheoryIncrements:Set[${Return}]
+				
+				; *****************************************************
+				; DEBUG TEXT
+				;if ${ChangingTheoryIncrements} > 0 && ${Math.Calc[${ChangingTheoryExpirationTimestamp.Timestamp}-${Time.Timestamp}]} > 12
+				;	oc Changing theory starting at ${Actor[${CoppernicusID}].Health}
+				; *****************************************************
+				
+				; Update CoppernicusTargetID
+				CoppernicusTargetID:Set[${Actor[${CoppernicusID}].Target.ID}]
+				; Update location of named, make sure it is valid
+				CoppernicusLoc:Set[${Actor[${CoppernicusID}].Loc}]
+				if ${CoppernicusLoc.X}!=0 || ${CoppernicusLoc.Y}!=0 || ${CoppernicusLoc.Z}!=0
+				{
+					; Check to see if a priest to scout tank swap needs to be performed
+					; 	CoppernicusCurrentTank is CoppernicusPriestTank
+					; 	Changing Theory not active
+					; 	CoppernicusScoutTank/CoppernicusPriestTank don't have Helio set to expire wthin 10 seconds
+					; If so, perform fighter HO to remove Celestial Disconnect
+					; 	Want Priest to be able to joust out in order to heal/have wards up on everyone
+					NeedPriestScoutTankSwap:Set[FALSE]
+					if ${OgreBotAPI.Get_Variable["CoppernicusCurrentTank"].Equal["${CoppernicusPriestTank}"]}
+						if ${ChangingTheoryIncrements} == -1
+							if ${OgreBotAPI.Get_Variable["${CoppernicusScoutTank}HelioDistance"]} == 0 || ${OgreBotAPI.Get_Variable["${CoppernicusScoutTank}HelioDuration"]} > 10
+								if ${OgreBotAPI.Get_Variable["${CoppernicusPriestTank}HelioDistance"]} == 0 || ${OgreBotAPI.Get_Variable["${CoppernicusPriestTank}HelioDuration"]} > 10
+									NeedPriestScoutTankSwap:Set[TRUE]
+					oc !ci -Set_Variable igw:${Me.Name} "NeedPriestScoutTankSwap" "${NeedPriestScoutTankSwap}"
+					; Check to see if scout to priest tank swap needs to be performed
+					; 	CoppernicusCurrentTank is CoppernicusScoutTank
+					; 	Changing Theory not set to expire within 10 seconds
+					; 	CoppernicusScoutTank has Helio set to expire within 10 seconds, CoppernicusPriestTank doesn't
+					; If so, set CoppernicusNeedPriestHO for priest to perform an HO to lock aggro and switch as tank
+					NeedScoutPriestTankSwap:Set[FALSE]
+					if ${OgreBotAPI.Get_Variable["CoppernicusCurrentTank"].Equal["${CoppernicusScoutTank}"]}
+						if ${ChangingTheoryIncrements} == -1 || ${Math.Calc[${ChangingTheoryExpirationTimestamp.Timestamp}-${Time.Timestamp}]} > 10
+							if ${OgreBotAPI.Get_Variable["${CoppernicusScoutTank}HelioDistance"]} > 0 && ${OgreBotAPI.Get_Variable["${CoppernicusScoutTank}HelioDuration"]} <= 10
+								if ${OgreBotAPI.Get_Variable["${CoppernicusPriestTank}HelioDistance"]} == 0 || ${OgreBotAPI.Get_Variable["${CoppernicusPriestTank}HelioDuration"]} > 10
+									NeedScoutPriestTankSwap:Set[TRUE]
+					oc !ci -Set_Variable igw:${Me.Name} "CoppernicusNeedPriestHO" "${NeedScoutPriestTankSwap}"
+					; Reset Materia variables
+					MateriaTotalCount:Set[0]
+					MateriaInCount:Set[0]
+					; Query all materia within 100m
+					EQ2:QueryActors[Materia, Name=="celestial materia" && Type != "Corpse" && Distance < 100]
+					Materia:GetIterator[MateriaIterator]
+					if ${MateriaIterator:First(exists)}
+					{
+						; Loop through materia
+						do
+						{
+							; Increment MateriaTotalCount
+							MateriaTotalCount:Inc
+							; Increment MateriaInCount if materia within 22.5m of named
+							if ${Math.Distance[${MateriaIterator.Value.X},${MateriaIterator.Value.Z},${CoppernicusLoc.X},${CoppernicusLoc.Z}]} < 22.5
+								MateriaInCount:Inc
+						}
+						while ${MateriaIterator:Next(exists)}
+					}
+					; Check to see if Changing Thoery set to expire within 10 seconds
+					if ${ChangingTheoryIncrements} > 0 && ${Math.Calc[${ChangingTheoryExpirationTimestamp.Timestamp}-${Time.Timestamp}]} <= 10
+					{
+						; Set TargetIncrements as ChangingTheoryIncrements
+						TargetIncrements:Set[${ChangingTheoryIncrements}]
+					}
+					else
+						; Set TargetIncrements as CentralFireIncrements
+						TargetIncrements:Set[${CentralFireIncrements}]
+					
+					; **************************************
+					; DEBUG TEXT
+					;if ${Math.Calc[${ChangingTheoryExpirationTimestamp.Timestamp}-${Time.Timestamp}]} <= 2
+					;{
+					;	oc Increments CF:${CentralFireIncrements} CT:${ChangingTheoryIncrements} in ${Math.Calc[${ChangingTheoryExpirationTimestamp.Timestamp}-${Time.Timestamp}]} Tar:${TargetIncrements} OB:${OrbitingBodiesIncrements}
+					;	oc Increments Mat Total:${MateriaTotalCount} Mat In:${MateriaInCount} Coppernicus target ${Actor[${CoppernicusTargetID}].Name}
+					;}
+					;oc Absorb Time: ${Math.Calc[${CoppernicusExpectedAbsorbTime.Timestamp}-${Time.Timestamp}]} Helio Time: ${Math.Calc[${CoppernicusExpectedHelioTime.Timestamp}-${Time.Timestamp}]}
+					; **************************************
+					
+					; Update Joust locations based on current location of Coppernicus
+					; 	Ring should be at 22.5m from Coppernicus (17m displayed distance, but +5.5 to account for difference between displayed and calculated distance)
+					; 		so set In as 19.5 away and Out as 25.5 away
+					; 	Arena is angled ~22 degrees off X axis
+					JoustInLoc:Set[${CoppernicusLoc}]
+					JoustInLoc.X:Dec[${Math.Calc[19.5*${Math.Cos[22]}]}]
+					JoustInLoc.Z:Inc[${Math.Calc[19.5*${Math.Sin[22]}]}]
+					JoustOutLoc:Set[${CoppernicusLoc}]
+					JoustOutLoc.X:Dec[${Math.Calc[25.5*${Math.Cos[22]}]}]
+					JoustOutLoc.Z:Inc[${Math.Calc[25.5*${Math.Sin[22]}]}]
+					; Send fighter further in/out to keep celestial materia in/out as well
+					FighterJoustInLoc:Set[${CoppernicusLoc}]
+					FighterJoustInLoc.X:Dec[${Math.Calc[7*${Math.Cos[-68]}]}]
+					FighterJoustInLoc.Z:Inc[${Math.Calc[7*${Math.Sin[-68]}]}]
+					FighterJoustOutLoc:Set[${CoppernicusLoc}]
+					FighterJoustOutLoc.X:Dec[${Math.Calc[40*${Math.Cos[22]}]}]
+					FighterJoustOutLoc.Z:Inc[${Math.Calc[40*${Math.Sin[22]}]}]
+					; Clear JoustCharacterPositionSet
+					GroupNum:Set[0]
+					while ${GroupNum:Inc} <= ${JoustCharacter.Size}
+					{
+						JoustCharacterPositionSet[${GroupNum}]:Set[FALSE]
+					}
+					; Update fighter position as needed
+					HelioDistance:Set[${OgreBotAPI.Get_Variable["${Me.Name}HelioDistance"]}]
+					; If NeedPriestScoutTankSwap or fighter has aggro, send to KillSpot
+					; 	If NeedPriestScoutTankSwap, want to be in range for abilities to clear Celestial Disconnect
+					if ${NeedPriestScoutTankSwap} || ${CoppernicusTargetID} == ${Me.ID}
+					{
+						; Send fighter to KillSpot
+						oc !ci -ChangeCampSpotWho ${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+						; Remove increment from TargetIncrements
+						TargetIncrements:Dec
+						; Remove MateriaTotalCount from TargetIncrements for materia, assuming all will be in
+						TargetIncrements:Dec[${MateriaTotalCount}]
+					}
+					; If Helio set to expire within 10 seconds, move to HelioDistance away from Coppernicus
+					elseif ${HelioDistance} > 0 && ${OgreBotAPI.Get_Variable["${Me.Name}HelioDuration"]} <= 10
+					{
+						; Set HelioLoc
+						HelioLoc:Set[${CoppernicusLoc}]
+						HelioLoc.X:Dec[${Math.Calc[${HelioDistance}*${Math.Cos[22]}]}]
+						HelioLoc.Z:Inc[${Math.Calc[${HelioDistance}*${Math.Sin[22]}]}]
+						; Send fighter to HelioLoc
+						oc !ci -ChangeCampSpotWho ${Me.Name} ${HelioLoc.X} ${HelioLoc.Y} ${HelioLoc.Z}
+						; Remove increment from TargetIncrements if HelioDistance < 22.5
+						if ${HelioDistance} < 22.5
+							TargetIncrements:Dec
+						; Remove MateriaInCount from TargetIncrements for materia that are in range
+						; 	This may fluctuate over time as materia are in the process of being moved, but handle based on what is the number right now
+						TargetIncrements:Dec[${MateriaInCount}]
+					}
+					; If 6 or more increments are needed will want fighter in to draw celestial materia in as well
+					elseif ${TargetIncrements} >= 6
+					{
+						; Send fighter to FighterJoustInLoc
+						oc !ci -ChangeCampSpotWho ${Me.Name} ${FighterJoustInLoc.X} ${FighterJoustInLoc.Y} ${FighterJoustInLoc.Z}
+						; Remove increment from TargetIncrements
+						TargetIncrements:Dec
+						; Remove MateriaTotalCount from TargetIncrements for materia, assuming all will be in
+						TargetIncrements:Dec[${MateriaTotalCount}]
+					}
+					; If fewer increments are needed keep fighter and celestial materia out
+					else
+					{
+						; Send fighter to FighterJoustOutLoc
+						oc !ci -ChangeCampSpotWho ${Me.Name} ${FighterJoustOutLoc.X} ${FighterJoustOutLoc.Y} ${FighterJoustOutLoc.Z}
+						; At start of fight materia may randomly wander in/out, so account for any that may be in even though they shouldn't be
+						if ${Actor[${CoppernicusID}].Health} >= 95
+							TargetIncrements:Dec[${MateriaInCount}]
+					}
+					; Send CoppernicusCurrentTank or any character with aggro to KillSpot
+					GroupNum:Set[0]
+					while ${GroupNum:Inc} <= ${JoustCharacter.Size}
+					{
+						; Check to see if character is CoppernicusCurrentTank or has aggro
+						if ${JoustCharacter[${GroupNum}].Equal[${OgreBotAPI.Get_Variable["CoppernicusCurrentTank"]}]} || ${CoppernicusTargetID} == ${Actor[PC,"${JoustCharacter[${GroupNum}]}"].ID}
+						{
+							; Send character to KillSpot
+							oc !ci -ChangeCampSpotWho ${JoustCharacter[${GroupNum}]} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+							; Remove increment from TargetIncrements
+							TargetIncrements:Dec
+							; Set JoustCharacterPositionSet = TRUE for this character (so they don't get re-moved)
+							JoustCharacterPositionSet[${GroupNum}]:Set[TRUE]
+						}
+					}
+					; Make sure Changing Thoery not about to expire
+					if ${ChangingTheoryIncrements} == -1 || ${Math.Calc[${ChangingTheoryExpirationTimestamp.Timestamp}-${Time.Timestamp}]} > 10
+					{
+						; Check if coming up on CoppernicusExpectedAbsorbTime (or right after CoppernicusAbsorbTimeChanged)
+						; 	Want to send all scounts and mages to KillSpot that don't have Helio about to expire so if they interrupt and pull aggro the mob doesn't move
+						if ${Math.Calc[${CoppernicusExpectedAbsorbTime.Timestamp}-${Time.Timestamp}]} <= 5 || ${Math.Calc[${Time.Timestamp}-${CoppernicusAbsorbTimeChanged.Timestamp}]} <= 3
+						{
+							GroupNum:Set[0]
+							while ${GroupNum:Inc} <= ${JoustCharacter.Size}
+							{
+								; Skip if JoustCharacterPositionSet (position already handled)
+								if ${JoustCharacterPositionSet[${GroupNum}]}
+									continue
+								; Check to see if character is a scout or a mage
+								call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+								if ${Return.Equal["scout"]} || ${Return.Equal["mage"]}
+								{
+									; Make sure character does not have Helio about to expire
+									if ${OgreBotAPI.Get_Variable["${JoustCharacter[${GroupNum}]}HelioDistance"]} == 0 || ${OgreBotAPI.Get_Variable["${JoustCharacter[${GroupNum}]}HelioDuration"]} > 10
+									{
+										; Send character to KillSpot
+										oc !ci -ChangeCampSpotWho ${JoustCharacter[${GroupNum}]} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+										; Remove increment from TargetIncrements
+										TargetIncrements:Dec
+										; Set JoustCharacterPositionSet = TRUE for this character (so they don't get re-moved)
+										JoustCharacterPositionSet[${GroupNum}]:Set[TRUE]
+									}
+								}
+							}
+						}
+						; Handle characters with Helio set to expire within 10 seconds
+						GroupNum:Set[0]
+						while ${GroupNum:Inc} <= ${JoustCharacter.Size}
+						{
+							; Skip if JoustCharacterPositionSet (position already handled)
+							if ${JoustCharacterPositionSet[${GroupNum}]}
+								continue
+							; Check HelioDistance
+							HelioDistance:Set[${OgreBotAPI.Get_Variable["${JoustCharacter[${GroupNum}]}HelioDistance"]}]
+							if ${HelioDistance} > 0 && ${OgreBotAPI.Get_Variable["${JoustCharacter[${GroupNum}]}HelioDuration"]} <= 10
+							{
+								; Set HelioLoc
+								HelioLoc:Set[${CoppernicusLoc}]
+								HelioLoc.X:Dec[${Math.Calc[${HelioDistance}*${Math.Cos[22]}]}]
+								HelioLoc.Z:Inc[${Math.Calc[${HelioDistance}*${Math.Sin[22]}]}]
+								; Send character to HelioLoc
+								oc !ci -ChangeCampSpotWho ${JoustCharacter[${GroupNum}]} ${HelioLoc.X} ${HelioLoc.Y} ${HelioLoc.Z}
+								; Remove increment from TargetIncrements if HelioDistance < 22.5
+								if ${HelioDistance} < 22.5
+									TargetIncrements:Dec
+								; Set JoustCharacterPositionSet = TRUE for this character (so they don't get re-moved)
+								JoustCharacterPositionSet[${GroupNum}]:Set[TRUE]
+							}
+						}
+					}
+					; Joust remaining characters in/out as needed based on TargetIncrements
+					GroupNum:Set[0]
+					while ${GroupNum:Inc} <= ${JoustCharacter.Size}
+					{
+						; Skip if JoustCharacterPositionSet (position already handled)
+						if ${JoustCharacterPositionSet[${GroupNum}]}
+							continue
+						; Send character in if there are remaining TargetIncrements
+						if ${TargetIncrements:Dec} >= 0
+							oc !ci -ChangeCampSpotWho ${JoustCharacter[${GroupNum}]} ${JoustInLoc.X} ${JoustInLoc.Y} ${JoustInLoc.Z}
+						else
+							oc !ci -ChangeCampSpotWho ${JoustCharacter[${GroupNum}]} ${JoustOutLoc.X} ${JoustOutLoc.Y} ${JoustOutLoc.Z}
+					}
+					; Check to see if anyone has Helio and update CoppernicusExpectedHelioTime if needed
+					FoundHelio:Set[FALSE]
+					if ${OgreBotAPI.Get_Variable["${Me.Name}HelioDistance"]} > 0
+						FoundHelio:Set[TRUE]
+					GroupNum:Set[0]
+					while ${GroupNum:Inc} <= ${JoustCharacter.Size}
+					{
+						if ${OgreBotAPI.Get_Variable["${JoustCharacter[${GroupNum}]}HelioDistance"]} > 0
+							FoundHelio:Set[TRUE]
+					}
+					; If FoundHelio and Helio was not previously active, update CoppernicusExpectedHelioTime
+					; 	Expect every ~55 seconds to 1 minute 38 seconds
+					; 	Duration ~15-24 seconds
+					if ${FoundHelio} && !${HelioActive}
+					{
+						CoppernicusExpectedHelioTime:Set[${Time.Timestamp}]
+						CoppernicusExpectedHelioTime.Second:Inc[55]
+						CoppernicusExpectedHelioTime.Second:Inc[15]
+						CoppernicusExpectedHelioTime:Update
+						
+						; ***************************************************************
+						; DEBUG TEXT
+						;oc Helio time set to ${CoppernicusExpectedHelioTime}
+						; ***************************************************************
+						
+					}
+					; Update HelioActive
+					HelioActive:Set[${FoundHelio}]
+					; Enable/disable dps as needed
+					; 	Changing Theory occurs every 10% HP (~91%, 81% etc.)
+					; 	Don't want it to expire at the same time as an Absorb or Helio expiration
+					; 	So hold dps when about to trigger Changing Theory until a time when it is safe to do so
+					DPSAllowed:Set[TRUE]
+					; Check to see if Changing Theory is not active (if already active no reason to stop dps)
+					if ${ChangingTheoryIncrements} == -1
+					{
+						; Check to see if Coppernicus HP is close to next trigger point (should be when the remainder is 1)
+						; 	Health%10 gives the remainder after dividing by 10 (e.g. 74%10 = 4)
+						CoppernicusHPRemainder:Set[${Math.Calc[${Actor[${CoppernicusID}].Health}%10]}]
+						if ${CoppernicusHPRemainder} > 0 && ${CoppernicusHPRemainder} <= 3
+						{
+							; If CoppernicusExpectedAbsorbTime not more than 25 seconds into the future, set DPSAllowed = FALSE
+							if ${Math.Calc[${CoppernicusExpectedAbsorbTime.Timestamp}-${Time.Timestamp}]} <= 25
+								DPSAllowed:Set[FALSE]
+							; If anyone has Helio with Duration > 5 seconds, set DPSAllowed = FALSE
+							if ${OgreBotAPI.Get_Variable["${Me.Name}HelioDistance"]} > 0 && ${OgreBotAPI.Get_Variable["${Me.Name}HelioDuration"]} > 5
+								DPSAllowed:Set[FALSE]
+							GroupNum:Set[0]
+							while ${GroupNum:Inc} <= ${JoustCharacter.Size}
+							{
+								if ${OgreBotAPI.Get_Variable["${JoustCharacter[${GroupNum}]}HelioDistance"]} > 0 && ${OgreBotAPI.Get_Variable["${JoustCharacter[${GroupNum}]}HelioDuration"]} > 5
+									DPSAllowed:Set[FALSE]
+							}
+							; If CoppernicusExpectedHelioTime not more than 25 seconds into the future, set DPSAllowed = FALSE
+							; 	Have seen instances where Helio just never happened initially so if past a minute overdue assume it won't happen
+							if ${Math.Calc[${CoppernicusExpectedHelioTime.Timestamp}-${Time.Timestamp}]} >= -60 && ${Math.Calc[${CoppernicusExpectedHelioTime.Timestamp}-${Time.Timestamp}]} <= 25
+								DPSAllowed:Set[FALSE]
+						}
+					}
+					; Check to see if there is a mismatch between DPSEnabled and DPSAllowed (^ is XOR, exclusive OR)
+					if ${DPSEnabled}^${DPSAllowed}
+					{
+						
+						; *********************************************
+						; DEBUG TEXT
+						;if ${DPSAllowed}
+						;	oc Start DPS - CT increments ${ChangingTheoryIncrements} - HP ${CoppernicusHPRemainder} - Absorb ${Math.Calc[${CoppernicusExpectedAbsorbTime.Timestamp}-${Time.Timestamp}]} - Helio ${Math.Calc[${CoppernicusExpectedHelioTime.Timestamp}-${Time.Timestamp}]}
+						;else
+						;	oc Stop DPS - CT increments ${ChangingTheoryIncrements} - HP ${CoppernicusHPRemainder} - Absorb ${Math.Calc[${CoppernicusExpectedAbsorbTime.Timestamp}-${Time.Timestamp}]} - Helio ${Math.Calc[${CoppernicusExpectedHelioTime.Timestamp}-${Time.Timestamp}]}
+						; *********************************************
+						
+						; Enable/disable CA's (on non-fighters because fighter is attacking celestial materia)
+						oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_ca ${DPSEnabled} TRUE
+						oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_namedca ${DPSEnabled} TRUE
+						oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter+-priest checkbox_settings_disablecaststack_combat ${DPSEnabled} TRUE
+						oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_debuff ${DPSEnabled} TRUE
+						oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_nameddebuff ${DPSEnabled} TRUE
+						; Update DPSEnabled
+						DPSEnabled:Set[${DPSAllowed}]
+						oc !ci -Set_Variable igw:${Me.Name} "DPSEnabled" "${DPSEnabled}"
+					}
+				}
+				; Reset SecondLoopCount
+				SecondLoopCount:Set[0]
+			}
+			; Short wait before looping (to respond as quickly as possible to events)
+			wait 1
+			; Update CoppernicusExists every 3 seconds
+			if ${CoppernicusExistsCount:Inc} >= 30
+			{
+				call CheckCoppernicusExists
+				CoppernicusExistsCount:Set[0]
+			}
+		}
+		
+		; Detach Atoms
+		Event[EQ2_onIncomingChatText]:DetachAtom[CoppernicusIncomingChatText]
+		
+		; Check named is dead
+		if ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID(exists)}
+		{
+			Obj_OgreIH:Message_FailedToKill["${_NamedNPC}"]
+			return FALSE
+		}
+		
+		; Get Chest
+		eq2execute summon
+		wait 10
+		call Obj_OgreIH.Get_Chest
+		
+		; Send all characters back to KillSpot after fight
+		call move_to_next_waypoint "${KillSpot}" "1"
+		
+		; Finished with named
+		return TRUE
+	}
+	
+	function CheckCoppernicusExists()
+	{
+		; Assume CoppernicusExists if in Combat
+		if ${Me.InCombat}
+		{
+			CoppernicusExists:Set[TRUE]
+			return
+		}
+		; Check to see if Coppernicus exists
+		if ${Actor[Query,Name=="Coppernicus" && Type != "Corpse"].ID(exists)}
+		{
+			CoppernicusExists:Set[TRUE]
+			return
+		}
+		; Coppernicus not found
+		CoppernicusExists:Set[FALSE]
+	}
+	
+	function SetupCoppernicus(bool EnableCoppernicus)
+	{
+		; Setup Cures
+		variable bool SetDisable
+		SetDisable:Set[!${EnableCoppernicus}]
+		call SetupAllCures "${SetDisable}"
+		; Set initial HO settings
+		call SetInitialHOSettings
+		; Disable Assist, helper script will selectively target per character
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_assist ${SetDisable} TRUE
+		; Disable PBAE abilities during the fight (want to keep aggro split between Coppernicus and celestial materia)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_donotsave_dynamicignorepbae ${EnableCoppernicus} TRUE
+		; Setup Interrupts (will selectively interrupt as needed so don't want abilities on cooldown)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts ${EnableCoppernicus} TRUE
+		if ${EnableCoppernicus}
+		{
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler+-${CoppernicusScoutTank} "Daring Advance" ${SetDisable} TRUE
+			wait 1
+			oc !ci -CancelMaintainedForWho igw:${Me.Name}+swashbuckler+-${CoppernicusScoutTank} "Daring Advance"
+		}
+		else
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Daring Advance" TRUE TRUE
+		; Disable abilities that may cause problems with named movement/direction
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Walk the Plank" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+beastlord "Noxious Grasp" ${SetDisable} TRUE
+		; Disable pets (Coppernicus does not like having pets as his main target)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_donotsendpettoattack ${EnableCoppernicus} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+ranger "Hawk Attack" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+ranger "Sniper Squad" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Shadow" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+coercer "Puppetmaster" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+beastlord "Animalistic Intent" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+beastlord "Savage Allies" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Ancestral Sentry" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Lunar Attendant" ${SetDisable} TRUE
+		; Setup class-specific abilities to use during HO's
+		; 	Don't want these abilities to be on a cool down when trying to use them
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Siphon Strike" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Hateful Slam" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Rupture" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Body Check" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Plague" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Velium Winds" ${SetDisable} TRUE
+		; Disable all threat priority and hate reduction abilities on CoppernicusTank characters
+		if ${EnableCoppernicus}
+		{
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Evasive Maneuvers" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Miracle Shot" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Shadow Slip" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Primal Reflexes" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Thief's Prowess" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Avoid Blame" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Evade" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Spurious Bravado" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusScoutTank} "Savage Howl" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+${CoppernicusPriestTank} "Spirits" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Seafury Thrust" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Sleight of Hand" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+coercer "Mind Control" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+coercer "Thought Snap" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+coercer "Coercive Shout" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+coercer "Peaceful Link" FALSE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+coercer "Sever Hate" FALSE TRUE
+			wait 1
+			oc !ci -CancelMaintainedForWho igw:${Me.Name}+${CoppernicusScoutTank} "Primal Reflexes"
+			oc !ci -CancelMaintainedForWho igw:${Me.Name}+${CoppernicusScoutTank} "Thief's Prowess"
+			oc !ci -CancelMaintainedForWho igw:${Me.Name}+${CoppernicusScoutTank} "Avoid Blame"
+			oc !ci -CancelMaintainedForWho igw:${Me.Name}+${CoppernicusScoutTank} "Spurious Bravado"
+			oc !ci -CancelMaintainedForWho igw:${Me.Name}+coercer "Peaceful Link"
+		}
+		else
+		{
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Evasive Maneuvers" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Miracle Shot" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Shadow Slip" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Thief's Prowess" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Primal Reflexes" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Avoid Blame" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Evade" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Spurious Bravado" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Savage Howl" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Spirits" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Sleight of Hand" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Seafury Thrust" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Mind Control" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Thought Snap" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Coercive Shout" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Peaceful Link" TRUE TRUE
+			oc !ci -ChangeCastStackListBoxItem igw:${Me.Name} "Sever Hate" TRUE TRUE
+		}
+		; Apply all hate transfers to CoppernicusScoutTank character
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+dirge "Hyran's Seething Sonata" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Swarthy Deception" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+coercer "Enraging Demeanor" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+assassin "Murderous Design" ${SetDisable} TRUE
+		wait 1
+		oc !ci -CancelMaintainedForWho igw:${Me.Name}+dirge "Hyran's Seething Sonata"
+		oc !ci -CancelMaintainedForWho igw:${Me.Name}+swashbuckler "Swarthy Deception"
+		oc !ci -CancelMaintainedForWho igw:${Me.Name}+coercer "Enraging Demeanor"
+		oc !ci -CancelMaintainedForWho igw:${Me.Name}+assassin "Murderous Design"
+		if ${EnableCoppernicus}
+		{
+			; Pause Ogre
+			oc !ci -Pause igw:${Me.Name}
+			wait 3
+			; Clear ability queue
+			relay ${OgreRelayGroup} eq2execute clearabilityqueue
+			; Cancel anything currently being cast
+			oc !ci -CancelCasting igw:${Me.Name}
+			; Wait for spells to refresh
+			wait 20
+			; Cast abilities on CoppernicusScoutTank
+			oc !ci -CastAbilityOnPlayer igw:${Me.Name}+dirge "Hyran's Seething Sonata" "${CoppernicusScoutTank}" "0"
+			oc !ci -CastAbilityOnPlayer igw:${Me.Name}+swashbuckler "Swarthy Deception" "${CoppernicusScoutTank}" "0"
+			oc !ci -CastAbilityOnPlayer igw:${Me.Name}+coercer "Enraging Demeanor" "${CoppernicusScoutTank}" "0"
+			; Resume Ogre
+			oc !ci -Resume igw:${Me.Name}
+		}
+		; Use a Scroll of Animosity on CoppernicusScoutTank to increase Hate Gain
+		if ${EnableCoppernicus}
+		{
+			wait 10
+			oc !ci -UseItem igw:${Me.Name}+${CoppernicusScoutTank} "Scroll of Animosity"
+			wait 10
+		}
 	}
 
 /**********************************************************************************************************
@@ -1482,6 +2394,14 @@ objectdef Object_Instance
 
 	function:bool Named4(string _NamedNPC="Doesnotexist")
 	{
+		; Update KillSpot
+		KillSpot:Set[0,0,0]
+		
+		; Undo Coppernicus custom settings
+		call SetupCoppernicus "FALSE"
+		call RemoveHateRune "${CoppernicusScoutTank}"
+		
+		
 		return FALSE
 	}
 
@@ -1578,4 +2498,40 @@ atom NuggetAnnouncement(string Text, string SoundType, float Timer)
 	; Look for message that Stupendous Slam is incoming
 	if ${Text.Find["Quick! Hold onto something! But not the same thing as anyone else!"]}
 		NuggetStupendousSlamIncoming:Set[TRUE]
+}
+
+atom CoppernicusIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
+{
+	; Look for message that Changing Theory will happen soon
+	; 	In 15 seconds, The Central Fire will require a new amount based on Coppernicus' Changing Theory!
+	; 	Coppernicus says, "Nope, these numbers don't add up."
+	; 	Coppernicus says, "Nope, this just won't do."
+	; 	Coppernicus reconsiders his current theory.
+	if ${Message.Find["reconsiders his current theory."]}
+	{
+		ChangingTheoryExpirationTimestamp:Set[${Time.Timestamp}]
+		ChangingTheoryExpirationTimestamp.Second:Inc[15]
+		ChangingTheoryExpirationTimestamp:Update
+	}
+	
+	; Look for message that "Absorb Celestial Materia" is being cast'
+	; 	Coppernicus says, "Celestial materia! Heal me!"
+	; 	Coppernicus attempts to absorb a celestial materia!
+	; Absorb Celestial Materia should be cast after ~41-55 seconds, so set expected time to 41 seconds fro now
+	if ${Message.Find["attempts to absorb a celestial materia!"]}
+	{
+		CoppernicusExpectedAbsorbTime:Set[${Time.Timestamp}]
+		CoppernicusExpectedAbsorbTime.Second:Inc[41]
+		CoppernicusExpectedAbsorbTime:Update
+		CoppernicusAbsorbTimeChanged:Set[${Time.Timestamp}]
+
+		; ***************************************************************
+		; DEBUG TEXT
+		;oc Absorb time set to ${CoppernicusExpectedAbsorbTime}
+		; ***************************************************************
+		
+	}
+	
+	; Debug text to see messages
+	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
 }

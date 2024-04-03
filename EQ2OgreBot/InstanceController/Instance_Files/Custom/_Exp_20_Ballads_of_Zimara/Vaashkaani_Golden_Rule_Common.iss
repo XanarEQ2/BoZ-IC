@@ -166,7 +166,6 @@ objectdef Object_Instance
 		call HO "Disable" "FALSE"
 		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript}
 		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript} "${_NamedNPC}"
-		variable bool HOEnabled=FALSE
 		
 		; If H2, disable Cure Curse, run ZoneHelperScript, and disable Absorb Magic in Cast Stack
 		if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
@@ -184,6 +183,7 @@ objectdef Object_Instance
 		}
 		
 		; Kill named
+		variable int Counter
 		if ${Zone.Name.Equals["${Solo_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 		{
 			Ob_AutoTarget:Clear
@@ -201,23 +201,45 @@ objectdef Object_Instance
 				call CheckTargetEffect "Gilded Guard" "8"
 				if ${Return}
 				{
-					; Enable HO for all
+					; Cancel any existing HO starter
 					eq2execute cancel_ho_starter
-					call HO "All" "FALSE"
-					HOEnabled:Set[TRUE]
-					wait 100
+					; In a heroic zone, have Mage start the HO (should be quick and easy to complete)
+					if ${Zone.Name.Equals["${Heroic_1_Zone_Name}"]} || ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+						call HO "Mage" "FALSE"
+					; Otherwise have any class start HO
+					else
+						call HO "All" "FALSE"
+					; Wait for HO window to pop up (up to 10 seconds)
+					; 	HO Window State: -1 = No active HO, 2 = Starter, 8 = Wheel, 9 = Completed/Failed
+					Counter:Set[0]
+					while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 100
+					{
+						wait 1
+					}
+					; Disable additional HO's
+					call HO "Disable" "FALSE"
+					; Wait for HO window to close (up to 10 seconds)
+					while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 100
+					{
+						wait 1
+					}
 					; In H2, need to cast Absorb Magic to get rid of Gilded Guard after HO completes
 					if ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
+					{
+						; Pause Ogre
+						oc !ci -Pause igw:${Me.Name}+mage
+						wait 3
+						; Clear ability queue
+						relay ${OgreRelayGroup} eq2execute clearabilityqueue
+						; Cancel anything currently being cast
+						oc !ci -CancelCasting igw:${Me.Name}+mage
+						; Cast Absorb Magic
 						oc !ci -CastAbility igw:${Me.Name}+mage "Absorb Magic"
-						
-				}
-				; If no effect, disable HO for all
-				elseif ${HOEnabled}
-				{
-					call HO "Disable" "FALSE"
-					HOEnabled:Set[FALSE]
-					wait 10
-					eq2execute cancel_ho_starter
+						; Resume Ogre
+						oc !ci -Resume igw:${Me.Name}+mage
+						; Wait a second for Absorb Magic to be cast
+						wait 10
+					}
 				}
 				; Wait a second before checking for effect again
 				wait 10

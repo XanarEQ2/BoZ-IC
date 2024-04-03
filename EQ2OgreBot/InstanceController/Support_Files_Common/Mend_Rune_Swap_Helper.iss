@@ -188,15 +188,14 @@ function PerformSwap(string RuneType)
 		return
 	}
 	
+	; Make sure Item Info is available for RuneItem
+	while !${RuneItem.IsItemInfoAvailable}
+	{
+		waitframe
+	}
 	; Attach RuneItem to second slot
 	Event[EQ2_onIncomingText]:AttachAtom[IncomingText]
 	ApplyAdornComplete:Set[FALSE]
-	wait 10
-	; Calling PrepAdornmentForUse multiple times, for some reason it doesn't always work when just called once...
-	RuneItem.ToItemInfo:PrepAdornmentForUse
-	wait 10
-	RuneItem.ToItemInfo:PrepAdornmentForUse
-	wait 10
 	RuneItem.ToItemInfo:PrepAdornmentForUse
 	wait 10
 	RuneItem.ToItemInfo:AttachAsAdornment[${WaistItem.ID}, 2]

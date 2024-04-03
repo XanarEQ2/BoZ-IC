@@ -25,6 +25,9 @@ function SetInitialInstanceSettings()
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_ca FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_namedca FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_combat FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_debuff FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_nameddebuff FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_items FALSE TRUE
 	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+priest "Cure" TRUE TRUE
 	; Enable Cures and Interrupts
@@ -77,7 +80,7 @@ function SetInitialHOSettings()
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-ranger checkbox_settings_ho_starter TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+ranger checkbox_settings_ho_wheel FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-ranger checkbox_settings_ho_wheel TRUE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel_offensive_only FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel_offensive_only TRUE TRUE
 	; Enable all fighter icons
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_0 FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_1 FALSE TRUE
@@ -340,38 +343,7 @@ function mend_and_rune_swap(string FighterAdorn, string ScoutAdorn, string MageA
 	}
 	; Perform repair if needed
 	if ${RepairNeeded}
-	{
-		; Summon Mechanized Platinum Repository of Reconstruction from the first person that has it available
-		if !${Actor[Query,Name=="Mechanized Platinum Repository of Reconstruction" && Distance <= 10](exists)}
-		{
-			if ${OgreBotAPI.Get_Variable["${Me.Name}_RepairBotAvailable"]}
-			{
-				oc !ci -UseItem ${Me.Name} "Mechanized Platinum Repository of Reconstruction"
-				wait 60
-			}
-			if !${Actor[Query,Name=="Mechanized Platinum Repository of Reconstruction" && Distance <= 10](exists)}
-			{
-				GroupNum:Set[0]
-				while ${GroupNum:Inc} < ${Me.GroupCount}
-				{
-					if ${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RepairBotAvailable"]}
-					{
-						oc !ci -UseItem ${Me.Group[${GroupNum}].Name} "Mechanized Platinum Repository of Reconstruction"
-						wait 60
-					}
-					; Stop checking group members once the bot exists
-					if ${Actor[Query,Name=="Mechanized Platinum Repository of Reconstruction" && Distance <= 10](exists)}
-						break
-				}
-			}
-		}
-		; If a bot was summoned, have the group repair
-		if ${Actor[Query,Name=="Mechanized Platinum Repository of Reconstruction" && Distance <= 10](exists)}
-		{
-			oc !ci -repair igw:${Me.Name}
-			wait 60
-		}
-	}
+		call PerformRepair
 	; Perform rune swap if needed
 	if ${RuneSwapNeeded}
 	{
@@ -425,6 +397,199 @@ function mend_and_rune_swap(string FighterAdorn, string ScoutAdorn, string MageA
 			oc !ci -Pause igw:${Me.Name}
 			; Show pause message
 			oc ${Me.Name}: Rune Swap not successfully completed.  Correct any Waist item issues, then resume Ogre Bot on this character to continue.
+			; Wait while OgreBot is paused
+			wait 10
+			while ${Script[${OgreBotScriptName}](exists)} && ${b_OB_Paused}
+			{
+				wait 10
+			}
+			; Resume Ogre
+			oc !ci -Resume igw:${Me.Name}
+		}
+	}
+}
+
+function PerformRepair()
+{
+	; Summon Mechanized Platinum Repository of Reconstruction from the first person that has it available
+	if !${Actor[Query,Name=="Mechanized Platinum Repository of Reconstruction" && Distance <= 10](exists)}
+	{
+		if ${OgreBotAPI.Get_Variable["${Me.Name}_RepairBotAvailable"]}
+		{
+			oc !ci -UseItem ${Me.Name} "Mechanized Platinum Repository of Reconstruction"
+			wait 60
+		}
+		if !${Actor[Query,Name=="Mechanized Platinum Repository of Reconstruction" && Distance <= 10](exists)}
+		{
+			variable int GroupNum=0
+			while ${GroupNum:Inc} < ${Me.GroupCount}
+			{
+				if ${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_RepairBotAvailable"]}
+				{
+					oc !ci -UseItem ${Me.Group[${GroupNum}].Name} "Mechanized Platinum Repository of Reconstruction"
+					wait 60
+				}
+				; Stop checking group members once the bot exists
+				if ${Actor[Query,Name=="Mechanized Platinum Repository of Reconstruction" && Distance <= 10](exists)}
+					break
+			}
+		}
+	}
+	; If a bot was summoned, have the group repair
+	if ${Actor[Query,Name=="Mechanized Platinum Repository of Reconstruction" && Distance <= 10](exists)}
+	{
+		oc !ci -repair igw:${Me.Name}
+		wait 60
+	}
+}
+
+variable string HateRuneHelperScript="EQ2OgreBot/InstanceController/Support_Files_Common/Hate_Rune_Helper"
+
+function CheckHateRune(string CharacterName)
+{
+	; Set default values for variables HateRuneHelperScript uses
+	oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_HandsCondition" "100"
+	oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_RangedCondition" "100"
+	oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_HasHateRune" "FALSE"
+	oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_HasScoundrelsSlip" "FALSE"
+	oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_HateRuneNeeded" "FALSE"
+	oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_ScoundrelsSlipNeeded" "FALSE"
+	oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_RepairBotAvailable" "FALSE"
+	oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_HateRuneComplete" "FALSE"
+	variable int GroupNum=0
+	while ${GroupNum:Inc} < ${Me.GroupCount}
+	{
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}_RepairBotAvailable" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}_HateRuneComplete" "FALSE"
+	}
+	; Add short delay to allow all variables to be set, otherwise won't work properly
+	wait 1
+	; Run HateRuneHelperScript on everyone in group to see if repair/swap is needed
+	oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HateRuneHelperScript}
+	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${HateRuneHelperScript} "Check"
+	; Wait for script to complete on each character (timeout if it takes too long to run)
+	variable int Counter = 0
+	while !${OgreBotAPI.Get_Variable["${Me.Name}_HateRuneComplete"]} && ${Counter:Inc} <= 100
+	{
+		wait 1
+	}
+	GroupNum:Set[0]
+	while ${GroupNum:Inc} < ${Me.GroupCount}
+	{
+		while !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_HateRuneComplete"]} && ${Counter:Inc} <= 100
+		{
+			wait 1
+		}
+	}
+	; Print some debug information just to make sure all values returned are correct
+	oc ${CharacterName}: Hands%:${OgreBotAPI.Get_Variable["${CharacterName}_HandsCondition"]} Hate Rune Have:${OgreBotAPI.Get_Variable["${CharacterName}_HasHateRune"]} Need:${OgreBotAPI.Get_Variable["${CharacterName}_HateRuneNeeded"]}
+	oc ${CharacterName}: Ranged%:${OgreBotAPI.Get_Variable["${CharacterName}_RangedCondition"]} Scoundrel's Slip Have:${OgreBotAPI.Get_Variable["${CharacterName}_HasScoundrelsSlip"]} Need:${OgreBotAPI.Get_Variable["${CharacterName}_ScoundrelsSlipNeeded"]}
+}
+
+function ApplyHateRune(string CharacterName)
+{
+	; Make sure not in combat
+	oc !ci -PetOff igw:${Me.Name}
+	call Obj_OgreUtilities.HandleWaitForCombat
+	; Call CheckHateRune to see if repair/apply is needed
+	call CheckHateRune "${CharacterName}"
+	; Check to see if CharacterName needs repair
+	variable bool RepairNeeded=FALSE
+	if ${OgreBotAPI.Get_Variable["${CharacterName}_HandsCondition"]} < 100 && !${OgreBotAPI.Get_Variable["${CharacterName}_HasHateRune"]} && ${OgreBotAPI.Get_Variable["${CharacterName}_HateRuneNeeded"]}
+		RepairNeeded:Set[TRUE]
+	if ${OgreBotAPI.Get_Variable["${CharacterName}_RangedCondition"]} < 100 && ${OgreBotAPI.Get_Variable["${CharacterName}_HasScoundrelsSlip"]}
+		RepairNeeded:Set[TRUE]
+	; Perform repair if needed
+	if ${RepairNeeded}
+		call PerformRepair
+	; Perform ApplyHateRune if needed
+	if (!${OgreBotAPI.Get_Variable["${CharacterName}_HasHateRune"]} && ${OgreBotAPI.Get_Variable["${CharacterName}_HateRuneNeeded"]}) || ${OgreBotAPI.Get_Variable["${CharacterName}_HasScoundrelsSlip"]}
+	{
+		; Make sure not in combat (again)
+		oc !ci -PetOff igw:${Me.Name}
+		call Obj_OgreUtilities.HandleWaitForCombat
+		; Set default values for variables HateRuneHelperScript uses
+		oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_HateRuneComplete" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_ApplyHateRuneSuccessful" "FALSE"
+		; Add short delay to allow all variables to be set, otherwise won't work properly
+		wait 1
+		; Run HateRuneHelperScript on CharacterName to swap adorns as needed
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HateRuneHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+${CharacterName} ${HateRuneHelperScript} "Apply"
+		; Wait for script to complete (timeout if it takes too long to run)
+		variable int Counter = 0
+		while !${OgreBotAPI.Get_Variable["${CharacterName}_HateRuneComplete"]} && ${Counter:Inc} <= 600
+		{
+			wait 1
+		}
+		; Check ApplySuccessful
+		variable bool ApplySuccessful=TRUE
+		if !${OgreBotAPI.Get_Variable["${CharacterName}_ApplyHateRuneSuccessful"]}
+			ApplySuccessful:Set[FALSE]
+		if !${ApplySuccessful}
+		{
+			; Pause Ogre
+			oc !ci -Pause igw:${Me.Name}
+			; Show pause message
+			oc ${Me.Name}: Apply Hate Rune and remove Scoundrel's Slip from ${CharacterName} not successfully completed.  Correct any item issues, then resume Ogre Bot on this character to continue.
+			; Wait while OgreBot is paused
+			wait 10
+			while ${Script[${OgreBotScriptName}](exists)} && ${b_OB_Paused}
+			{
+				wait 10
+			}
+			; Resume Ogre
+			oc !ci -Resume igw:${Me.Name}
+		}
+	}
+}
+
+function RemoveHateRune(string CharacterName)
+{
+	; Make sure not in combat
+	oc !ci -PetOff igw:${Me.Name}
+	call Obj_OgreUtilities.HandleWaitForCombat
+	; Call CheckHateRune to see if repair/remove is needed
+	call CheckHateRune "${CharacterName}"
+	; Check to see if CharacterName needs repair
+	variable bool RepairNeeded=FALSE
+	if ${OgreBotAPI.Get_Variable["${CharacterName}_HandsCondition"]} < 100 && ${OgreBotAPI.Get_Variable["${CharacterName}_HasHateRune"]}
+		RepairNeeded:Set[TRUE]
+	if ${OgreBotAPI.Get_Variable["${CharacterName}_RangedCondition"]} < 100 && ${OgreBotAPI.Get_Variable["${CharacterName}_ScoundrelsSlipNeeded"]}
+		RepairNeeded:Set[TRUE]
+	; Perform repair if needed
+	if ${RepairNeeded}
+		call PerformRepair
+	; Perform RemoveHateRune if needed
+	if ${OgreBotAPI.Get_Variable["${CharacterName}_HasHateRune"]} || ${OgreBotAPI.Get_Variable["${CharacterName}_ScoundrelsSlipNeeded"]}
+	{
+		; Make sure not in combat (again)
+		oc !ci -PetOff igw:${Me.Name}
+		call Obj_OgreUtilities.HandleWaitForCombat
+		; Set default values for variables HateRuneHelperScript uses
+		oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_HateRuneComplete" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "${CharacterName}_RemoveHateRuneSuccessful" "FALSE"
+		; Add short delay to allow all variables to be set, otherwise won't work properly
+		wait 1
+		; Run HateRuneHelperScript on CharacterName to swap adorns as needed
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HateRuneHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name}+${CharacterName} ${HateRuneHelperScript} "Remove"
+		; Wait for script to complete (timeout if it takes too long to run)
+		Counter:Set[0]
+		while !${OgreBotAPI.Get_Variable["${CharacterName}_HateRuneComplete"]} && ${Counter:Inc} <= 600
+		{
+			wait 1
+		}
+		; Check RemoveSuccessful
+		variable bool RemoveSuccessful=TRUE
+		if !${OgreBotAPI.Get_Variable["${CharacterName}_RemoveHateRuneSuccessful"]}
+			RemoveSuccessful:Set[FALSE]
+		if !${RemoveSuccessful}
+		{
+			; Pause Ogre
+			oc !ci -Pause igw:${Me.Name}
+			; Show pause message
+			oc ${Me.Name}: Remove Hate Rune and add Scoundrel's Slip to ${CharacterName} not successfully completed.  Correct any item issues, then resume Ogre Bot on this character to continue.
 			; Wait while OgreBot is paused
 			wait 10
 			while ${Script[${OgreBotScriptName}](exists)} && ${b_OB_Paused}
@@ -851,6 +1016,30 @@ function GetTargetEffectIncrements(string EffectName, int MaxEffects=30)
 		; Check if effect name is found
 		if ${Target.Effect[${Counter}].ToEffectInfo.Name.Equal[${EffectName}]}
 			return ${Target.Effect[${Counter}].CurrentIncrements}
+	}
+	; Return -1 if EffectName not found
+	return -1
+}
+
+; Check to see if Actor has the EffectName and return number of increments (return -1 if not valid)
+; Will check Effects to up MaxEffects
+function GetActorEffectIncrements(int ActorID, string EffectName, int MaxEffects=30)
+{
+	; Get Actor
+	variable actor EffectsActor
+	EffectsActor:Set[${ActorID}]
+	; Loop through each effect up to MaxEffects
+	variable int Counter = 0
+	while (${EffectsActor(exists)} && ${Counter:Inc} <= ${EffectsActor.NumEffects} && ${Counter} <= ${MaxEffects})
+	{
+		; Wait for effect info available
+		while (${EffectsActor.Effect[${Counter}].ID(exists)} && !${EffectsActor.Effect[${Counter}].IsEffectInfoAvailable})
+		{
+			waitframe
+		}
+		; Check if effect name is found
+		if ${EffectsActor.Effect[${Counter}].ToEffectInfo.Name.Equal[${EffectName}]}
+			return ${EffectsActor.Effect[${Counter}].CurrentIncrements}
 	}
 	; Return -1 if EffectName not found
 	return -1

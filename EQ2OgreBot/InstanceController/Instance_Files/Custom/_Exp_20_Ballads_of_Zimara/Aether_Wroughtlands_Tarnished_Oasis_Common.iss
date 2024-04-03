@@ -905,6 +905,7 @@ objectdef Object_Instance
 		; 	everyone gets a curse with various metals (Iron, Copper, Silver, Gold, Platinum)
 		; 	fighter casts bulwark to trigger named to say which one to cure
 		; 	cure the person that has the type called out to cure all
+		; Note for this fight, if you have a Mystic make sure the Mystical Moppet is set to not cure curse or it can kill you
 		elseif ${Zone.Name.Equals["${Heroic_2_Zone_Name}"]}
 		{
 			; Clear AutoTarget, will selectively target
