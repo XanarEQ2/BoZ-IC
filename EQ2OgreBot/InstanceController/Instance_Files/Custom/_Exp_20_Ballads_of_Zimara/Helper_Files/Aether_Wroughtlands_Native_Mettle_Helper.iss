@@ -638,19 +638,14 @@ function CheckNuggetExists()
 
 variable bool CoppernicusAbsorbIncoming=FALSE
 variable bool CoppernicusExists
-variable string CoppernicusScoutTank
 variable string CoppernicusPriestTank
 function Coppernicus(string _NamedNPC)
 {
 	; Handle text events
 	Event[EQ2_onIncomingChatText]:AttachAtom[CoppernicusIncomingChatText]
 	; Get variables
-	CoppernicusScoutTank:Set["${OgreBotAPI.Get_Variable["CoppernicusScoutTank"]}"]
 	CoppernicusPriestTank:Set["${OgreBotAPI.Get_Variable["CoppernicusPriestTank"]}"]
 	; Setup variables
-	oc !ci -Set_Variable ${Me.Name} "NeedsFlecksCure" "None"
-	oc !ci -Set_Variable ${Me.Name} "NeedsMezzyCurePriest" "None"
-	oc !ci -Set_Variable ${Me.Name} "NeedsMezzyCureMage" "None"
 	variable int Counter
 	variable int SecondLoopCount=10
 	variable int CoppernicusExistsCount=0
@@ -659,13 +654,10 @@ function Coppernicus(string _NamedNPC)
 	variable index:actor Materia
 	variable iterator MateriaIterator
 	variable actor TargetMateria
-	variable int PriestHOCounter=0
-	variable int PriestScoutTankSwapCounter=0
 	variable effect HelioEffect
 	variable bool HelioActive=FALSE
 	variable int FlecksCounter=0
-	variable string NeedsFlecksCure="None"
-	variable int MezzyCounter=0
+	variable time NeedFlecksCureTime=${Time.Timestamp}
 	variable string NeedsMezzyCure="None"
 	; Run as long as named is alive
 	call CheckCoppernicusExists
@@ -677,175 +669,36 @@ function Coppernicus(string _NamedNPC)
 		; 	Want CoppernicusScoutTank character to interrupt it as they should already have aggro
 		if ${CoppernicusAbsorbIncoming}
 		{
-			; Only interrupt if this character is a scout/mage
-			if ${Me.Archetype.Equal[scout]} || ${Me.Archetype.Equal[mage]}
+			; Only interrupt if this character is not a fighter
+			if !${Me.Archetype.Equal[fighter]}
 			{
-				; Make sure Helio not about to expire
-				if ${OgreBotAPI.Get_Variable["${Me.Name}HelioDistance"]} == 0 || ${OgreBotAPI.Get_Variable["${Me.Name}HelioDuration"]} > 10
-				{
-					; If CoppernicusCurrentTank is CoppernicusScoutTank and this character is not CoppernicusScoutTank, wait a second before interrupt
-					; 	Would prefer to interrupt on CoppernicusScoutTank character to keep aggro, but would rather lose aggro and successfully interrupt than fail to interrupt
-					if ${OgreBotAPI.Get_Variable["CoppernicusCurrentTank"].Equal[${CoppernicusScoutTank}]} && !${CoppernicusScoutTank.Equal[${Me.Name}]}
-						wait 15
-					
-					; ***********************************
-					; DEBUG TEXT
-					;oc ${Me.Name} Interrupt
-					;oc ${Me.Name} ${OgreBotAPI.Get_Variable["CoppernicusCurrentTank"]} ${CoppernicusScoutTank}
-					; ***********************************
-					
-					; Make sure named is targeted
-					Actor["${_NamedNPC}"]:DoTarget
-					; Pause Ogre
-					oc !ci -Pause ${Me.Name}
-					wait 3
-					; Clear ability queue
-					eq2execute clearabilityqueue
-					; Cancel anything currently being cast
-					oc !ci -CancelCasting ${Me.Name}
-					; Cast Interrupt ability depending on Class (modify as needed based on group setup)
-					oc !ci -CastAbility ${Me.Name}+ranger "Hilt Strike"
-					oc !ci -CastAbility ${Me.Name}+dirge "Hymn of Horror"
-					oc !ci -CastAbility ${Me.Name}+swashbuckler "Tease"
-					oc !ci -CastAbility ${Me.Name}+beastlord "Sharpened Claws"
-					oc !ci -CastAbility ${Me.Name}+coercer "Hemorrhage"
-					oc !ci -CastAbility ${Me.Name}+mystic "Echoes of the Ancients"
-					; Resume Ogre
-					oc !ci -Resume ${Me.Name}
-				}
+				; Make sure named is targeted
+				Actor["${_NamedNPC}"]:DoTarget
+				; Pause Ogre
+				oc !ci -Pause ${Me.Name}
+				wait 3
+				; Clear ability queue
+				eq2execute clearabilityqueue
+				; Cancel anything currently being cast
+				oc !ci -CancelCasting ${Me.Name}
+				; Cast Interrupt ability depending on Class (modify as needed based on group setup)
+				oc !ci -CastAbility ${Me.Name}+ranger "Hilt Strike"
+				oc !ci -CastAbility ${Me.Name}+dirge "Hymn of Horror"
+				oc !ci -CastAbility ${Me.Name}+swashbuckler "Tease"
+				oc !ci -CastAbility ${Me.Name}+beastlord "Sharpened Claws"
+				oc !ci -CastAbility ${Me.Name}+coercer "Hemorrhage"
+				oc !ci -CastAbility ${Me.Name}+mystic "Echoes of the Ancients"
+				; Resume Ogre
+				oc !ci -Resume ${Me.Name}
 			}
 			; Set Absorb Celestial Materia as handled
 			CoppernicusAbsorbIncoming:Set[FALSE]
-		}
-		; If priest, check CoppernicusNeedPriestHO
-		if ${PriestHOCounter} < 0
-			PriestHOCounter:Inc
-		if ${PriestHOCounter} == 0 && ${Me.Archetype.Equal[priest]} && ${CoppernicusPriestTank.Equal[${Me.Name}]}
-		{
-			if ${OgreBotAPI.Get_Variable["CoppernicusNeedPriestHO"]} && !${OgreBotAPI.Get_Variable["CoppernicusPriestDisconnectActive"]}
-			{
-				; Make sure HO not already active
-				if ${EQ2.HOWindowState} == -1
-				{
-					; Make sure named is targeted
-					Actor["${_NamedNPC}"]:DoTarget
-					wait 1
-					; Start HO on priest
-					oc !ci -ho_start ${Me.Name}
-					; Set PriestHOCounter to prevent from being triggered again for another 6 seconds
-					PriestHOCounter:Set[-60]
-				}
-			}
-		}
-		; Handle Celestial Disconnect detrimental
-		; 	After priest completes HO gets detrimental that locks named aggro to priest
-		; 	Priest dies if they complete another HO
-		; 	Use fighter's Overpowering Barrage to clear
-		if ${Me.Archetype.Equal[priest]} && ${CoppernicusPriestTank.Equal[${Me.Name}]}
-		{
-			; Check if CoppernicusNeedPriestHO = TRUE and CoppernicusPriestDisconnectActive = FALSE
-			if ${OgreBotAPI.Get_Variable["CoppernicusNeedPriestHO"]} && !${OgreBotAPI.Get_Variable["CoppernicusPriestDisconnectActive"]}
-			{
-				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1138 && BackDropIconID == 24].ID(exists)}
-				{
-					; Set CoppernicusPriestDisconnectActive = TRUE, CoppernicusNeedPriestHO = FALSE, and CoppernicusCurrentTank = CoppernicusPriestTank
-					; 	Once Celestial Disconnect is active, aggro will be locked to CoppernicusPriestTank
-					oc !ci -Set_Variable igw:${Me.Name} "CoppernicusPriestDisconnectActive" "TRUE"
-					oc !ci -Set_Variable igw:${Me.Name} "CoppernicusNeedPriestHO" "FALSE"
-					oc !ci -Set_Variable igw:${Me.Name} "CoppernicusCurrentTank" "${CoppernicusPriestTank}"
-				}
-			}
-			; Check if NeedPriestScoutTankSwap and CoppernicusPriestDisconnectActive
-			elseif ${OgreBotAPI.Get_Variable["NeedPriestScoutTankSwap"]} && ${OgreBotAPI.Get_Variable["CoppernicusPriestDisconnectActive"]}
-			{
-				if !${Me.Effect[Query, "Detrimental" && MainIconID == 1138 && BackDropIconID == 24].ID(exists)}
-				{
-					; Set CoppernicusPriestDisconnectActive = FALSE and CoppernicusCurrentTank to CoppernicusScoutTank
-					; 	After aggro is no longer locked to priest, CoppernicusScoutTank should pick it up
-					oc !ci -Set_Variable igw:${Me.Name} "CoppernicusPriestDisconnectActive" "FALSE"
-					oc !ci -Set_Variable igw:${Me.Name} "CoppernicusCurrentTank" "${CoppernicusScoutTank}"
-				}
-			}
-			
 		}
 		; Perform checks every second
 		if ${SecondLoopCount:Inc} >= 10
 		{
 			; Get CoppernicusPhase
 			CoppernicusPhase:Set["${OgreBotAPI.Get_Variable["CoppernicusPhase"]}"]
-			; If fighter, check if NeedPriestScoutTankSwap
-			if ${PriestScoutTankSwapCounter} < 0
-				PriestScoutTankSwapCounter:Inc
-			if ${PriestScoutTankSwapCounter} == 0 && ${Me.Archetype.Equal[fighter]}
-			{
-				if ${OgreBotAPI.Get_Variable["NeedPriestScoutTankSwap"]}
-				{
-					; Update CoppernicusLoc, check if within 10m
-					CoppernicusLoc:Set[${Actor["${_NamedNPC}"].Loc}]
-					if ${Math.Distance[${Me.X},${Me.Z},${CoppernicusLoc.X},${CoppernicusLoc.Z}]} < 10
-					{
-						; Make sure HO not already active
-						if ${EQ2.HOWindowState} == -1
-						{
-							; **************************************
-							; DEBUG TEXT
-							;oc Perform Swap
-							; **************************************
-							
-							; Fighter needs to cast Bulwark or Order, then trigger Overpowering Barrage on Coppernicus in order to clear Celestial Disconnect detrimental
-							; Completing a fighter HO will clear the reuse of Bulwark
-							; 	Should be able to do both by using Bulwark then complete an HO to both trigger Overpowering Barrage on Coppernicus and clear Bulwark reuse
-							; Disable scout/mage/priest HO abilities (don't want to interfere with fighter HO path)
-							oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
-							oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 TRUE TRUE
-							oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 TRUE TRUE
-							oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 TRUE TRUE
-							; Make sure named is targeted
-							Actor["${_NamedNPC}"]:DoTarget
-							; Pause Ogre
-							oc !ci -Pause ${Me.Name}
-							wait 1
-							; Clear ability queue
-							relay ${OgreRelayGroup} eq2execute clearabilityqueue
-							wait 1
-							; Cancel anything currently being cast
-							oc !ci -CancelCasting igw:${Me.Name}
-							wait 5
-							; Cast Bulwark of Order
-							oc !ci -CastAbility ${Me.Name} "Bulwark of Order"
-							wait 5
-							; Cast Fighting Chance to bring up HO window
-							oc !ci -CastAbility ${Me.Name} "Fighting Chance"
-							wait 1
-							; Wait for HO window to pop up (up to 2 seconds)
-							Counter:Set[0]
-							while ${EQ2.HOWindowState} != 2 && ${Counter:Inc} <= 20
-							{
-								wait 1
-							}
-							; Cast Ability to start HO
-							oc !ci -CastAbility ${Me.Name}+shadowknight "Siphon Strike"
-							oc !ci -CastAbility ${Me.Name}+berserker "Rupture"
-							wait 8
-							; Cast Ability to complete HO
-							oc !ci -CastAbility ${Me.Name}+shadowknight "Hateful Slam"
-							oc !ci -CastAbility ${Me.Name}+berserker "Body Check"
-							wait 8
-							; Target self to clear from named (don't want to pull aggro)
-							Me:DoTarget
-							; Resume Ogre
-							oc !ci -Resume ${Me.Name}
-							; Re-enable HO abilities
-							oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
-							oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 FALSE TRUE
-							oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 FALSE TRUE
-							oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 FALSE TRUE
-							; Set PriestScoutTankSwapCounter to prevent from being triggered again for another 15 seconds
-							PriestScoutTankSwapCounter:Set[-15]
-						}
-					}
-				}
-			}
 			; Setup target based on Archetype
 			; For fighter, target any celestial materia that isn't targeting fighter, otherwise target celestial materia with highest hp
 			if ${Me.Archetype.Equal[fighter]}
@@ -891,7 +744,7 @@ function Coppernicus(string _NamedNPC)
 				else
 					Me:DoTarget
 			}
-			; For non-fighters, set target based on CoppernicusPhase and DPSEnabled
+			; For non-fighters, set target based on CoppernicusPhase
 			else
 			{
 				; For PrePull phase, have characters target themselves
@@ -918,7 +771,6 @@ function Coppernicus(string _NamedNPC)
 				; DEBUG TEXT
 				;oc ${Me.Name} Helio Distance ${HelioEffect.CurrentIncrements} set to ${Math.Calc[${HelioEffect.CurrentIncrements}+5]}
 				;oc ${Me.Name} Helio Duration ${HelioEffect.Duration} of ${HelioEffect.MaxDuration}
-				;if ${HelioEffect.MaxDuration} - ${HelioEffect.Duration} < 3
 				;if ${HelioEffect.Duration} < 3
 				;	oc ${Me.Name} Helio ${HelioEffect.CurrentIncrements} set to ${Math.Calc[${HelioEffect.CurrentIncrements}+5]} at distance ${Actor["${_NamedNPC}"].Distance}
 				; **************************************
@@ -940,81 +792,31 @@ function Coppernicus(string _NamedNPC)
 				; Handle Flecks of Regret detrimental
 				; 	Gets cast on everyone in group and deals damamge and power drains
 				; 	If cured from entire group gets re-applied to entire group
-				; 	Want to cure on everyone that is not a fighter
+				; 	Want to cure on everyone except CoppernicusPriestTank
+				; 		However have CoppernicusPriestTank cure themselves every 5 minutes because flecks being on a long time can cause it to start spiking up to 100B+ damage
 				; Check to see if this character needs to be cured (if not already handled within last 2 seconds)
 				if ${FlecksCounter} < 0
 					FlecksCounter:Inc
-				if ${FlecksCounter} == 0 && !${Me.Archetype.Equal[fighter]}
+				if ${FlecksCounter} == 0
 				{
 					if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 					{
-						; Set NeedsFlecksCure for group member to cure this character
-						oc !ci -Set_Variable igw:${Me.Name} "NeedsFlecksCure" "${Me.Name}"
-						wait 1
-						FlecksCounter:Set[-2]
-					}
-				}
-				; Check to see if this character needs to cure Flecks of Regret from anyone
-				if ${Me.Archetype.Equal[priest]}
-				{
-					; Get NeedsFlecksCure
-					NeedsFlecksCure:Set["${OgreBotAPI.Get_Variable["NeedsFlecksCure"]}"]
-					if ${NeedsFlecksCure.Length} > 0 && !${NeedsFlecksCure.Equal["None"]}
-					{
-						; Set NeedsFlecksCure back to None
-						oc !ci -Set_Variable igw:${Me.Name} "NeedsFlecksCure" "None"
-						; Cure NeedsFlecksCure character
-						oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure" "${NeedsFlecksCure}" "0"
-					}
-				}
-				; Handle Mezzy Situation
-				; 	Gets cast on everyone in group (after mob ~60%) and mezzes + power drain
-				; 	Last target freed is moved to top of hate like
-				; 		Want to cure on everyone except CoppernicusCurrentTank
-				; Check to see if this character needs to be cured (if not already handled within last 2 seconds)
-				; 	Note Mezzy is an Arcane and Flecks of Regret is an elemental
-				; 	Don't want priest/mage to cure a fighter because it would also cure Flecks of Regret
-				; 		Instead have Fighter use Zimaran Cure Arcane pot, have Mage cure themselves, and have priest cure everyone else not CoppernicusCurrentTank
-				if ${MezzyCounter} < 0
-					MezzyCounter:Inc
-				if ${MezzyCounter} == 0 && !${OgreBotAPI.Get_Variable["CoppernicusCurrentTank"].Equal[${Me.Name}]}
-				{
-					if ${Me.Effect[Query, "Detrimental" && MainIconID == 266 && BackDropIconID == 170].ID(exists)}
-					{
-						; Handle Mezzy based on Archetype
-						if ${Me.Archetype.Equal[fighter]}
-							oc !ci -UseItem ${Me.Name} "Zimaran Cure Arcane"
+						; If character is CoppernicusPriestTank, only cure themselves if 5 minutes have passed since last cure
+						if ${Me.Name.Equal[${CoppernicusPriestTank}]}
+						{
+							if ${Math.Calc[${Time.Timestamp}-${NeedFlecksCureTime.Timestamp}]} > 300
+							{
+								oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure" "${Me.Name}" "0"
+								NeedFlecksCureTime:Set[${Time.Timestamp}]
+							}
+						}
+						; Have mages cure themselves
 						elseif ${Me.Archetype.Equal[mage]}
-							oc !ci -Set_Variable igw:${Me.Name} "NeedsMezzyCureMage" "${Me.Name}"
+							oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure Magic" "${Me.Name}" "0"
+						; Have everyone else use a cure pot
 						else
-							oc !ci -Set_Variable igw:${Me.Name} "NeedsMezzyCurePriest" "${Me.Name}"
-						wait 1
-						MezzyCounter:Set[-2]
-					}
-				}
-				; Check to see if this character needs to cure Mezzy from anyone
-				if ${Me.Archetype.Equal[priest]}
-				{
-					; Get NeedsMezzyCure
-					NeedsMezzyCure:Set["${OgreBotAPI.Get_Variable["NeedsMezzyCurePriest"]}"]
-					if ${NeedsMezzyCure.Length} > 0 && !${NeedsMezzyCure.Equal["None"]}
-					{
-						; Set NeedsMezzyCurePriest back to None
-						oc !ci -Set_Variable igw:${Me.Name} "NeedsMezzyCurePriest" "None"
-						; Cure NeedsMezzyCure character
-						oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure" "${NeedsMezzyCure}" "0"
-					}
-				}
-				elseif ${Me.Archetype.Equal[mage]}
-				{
-					; Get NeedsMezzyCure
-					NeedsMezzyCure:Set["${OgreBotAPI.Get_Variable["NeedsMezzyCureMage"]}"]
-					if ${NeedsMezzyCure.Length} > 0 && !${NeedsMezzyCure.Equal["None"]}
-					{
-						; Set NeedsMezzyCureMage back to None
-						oc !ci -Set_Variable igw:${Me.Name} "NeedsMezzyCureMage" "None"
-						; Cure NeedsMezzyCure character
-						oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure Magic" "${NeedsMezzyCure}" "0"
+							oc !ci -UseItem ${Me.Name} "Zimaran Cure Elemental"
+						FlecksCounter:Set[-2]
 					}
 				}
 			}

@@ -509,6 +509,14 @@ objectdef Object_Instance
 		; Update KillSpot
 		KillSpot:Set[86.74,11.43,-183.85]
 		
+		; Can be an un-aggroed roaming chromacloud that messes up the rune swap, make sure it is gone
+		call move_to_next_waypoint "262.13,3.45,-44.66" "1"
+		while ${Actor[Query,Name=="a chromacloud" && Type != "Corpse" && X > 240 && Distance <= 35].ID(exists)}
+		{
+			Actor[Query,Name=="a chromacloud" && Type != "Corpse" && X > 240 && Distance <= 35]:DoTarget
+			wait 10
+		}
+		
 		; Swap to fear immunity rune (before moving into room, otherwise could get caught in combat with a roaming mob when trying to swap)
 		call mend_and_rune_swap "fear" "fear" "fear" "fear"
 		

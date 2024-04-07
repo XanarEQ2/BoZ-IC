@@ -399,6 +399,7 @@ objectdef Object_Instance
 		call EnterPortal "${PortalName}" "Teleport"
 		
 		; Check if already killed
+		wait 20
 		if !${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
 		{
 			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]

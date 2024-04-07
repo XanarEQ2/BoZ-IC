@@ -19,8 +19,9 @@ function SetInitialInstanceSettings()
 	; Assist
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_assist FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+notfighter checkbox_settings_assist TRUE TRUE
-	; Enable Heroic Setups
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions TRUE TRUE
+	; Disable Heroic Setups and NPC Cast Monitoring (scripts designed without them, may be some sort of conflict)
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_npc_cast_monitoring FALSE TRUE
 	; Cast Stack
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_ca FALSE TRUE
@@ -612,7 +613,6 @@ function initialize_move_to_next_boss(string _NamedNPC, int startpoint)
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nofears FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nodispels FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_npc_cast_monitoring TRUE TRUE
 	eq2execute summon
 	wait 5
 	Obj_OgreIH:SetCampSpot
