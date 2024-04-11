@@ -217,7 +217,7 @@ objectdef Object_Instance
 			Ob_AutoTarget:Clear
 			; Kill Named
 			Actor[${_NamedNPC}]:DoTarget
-			wait 30
+			wait 10
 			oc !ci -PetAssist igw:${Me.Name}
 			; Setup variables for current/next SilverShardID
 			variable int CurrentSilverShardID
@@ -260,8 +260,8 @@ objectdef Object_Instance
 							NewLoc.Y:Set[(${NewLoc.Y}+3.78)/2]
 							NewLoc.Z:Set[(${NewLoc.Z}+14.33)/2]
 							oc !ci -ChangeCampSpotWho igw:${Me.Name}+priest ${NewLoc.X} ${NewLoc.Y} ${NewLoc.Z}
-							; Wait a few seconds, then check again
-							wait 30
+							; Wait a second, then check again
+							wait 10
 							continue
 						}
 					}

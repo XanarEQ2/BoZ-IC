@@ -868,6 +868,7 @@ objectdef Object_Instance
 		; Setup and move to named, looking for shiny from Hezodhan along the way
 		call initialize_move_to_next_boss "${_NamedNPC1}" "5"
 		call move_to_next_waypoint "442.00,6.59,0.59"
+		wait 20
 		call EnterPortal "transport_carpet_01" "Travel"
 		call move_to_next_waypoint "363.06,31.61,-0.02" "5"
 		if !${Ogre_Instance_Controller.bSkipShinies}

@@ -14,10 +14,14 @@ variable bool StupendousSweepIncoming=FALSE
 variable bool NuggetStupendousSlamIncoming=FALSE
 variable bool NuggetAbsorbAndCrushArmorIncoming=FALSE
 variable bool NuggetAllMineIncoming=FALSE
-; Custom variable for Coppernicus
+; Custom variabled for Coppernicus
 variable bool CoppernicusRespawn=FALSE
 variable time ChangingTheoryExpirationTimestamp
 variable time CoppernicusExpectedHelioTime
+; Custom variables for Goldfeather
+variable bool GoldfeatherRespawn=FALSE
+variable bool GoldfeatherPlumeBoomIncoming=FALSE
+variable bool GoldfeatherPlumeBoomCast=FALSE
 
 #include "${LavishScript.HomeDirectory}/Scripts/EQ2OgreBot/InstanceController/Ogre_Instance_Include.iss"
 
@@ -62,6 +66,12 @@ objectdef Object_Instance
 				_StartingPoint:Set[3]
 				CoppernicusRespawn:Set[TRUE]
 			}
+			; Check to see if at "Eighteen Karat Copse" respawn point after wiping to Goldfeather
+			if ${Math.Distance[${Me.X},${Me.Y},${Me.Z},790.69,279.30,547.14]} < 50
+			{
+				_StartingPoint:Set[4]
+				GoldfeatherRespawn:Set[TRUE]
+			}
 		}
 		; Move to and kill Named 1
 		if ${_StartingPoint} == 1
@@ -99,10 +109,10 @@ objectdef Object_Instance
 		; Move to and kill Named 4
 		if ${_StartingPoint} == 4
 		{
-			call This.Named4 ""
+			call This.Named4 "Goldfeather"
 			if !${Return}
 			{
-				Obj_OgreIH:Message_FailedZone["#4: "]
+				Obj_OgreIH:Message_FailedZone["#4: Goldfeather"]
 				return FALSE
 			}
 			_StartingPoint:Inc
@@ -186,6 +196,7 @@ objectdef Object_Instance
 		
 		; Move to named
 		call move_to_next_waypoint "883.28,203.71,-68.62"
+		
 		; Enable PreCastTag to allow priest to setup wards before engaging first mob
 		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
 		wait 60
@@ -1061,10 +1072,12 @@ objectdef Object_Instance
 				FighterNamedOffset:Inc[180]
 				call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "7" "${FighterNamedOffset}"
 				wait 20
+				; Cast Immunization on fighter in case they don't successfully dodge the sweep
+				oc !ci -CastAbilityOnPlayer igw:${Me.Name}+mystic "Immunization" ${Me.Name} 0
 				; Wait until sweep is about to go off, then send fighter to side to joust it (wait up to 6 seconds)
 				Counter:Set[0]
 				SweepCount:Set[0]
-				while ${Counter:Inc} <= 20 || (${Me.GetGameData["Target.Casting"].Percent} > 0 && ${Counter} <= 60)
+				while (${Counter:Inc} <= 20 || (${Me.GetGameData["Target.Casting"].Percent} > 0 && ${Counter} <= 60)) && !${NuggetAbsorbAndCrushArmorIncoming}
 				{
 					; Move fighter to side when sweep >= 70% cast
 					if ${Me.GetGameData["Target.Casting"].Percent} >= 70
@@ -1178,6 +1191,8 @@ objectdef Object_Instance
 		call SetupAllCures "${SetDisable}"
 		; Set HO settings
 		call SetupNuggetHO "${EnableNugget}"
+		; Disable Immunization so it is available during Stupendous Sweep
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Immunization" ${SetDisable} TRUE
 		; Disable abilities that may cause problems with named movement/direction
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Walk the Plank" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+beastlord "Noxious Grasp" ${SetDisable} TRUE
@@ -1200,7 +1215,6 @@ objectdef Object_Instance
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Dashing Swathe" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Shanghai" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Ancestral Support" ${SetDisable} TRUE
-		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+mystic "Immunization" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+swashbuckler "Daring Advance" ${SetDisable} TRUE
 		wait 1
 		if ${EnableNugget}
@@ -1343,6 +1357,7 @@ objectdef Object_Instance
 		variable int UnearthedMoveInc
 		variable bool FoundCluster=TRUE
 		variable bool NeedsFlecksCure
+		variable bool FoundSlug
 		
 		; Add AdditionalClusters to TargetAurumCount
 		while ${AdditionalClusters} > 0
@@ -1437,24 +1452,29 @@ objectdef Object_Instance
 					if ${UnearthedBackwardSteps} < ${UnearthedForwardSteps}
 						UnearthedMoveInc:Set[-1]
 					; Move between UnearthedSpots to get to ClosestUnearthedNum
+					FoundSlug:Set[FALSE]
 					while ${UnearthedNum} != ${ClosestUnearthedNum}
 					{
+						; Check to make sure not in combat with a gleaming goldslug, otherwise wait to kill it before moving
+						while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0].ID(exists)}
+						{
+							FoundSlug:Set[TRUE]
+							wait 5
+						}
+						; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
+						while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
+						{
+							wait 5
+						}
+						; If FoundSlug, don't continue because may have come across another cluster on the way to target cluster and want to mine it first
+						if ${FoundSlug} 
+							break
 						; Update UnearthedNum
 						UnearthedNum:Inc[${UnearthedMoveInc}]
 						if ${UnearthedNum} > ${UnearthedSpot.Size}
 							UnearthedNum:Set[1]
 						elseif ${UnearthedNum} < 1
 							UnearthedNum:Set[${UnearthedSpot.Size}]
-						; Check to make sure not in combat with a gleaming goldslug, otherwise wait to kill it before moving
-						while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0].ID(exists)}
-						{
-							wait 10
-						}
-						; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
-						while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
-						{
-							wait 10
-						}
 						; Move to new UnearthedSpot
 						Obj_OgreIH:ChangeCampSpot["${UnearthedSpot[${UnearthedNum}]}"]
 						call Obj_OgreUtilities.HandleWaitForCampSpot 10
@@ -1462,13 +1482,37 @@ objectdef Object_Instance
 					; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
 					while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
 					{
-						wait 10
+						wait 5
 					}
+					; If FoundSlug, loop again to refresh which cluster is closest
+					if ${FoundSlug} 
+						continue
 					; Move from UnearthedSpot to cluster, but stop just short of it
 					; 	Clusters can spawn right by bushes, so don't want to potentially run into a bush and get adds
 					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "5"
 					Obj_OgreIH:ChangeCampSpot["${Return}"]
 					call Obj_OgreUtilities.HandleWaitForCampSpot 10
+					
+					
+					
+					
+					; ************************************************************
+					; ************************************************************
+					; ************************************************************
+					; Testing!!!
+					
+					; Bring fighter back to pull slug away from cluster
+					;call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "20"
+					;oc !ci -ChangeCampSpotWho ${Me.Name} ${Return.X} ${Return.Y} ${Return.Z}
+					
+					; ************************************************************
+					; ************************************************************
+					; ************************************************************
+					
+					
+					
+					
+					
 					; Wait as long as cluster exists (up to 60 seconds)
 					Counter:Set[0]
 					while ${ClosestUnearthed.ID(exists)} && ${Counter:Inc} <= 600
@@ -1478,8 +1522,32 @@ objectdef Object_Instance
 					; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
 					while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
 					{
-						wait 10
+						wait 5
 					}
+					
+					
+					; ************************************************************
+					; ************************************************************
+					; ************************************************************
+					; Testing!!!
+					
+					; Check to make sure not in combat with a gleaming goldslug, otherwise wait to kill it before moving
+					;while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0].ID(exists)}
+					;{
+					;	wait 5
+					;}
+					; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
+					;while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
+					;{
+					;	wait 5
+					;}
+					
+					; ************************************************************
+					; ************************************************************
+					; ************************************************************
+					
+					
+					
 					; Move back to UnearthedSpot
 					Obj_OgreIH:ChangeCampSpot["${UnearthedSpot[${UnearthedNum}]}"]
 					call Obj_OgreUtilities.HandleWaitForCampSpot 10
@@ -1646,6 +1714,19 @@ objectdef Object_Instance
 					call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
 					if ${Return.Equal["priest"]} && ${CoppernicusPriestTank.Length} == 0
 						CoppernicusPriestTank:Set["${Me.Group[${GroupNum}].Name}"]
+			}
+		}
+		
+		; Determine character that will keep Flecks of Regret on themselves throughout the fight
+		; 	Use a scout/mage that won't be tanking the adds
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["scout"]} || ${Return.Equal["mage"]}
+			{
+				oc !ci -Set_Variable igw:${Me.Name} "CoppernicusFlecksCharacter" "${Me.Group[${GroupNum}].Name}"
+				break
 			}
 		}
 		
@@ -1981,11 +2062,11 @@ objectdef Object_Instance
 					; 		so set In as 18.5 away and Out as 26.5 away
 					; 	Arena is angled ~22 degrees off X axis
 					JoustInLoc:Set[${CoppernicusLoc}]
-					JoustInLoc.X:Dec[${Math.Calc[18.5*${Math.Cos[22]}]}]
-					JoustInLoc.Z:Inc[${Math.Calc[18.5*${Math.Sin[22]}]}]
+					JoustInLoc.X:Dec[${Math.Calc[18.5*${Math.Cos[52]}]}]
+					JoustInLoc.Z:Inc[${Math.Calc[18.5*${Math.Sin[52]}]}]
 					JoustOutLoc:Set[${CoppernicusLoc}]
-					JoustOutLoc.X:Dec[${Math.Calc[26.5*${Math.Cos[22]}]}]
-					JoustOutLoc.Z:Inc[${Math.Calc[26.5*${Math.Sin[22]}]}]
+					JoustOutLoc.X:Dec[${Math.Calc[26.5*${Math.Cos[52]}]}]
+					JoustOutLoc.Z:Inc[${Math.Calc[26.5*${Math.Sin[52]}]}]
 					; Send fighter further in/out to keep celestial materia in/out as well
 					FighterJoustInLoc:Set[${CoppernicusLoc}]
 					FighterJoustInLoc.X:Dec[${Math.Calc[7*${Math.Cos[-68]}]}]
@@ -2095,8 +2176,8 @@ objectdef Object_Instance
 							{
 								; Set HelioLoc
 								HelioLoc:Set[${CoppernicusLoc}]
-								HelioLoc.X:Dec[${Math.Calc[${HelioDistance}*${Math.Cos[22]}]}]
-								HelioLoc.Z:Inc[${Math.Calc[${HelioDistance}*${Math.Sin[22]}]}]
+								HelioLoc.X:Dec[${Math.Calc[${HelioDistance}*${Math.Cos[52]}]}]
+								HelioLoc.Z:Inc[${Math.Calc[${HelioDistance}*${Math.Sin[52]}]}]
 								; Send character to HelioLoc
 								oc !ci -ChangeCampSpotWho ${JoustCharacter[${GroupNum}]} ${HelioLoc.X} ${HelioLoc.Y} ${HelioLoc.Z}
 								; Remove increment from TargetIncrements if HelioDistance < 22.5
@@ -2315,18 +2396,599 @@ objectdef Object_Instance
 	}
 
 /**********************************************************************************************************
- 	Named 4 *********************    Move to, spawn and kill - ??? *************************************
+ 	Named 4 *********************    Move to, spawn and kill - Goldfeather ********************************
 ***********************************************************************************************************/
 
+	; Setup Variables needed outside Named4 function
+	variable bool GoldfeatherExists
+	
 	function:bool Named4(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[0,0,0]
+		KillSpot:Set[602.36,248.94,416.31]
 		
 		; Undo Coppernicus custom settings
 		call SetupCoppernicus "FALSE"
 		
+		; Disable cures (don't need to start curing on the way to named)
+		call SetupAllCures "FALSE"
+		
+		; Set Loot settings for last boss (not the last boss, but may drop NO-TRADE Bell)
+		call SetLootForLastBoss
+		
+		; Setup variables
+		variable int GroupNum
+		variable int Counter
+		variable int GoldfeatherExistsCount=0
+		variable string PhylacteryCharacter[3]
+		variable string HOMage
+		variable actor Aurumutation
+		
+		; Swap immunity runes (stun on fighter/scout, stifle on mage/priest)
+		call mend_and_rune_swap "stun" "stun" "stifle" "stifle"
+		
+		; Setup for named
+		call initialize_move_to_next_boss "${_NamedNPC}" "4"
+		
+		; Enable PreCastTag to allow priest to setup wards before engaging first mob
+		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
+		wait 60
+		
+		; Move to named from Coppernicus
+		if !${GoldfeatherRespawn}
+		{
+			call move_to_next_waypoint "850.84,329.15,95.23"
+			call move_to_next_waypoint "854.30,321.05,18.23"
+			call move_to_next_waypoint "736.48,312.70,53.18"
+			call EnterPortal "teleporter_upper" "Teleport"
+		}
+		; Otherwise move from respawn point
+		else
+		{
+			call move_to_next_waypoint "737.94,274.65,504.15"
+			call move_to_next_waypoint "758.30,284.21,476.69"
+			call move_to_next_waypoint "775.99,291.62,455.75"
+			call move_to_next_waypoint "809.41,309.21,407.65"
+			call move_to_next_waypoint "811.31,319.28,362.22"
+			call move_to_next_waypoint "810.53,321.43,325.36"
+			call move_to_next_waypoint "780.69,322.19,287.77"
+			call move_to_next_waypoint "743.99,275.50,254.98"
+		}
+		
+		; Continue to Goldfeather
+		call move_to_next_waypoint "713.45,276.07,235.17"
+		call move_to_next_waypoint "662.90,275.51,253.26"
+		call move_to_next_waypoint "625.39,260.31,286.42"
+		
+		; Check if already killed
+		call CheckGoldfeatherExists
+		
+		; Skip if already killed
+		if !${GoldfeatherExists}
+		{
+			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]
+			call move_to_next_waypoint "570.64,256.26,287.82"
+			call move_to_next_waypoint "519.36,256.88,303.53"
+			call move_to_next_waypoint "473.40,256.21,340.62"
+			call move_to_next_waypoint "459.97,257.38,393.92"
+			call move_to_next_waypoint "480.87,252.34,437.96"
+			call move_to_next_waypoint "495.92,261.01,484.20"
+			call move_to_next_waypoint "554.29,250.88,493.65"
+			call move_to_next_waypoint "609.51,251.40,496.74"
+			call move_to_next_waypoint "592.45,249.94,433.45"
+			call move_to_next_waypoint "${KillSpot}"
+			return TRUE
+		}
+		
+		; Determine characters that will use each Phylactery
+		; 	Prefer fighters and scouts
+		PhylacteryCharacter[1]:Set[${Me.Name}]
+		GroupNum:Set[0]
+		Counter:Set[1]
+		while ${GroupNum:Inc} < ${Me.GroupCount} && ${Counter} <= ${PhylacteryCharacter.Size}
+		{
+			; Check if fighter or scout
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["fighter"]} || ${Return.Equal["scout"]}
+				PhylacteryCharacter[${Counter:Inc}]:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount} && ${Counter} <= ${PhylacteryCharacter.Size}
+		{
+			; Check if mage or priest
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["mage"]} || ${Return.Equal["priest"]}
+				PhylacteryCharacter[${Counter:Inc}]:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		
+		; Determine HOMage
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			; Check if mage
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["mage"]}
+			{
+				HOMage:Set["${Me.Group[${GroupNum}].Name}"]
+				break
+			}
+		}
+		
+		; Set variables to use in helper script
+		oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter1" "${PhylacteryCharacter[1]}"
+		oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter2" "${PhylacteryCharacter[2]}"
+		oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter3" "${PhylacteryCharacter[3]}"
+		oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter1HasPhylactery" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter2HasPhylactery" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter3HasPhylactery" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "HOMage" "${HOMage}"
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}HasCurse" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}DispelTargetID" "0"
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}HasCurse" "FALSE"
+			oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}DispelTargetID" "0"
+		}
+		wait 1
+		
+		; Set custom settings for Goldfeather
+		call SetupGoldfeather "TRUE"
+		
+		; Run HOHelperScript to help complete HO's
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript} "InZone"
+		
+		; Run ZoneHelperScript
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
+		
+		; Let script run for a couple of seconds to update HasCurse for each character
+		wait 20
+		
+		; Pull "an aurumutation" mobs and dispel them as needed to get Mutagenesis Disease curse on everyone in the group
+		call CheckGoldfeatherNeedCurse
+		while ${Return}
+		{
+			; Pull "an aurumutation" mobs and dispel them as needed to get Mutagenesis Disease curse on a character missing it
+			call PullAurumutation
+			; Check again to see if anyone else needs curse
+			call CheckGoldfeatherNeedCurse
+		}
+		
+		; Wait for goldfeather to be clear of path to island
+		while !${Actor[Query,Name=="Goldfeather" && Type != "Corpse" && (X < 580 || X > 640)].ID(exists)}
+		{
+			wait 10
+		}
+		
+		; Disable CA on priests (may aggro extra aurumutations and have characters die because they have the Mutagenesis Disease, just don't want the priests to die)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disablecaststack_ca TRUE TRUE
+		
+		; Move to island
+		call move_to_next_waypoint "621.33,261.04,318.36"
+		call move_to_next_waypoint "616.91,245.72,340.46"
+		call move_to_next_waypoint "615.65,246.03,364.73"
+		call move_to_next_waypoint "615.26,246.17,392.98"
+		call move_to_next_waypoint "${KillSpot}"
+		
+		; Get Phylacterys
+		call CheckGoldfeatherNeedPhylactery
+		while ${Return}
+		{
+			; Move to Phylactery location and have characters grab it
+			call GetPhylactery
+			; Check again to see if anyone else needs curse
+			call CheckGoldfeatherNeedPhylactery
+		}
+		
+		; Kill any auramutation around KillSpot
+		Aurumutation:Set[${Actor[Query,Name=="an aurumutation" && Type != "Corpse" && Distance < 35].ID}]
+		while ${Aurumutation.ID(exists)}
+		{
+			; Pause Ogre
+			oc !ci -Pause igw:${Me.Name}
+			wait 1
+			; Pull Aurumutation
+			Aurumutation:DoTarget
+			wait 5
+			; Pet pull aurumutation
+			while ${Aurumutation.Target.ID} == 0
+			{
+				relay ${OgreRelayGroup} eq2execute pet attack
+				wait 10
+			}
+			; Wait for aurumutation to be pulled back to group
+			while ${Aurumutation.Distance} > 25
+			{
+				oc !ci -PetOff igw:${Me.Name}
+				wait 10
+			}
+			; Resume
+			oc !ci -Resume igw:${Me.Name}
+			; Kill aurumutation
+			Aurumutation:DoTarget
+			oc !ci -PetAssist igw:${Me.Name}
+			while ${Aurumutation.ID(exists)}
+			{
+				wait 10
+			}
+			call Obj_OgreUtilities.HandleWaitForCombat
+			call Obj_OgreUtilities.WaitWhileGroupMembersDead
+			wait 10
+			; Update Aurumutation
+			Aurumutation:Set[${Actor[Query,Name=="an aurumutation" && Type != "Corpse" && Distance < 35].ID}]
+		}
+		
+		; Repair if needed (may have had some extra deaths killing auramutations)
+		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
+		
+		; Wait for Goldfeather to path near KillSpot
+		while !${Actor[Query,Name=="Goldfeather" && Type != "Corpse" && Distance < 70].ID(exists)}
+		{
+			wait 10
+		}
+		
+		; Enable PreCastTag to allow priest to setup wards before engaging named
+		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
+		wait 60
+		
+		; Handle text events
+		Event[EQ2_onIncomingText]:AttachAtom[GoldfeatherIncomingText]
+		Event[EQ2_onIncomingChatText]:AttachAtom[GoldfeatherIncomingChatText]
+		
+		; Pull Named
+		Ob_AutoTarget:Clear
+		oc ${Me.Name} is pulling ${_NamedNPC}
+		
+		; Use Goldfeather's Phylactery on all characters to pull named
+		wait 20
+		oc !ci -UseItem igw:${Me.Name} "Goldfeather's Phylactery"
+		wait 20
+		
+		; Re-enable CA on priests
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disablecaststack_ca FALSE TRUE
+		
+		; Enable AutoTarget (but disable Out of Combat scanning)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning FALSE TRUE
+		wait 1
+		Ob_AutoTarget:AddActor["an aurumutation",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
+		
+		; Kill named
+		; 	There are a lot of detrimentals to cure and spells to interrupt that are all handled in the helper script
+		while ${GoldfeatherExists}
+		{
+			; Handle Plume Boom incoming
+			; 	Will cause damage and knock up to characters around fighter
+			; 	Move fighter away from group to avoid it
+			if ${GoldfeatherPlumeBoomIncoming}
+			{
+				; Move fighter away from group
+				oc !ci -ChangeCampSpotWho igw:${Me.Name}+fighter 592.81 249.32 427.72
+				; Handled GoldfeatherPlumeBoomIncoming
+				GoldfeatherPlumeBoomIncoming:Set[FALSE]
+			}
+			; Handle Plume Boom cast
+			; 	After Plume Boom gets cast, move fighter back to group
+			if ${GoldfeatherPlumeBoomCast}
+			{
+				; Move fighter back to KillSpot
+				oc !ci -ChangeCampSpotWho igw:${Me.Name}+fighter ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+				; Handled GoldfeatherPlumeBoomCast
+				GoldfeatherPlumeBoomCast:Set[FALSE]
+			}
+			; Short wait before looping (to respond as quickly as possible to events)
+			wait 1
+			; Update GoldfeatherExists every 3 seconds
+			if ${GoldfeatherExistsCount:Inc} >= 30
+			{
+				call CheckGoldfeatherExists
+				GoldfeatherExistsCount:Set[0]
+			}
+		}
+		
+		; Detach Atoms
+		Event[EQ2_onIncomingText]:DetachAtom[GoldfeatherIncomingText]
+		Event[EQ2_onIncomingChatText]:DetachAtom[GoldfeatherIncomingChatText]
+		
+		; Reset AutoTarget
+		Ob_AutoTarget:Clear
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning TRUE TRUE
+		
+		; Check named is dead
+		if ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID(exists)}
+		{
+			Obj_OgreIH:Message_FailedToKill["${_NamedNPC}"]
+			return FALSE
+		}
+		
+		; Get Chest
+		eq2execute summon
+		wait 10
+		call Obj_OgreIH.Get_Chest
+		
+		; Finished with named
+		return TRUE
+	}
+	
+	function CheckGoldfeatherExists()
+	{
+		; Assume GoldfeatherExists if in Combat
+		if ${Me.InCombat}
+		{
+			GoldfeatherExists:Set[TRUE]
+			return
+		}
+		; Check to see if Goldfeather exists
+		if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse"].ID(exists)}
+		{
+			GoldfeatherExists:Set[TRUE]
+			return
+		}
+		; Goldfeather not found
+		GoldfeatherExists:Set[FALSE]
+	}
+	
+	function SetupGoldfeather(bool EnableGoldfeather)
+	{
+		; Setup Cures
+		variable bool SetDisable
+		SetDisable:Set[!${EnableGoldfeather}]
+		call SetupAllCures "${SetDisable}"
+		; Set initial HO settings
+		call SetInitialHOSettings
+		; Disable mage lightning and star HO icon abilities so they are available when mage needs to complete an HO
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 ${EnableGoldfeather} TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_29 ${EnableGoldfeather} TRUE
+		; Disable PBAE abilities (don't want to aggro extra roaming aurumutation mobs)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_donotsave_dynamicignorepbae ${EnableGoldfeather} TRUE
+		; Setup Interrupts (will selectively interrupt as needed so don't want abilities on cooldown)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts ${EnableGoldfeather} TRUE
+		; Set Auto Target Out of Combat scanning to enabled by default
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning TRUE TRUE
+	}
+	
+	function CheckGoldfeatherNeedCurse()
+	{
+		; Check to see if anyone in the group is missing Curse
+		if !${OgreBotAPI.Get_Variable["${Me.Name}HasCurse"]}
+			return TRUE
+		variable int GroupNum=0
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			if !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}HasCurse"]}
+				return TRUE
+		}
+		; No one found that still needs curse, return FALSE
 		return FALSE
+	}
+	
+	function PullAurumutation()
+	{
+		; Target self to avoid fighting aurumutation at first
+		Me:DoTarget
+		; Setup variables
+		variable int GroupNum=0
+		variable index:actor Aurumutation
+		variable iterator AurumutationIterator
+		variable actor TargetAurumutation
+		variable string PullCharacter
+		; Query all aurumutation mobs within 150m
+		EQ2:QueryActors[Aurumutation, Name=="an aurumutation" && Type != "Corpse" && X > 620 && Distance < 150]
+		Aurumutation:GetIterator[AurumutationIterator]
+		if ${AurumutationIterator:First(exists)}
+		{
+			; Loop through each aurumutation
+			do
+			{
+				; If TargetAurumutation doesn't exist, set it
+				if !${TargetAurumutation.ID(exists)}
+					TargetAurumutation:Set[${AurumutationIterator.Value.ID}]
+				; Otherwise if aurumutation is in combat, set as the target and stop search
+				elseif ${AurumutationIterator.Value.Target.ID} != 0
+				{
+					TargetAurumutation:Set[${AurumutationIterator.Value.ID}]
+					break
+				}
+				; Otherwise set as target if closer
+				elseif ${AurumutationIterator.Value.Distance} < ${TargetAurumutation.Distance}
+					TargetAurumutation:Set[${AurumutationIterator.Value.ID}]
+			}
+			while ${AurumutationIterator:Next(exists)}
+		}
+		; Make sure TargetAurumutation exists
+		if !${TargetAurumutation.ID(exists)}
+			return
+		; Get group member that does not have curse
+		if !${OgreBotAPI.Get_Variable["${Me.Name}HasCurse"]}
+			PullCharacter:Set["${Me.Name}"]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			if ${PullCharacter.Length} == 0 && !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}HasCurse"]}
+				PullCharacter:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		; If PullCharacter is empty and TargetAurumutation is not in combat, exit
+		if ${PullCharacter.Length} == 0 && ${TargetAurumutation.Target.ID} == 0
+			return
+		; If PullCharacter is empty and TargetAurumutation is in combat, cure curse from this character and use as PullCharacter
+		if ${PullCharacter.Length} == 0 && ${TargetAurumutation.Target.ID} != 0
+		{
+			; Cure curse from this character
+			while ${OgreBotAPI.Get_Variable["${Me.Name}HasCurse"]}
+			{
+				oc !ci -AutoCurse igw:${Me.Name} ${Me.Name}
+				wait 50
+			}
+			; Set this character as PullCharacter
+			PullCharacter:Set[${Me.Name}]
+		}
+		; Pause Ogre
+		oc !ci -Pause igw:${Me.Name}
+		wait 1
+		; Pull TargetAurumutation
+		TargetAurumutation:DoTarget
+		wait 5
+		; Pet pull aurumutation
+		while ${TargetAurumutation.Target.ID} == 0
+		{
+			relay ${OgreRelayGroup} eq2execute pet attack
+			wait 10
+		}
+		; Wait for aurumutation to be pulled back to group
+		while ${TargetAurumutation.Distance} > 15
+		{
+			oc !ci -PetOff igw:${Me.Name}
+			wait 10
+		}
+		; Target self again (don't want to attack TargetAurumutation until it is dispelled)
+		Me:DoTarget
+		wait 5
+		; Resume 
+		oc !ci -Resume igw:${Me.Name}
+		; Set DispelTargetID
+		oc !ci -Set_Variable igw:${Me.Name} "${PullCharacter}DispelTargetID" "${TargetAurumutation.ID}"
+		; Wait for PullCharacter to dispel the aurumutation from helper script
+		do
+		{
+			call GetActorEffectIncrements "${TargetAurumutation.ID}" "Metallic Mutagenesis" "2"
+			wait 10
+		}
+		while ${Return} == 0
+		; Kill aurumutation
+		TargetAurumutation:DoTarget
+		oc !ci -PetAssist igw:${Me.Name}
+		while ${TargetAurumutation.ID(exists)}
+		{
+			wait 10
+		}
+		call Obj_OgreUtilities.HandleWaitForCombat
+		call Obj_OgreUtilities.WaitWhileGroupMembersDead
+		wait 10
+	}
+	
+	function CheckGoldfeatherNeedPhylactery()
+	{
+		; Check to see if Phylactery character is missing the Phylactery
+		if !${OgreBotAPI.Get_Variable["PhylacteryCharacter1HasPhylactery"]} || !${OgreBotAPI.Get_Variable["PhylacteryCharacter2HasPhylactery"]} || !${OgreBotAPI.Get_Variable["PhylacteryCharacter3HasPhylactery"]}
+			return TRUE
+		; No one found that still needs Phylactery, return FALSE
+		return FALSE
+	}
+	
+	function GetPhylactery()
+	{
+		; Setup variables
+		variable index:actor Phylacterys
+		variable iterator PhylacteryIterator
+		variable point3f PhylacteryLoc
+		variable point3f TravelSpots[6]
+		variable int Counter
+		variable float Slope
+		variable float Intercept
+		variable float NewX
+		variable float NewZ
+		variable point3f GoldfeatherLoc
+		variable float GoldfeatherHeading
+		variable int NumSteps
+		variable bool CollisionFound=FALSE
+		variable actor ClosestSafePhylactery
+		variable float CurrentY
+		
+		; Search for any Goldfeather's phylactery
+		EQ2:QueryActors[Phylacterys, Name=="Goldfeather's phylactery" && Type == "NoKill NPC"]
+		Phylacterys:GetIterator[PhylacteryIterator]
+		if ${PhylacteryIterator:First(exists)}
+		{
+			; Loop through Phylacterys
+			do
+			{
+				; Get phylactery Location, make sure it is valid
+				PhylacteryLoc:Set[${PhylacteryIterator.Value.Loc}]
+				if ${PhylacteryLoc.X}==0 && ${PhylacteryLoc.Y}==0 && ${PhylacteryLoc.Z}==0
+					continue
+				; Setup list of points between KillSpot and phylactery
+				Slope:Set[(${PhylacteryLoc.Z}-${KillSpot.Z})/(${PhylacteryLoc.X}-${KillSpot.X})]
+				Intercept:Set[${KillSpot.Z}-${Slope}*${KillSpot.X}]
+				Counter:Set[0]
+				while ${Counter:Inc} <= ${TravelSpots.Size}
+				{
+					NewX:Set[${KillSpot.X}+(${PhylacteryLoc.X}-${KillSpot.X})*((${Counter}-1)/(${TravelSpots.Size}-1))]
+					NewZ:Set[${Slope}*${NewX}+${Intercept}]
+					TravelSpots[${Counter}]:Set[${NewX},${KillSpot.Y},${NewZ}]
+				}
+				; Default to no CollisionFound
+				CollisionFound:Set[FALSE]
+				; Get Goldfeather Location and Heading, make sure they are valid
+				GoldfeatherLoc:Set[${Actor[Query,Name=="Goldfeather" && Type != "Corpse"].Loc}]
+				GoldfeatherHeading:Set[${Actor[Query,Name=="Goldfeather" && Type != "Corpse"].Heading}]
+				if ${GoldfeatherLoc.X}==0 && ${GoldfeatherLoc.Y}==0 && ${GoldfeatherLoc.Z}==0
+					continue
+				; See if Goldfeather is on a collision path with KillSpot or any TravelSpot
+				NumSteps:Set[-1]
+				while ${NumSteps:Inc} <= 10
+				{
+					; Calculate future Location of Goldfeather moving 5m * NumSteps
+					NewLoc:Set[${GoldfeatherLoc.X},${GoldfeatherLoc.Y},${GoldfeatherLoc.Z}]
+					NewLoc.X:Dec[5*${NumSteps}*${Math.Sin[${GoldfeatherHeading}]}]
+					NewLoc.Z:Dec[5*${NumSteps}*${Math.Cos[${GoldfeatherHeading}]}]
+					; Check to see if Distance is within 50m of KillSpot
+					if ${Math.Distance[${KillSpot.X},${KillSpot.Z},${NewLoc.X},${NewLoc.Z}]} < 50
+						CollisionFound:Set[TRUE]
+					; Check to see if Distance is within 50m of a TravelSpot
+					Counter:Set[0]
+					while ${Counter:Inc} <= ${TravelSpots.Size}
+					{
+						if ${Math.Distance[${TravelSpots[${Counter}].X},${TravelSpots[${Counter}].Z},${NewLoc.X},${NewLoc.Z}]} < 50
+							CollisionFound:Set[TRUE]
+					}
+					; Stop search if CollisionFound
+					if ${CollisionFound}
+						break
+				}
+				; Update ClosestSafePhylactery if no CollisionFound and not set or phylactery is closer
+				if !${CollisionFound} && (${ClosestSafePhylactery.ID} == 0 || ${PhylacteryIterator.Value.Distance} < ${ClosestSafePhylactery.Distance})
+					ClosestSafePhylactery:Set[${PhylacteryIterator.Value.ID}]
+			}
+			while ${PhylacteryIterator:Next(exists)}
+		}
+		; Exit if no safe phylactery (wait a second first before checking again)
+		if ${ClosestSafePhylactery.ID} == 0
+		{
+			wait 10
+			return
+		}
+		; Send characters to phylactery
+		Counter:Set[0]
+		while ${Counter:Inc} <= ${TravelSpots.Size}
+		{
+			; Move to TravelSpot
+			call move_to_next_waypoint "${TravelSpots[${Counter}]}"
+			; Swim down to bottom of lake
+			CurrentY:Set[${Me.Y}]
+			oc !ci -FlyDown igw:${Me.Name}
+			wait 10
+			while ${Me.Y} != ${CurrentY}
+			{
+				CurrentY:Set[${Me.Y}]
+				wait 10
+			}
+			oc !ci -FlyStop igw:${Me.Name}
+			; Move to TravelSpot (again, just to make sure handle combat for anything new aggroed before moving on)
+			call move_to_next_waypoint "${TravelSpots[${Counter}]}"
+		}
+		; Wait until ClosestSafePhylactery no longer exists (up to 10 seconds)
+		Counter:Set[0]
+		while ${ClosestSafePhylactery.ID(exists)} && ${Counter:Inc} <= 10
+		{
+			wait 10
+		}
+		; Send characters back to KillSpot
+		Counter:Set[${Math.Calc[${TravelSpots.Size}+1]}]
+		while ${Counter:Dec} > 0
+		{
+			call move_to_next_waypoint "${TravelSpots[${Counter}]}"
+		}
 	}
 
 /**********************************************************************************************************
@@ -2335,10 +2997,15 @@ objectdef Object_Instance
 
 	function:bool Named5(string _NamedNPC="Doesnotexist")
 	{
+		; Update KillSpot
+		KillSpot:Set[0,0,0]
 		
+		; Undo Goldfeather custom settings
+		call SetupGoldfeather "FALSE"
 		
 		; Set Loot settings for last boss
 		call SetLootForLastBoss
+		
 		
 		return FALSE
 	}
@@ -2443,6 +3110,24 @@ atom CoppernicusIncomingChatText(int ChatType, string Message, string Speaker, s
 		ChangingTheoryExpirationTimestamp.Second:Inc[15]
 		ChangingTheoryExpirationTimestamp:Update
 	}
+	
+	; Debug text to see messages
+	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
+}
+
+atom GoldfeatherIncomingText(string Text)
+{
+	; Look for message that Plume Boom has been cast
+	if ${Text.Find["As a fighter, you avoid getting knocked back by Plume Boom!"]}
+		GoldfeatherPlumeBoomCast:Set[TRUE]
+}
+
+atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
+{
+	; Look for message that Plume Boom is being cast
+	; 	Goldfeather targets <Target> and those around them to go boom!
+	if ${Message.Find["and those around them to go boom!"]}
+		GoldfeatherPlumeBoomIncoming:Set[TRUE]
 	
 	; Debug text to see messages
 	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}

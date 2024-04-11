@@ -17,6 +17,9 @@ function main(string _NamedNPC)
 		case Coppernicus
 			call Coppernicus "${_NamedNPC}"
 			break
+		case Goldfeather
+			call Goldfeather "${_NamedNPC}"
+			break
 	}
 }
 
@@ -666,30 +669,15 @@ function Coppernicus(string _NamedNPC)
 		; Handle "Absorb Celestial Materia"
 		; 	Named casts spell that consumes a celestial materia and heals/buffs him
 		; 	After interrupt, will charge towards the character who interrupted him
-		; 	Want CoppernicusScoutTank character to interrupt it as they should already have aggro
 		if ${CoppernicusAbsorbIncoming}
 		{
-			; Only interrupt if this character is not a fighter
+			; Only interrupt if this character is not a fighter (keep fighter on the celestial materia)
 			if !${Me.Archetype.Equal[fighter]}
 			{
 				; Make sure named is targeted
 				Actor["${_NamedNPC}"]:DoTarget
-				; Pause Ogre
-				oc !ci -Pause ${Me.Name}
-				wait 3
-				; Clear ability queue
-				eq2execute clearabilityqueue
-				; Cancel anything currently being cast
-				oc !ci -CancelCasting ${Me.Name}
-				; Cast Interrupt ability depending on Class (modify as needed based on group setup)
-				oc !ci -CastAbility ${Me.Name}+ranger "Hilt Strike"
-				oc !ci -CastAbility ${Me.Name}+dirge "Hymn of Horror"
-				oc !ci -CastAbility ${Me.Name}+swashbuckler "Tease"
-				oc !ci -CastAbility ${Me.Name}+beastlord "Sharpened Claws"
-				oc !ci -CastAbility ${Me.Name}+coercer "Hemorrhage"
-				oc !ci -CastAbility ${Me.Name}+mystic "Echoes of the Ancients"
-				; Resume Ogre
-				oc !ci -Resume ${Me.Name}
+				; Cast Interrupt
+				call CastInterrupt "FALSE"
 			}
 			; Set Absorb Celestial Materia as handled
 			CoppernicusAbsorbIncoming:Set[FALSE]
@@ -792,8 +780,8 @@ function Coppernicus(string _NamedNPC)
 				; Handle Flecks of Regret detrimental
 				; 	Gets cast on everyone in group and deals damamge and power drains
 				; 	If cured from entire group gets re-applied to entire group
-				; 	Want to cure on everyone except CoppernicusPriestTank
-				; 		However have CoppernicusPriestTank cure themselves every 5 minutes because flecks being on a long time can cause it to start spiking up to 100B+ damage
+				; 	Want to cure on everyone except CoppernicusFlecksCharacter
+				; 		However have CoppernicusFlecksCharacter cure themselves every 5 minutes because flecks being on a long time can cause it to start spiking up to 100B+ damage
 				; Check to see if this character needs to be cured (if not already handled within last 2 seconds)
 				if ${FlecksCounter} < 0
 					FlecksCounter:Inc
@@ -801,12 +789,12 @@ function Coppernicus(string _NamedNPC)
 				{
 					if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 					{
-						; If character is CoppernicusPriestTank, only cure themselves if 5 minutes have passed since last cure
-						if ${Me.Name.Equal[${CoppernicusPriestTank}]}
+						; If character is CoppernicusFlecksCharacter, only cure themselves if 5 minutes have passed since last cure
+						if ${Me.Name.Equal[${OgreBotAPI.Get_Variable["CoppernicusFlecksCharacter"]}]}
 						{
 							if ${Math.Calc[${Time.Timestamp}-${NeedFlecksCureTime.Timestamp}]} > 300
 							{
-								oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure" "${Me.Name}" "0"
+								oc !ci -UseItem ${Me.Name} "Zimaran Cure Elemental"
 								NeedFlecksCureTime:Set[${Time.Timestamp}]
 							}
 						}
@@ -868,6 +856,254 @@ atom CoppernicusIncomingChatText(int ChatType, string Message, string Speaker, s
 		;oc ${Me.Name} Absorb Inc
 		; **************************************
 	}
+	
+	; Debug text to see messages
+	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
+}
+
+/*******************************************************************************************
+    Named 4 **********************    Goldfeather   ****************************************
+********************************************************************************************/
+
+variable bool GoldfeatherRuffledFeathersIncoming=FALSE
+variable bool GoldfeatherExists
+variable bool GoldfeatherFeatheredFrenzyIncoming=FALSE
+function Goldfeather(string _NamedNPC)
+{
+	; Handle text events
+	Event[EQ2_onIncomingText]:AttachAtom[GoldfeatherIncomingText]
+	Event[EQ2_onIncomingChatText]:AttachAtom[GoldfeatherIncomingChatText]
+	; Setup variables
+	variable int Counter
+	variable int SecondLoopCount=10
+	variable int GoldfeatherExistsCount=0
+	variable int DispelTargetID
+	variable int FlecksCounter=0
+	variable int BellowCounter=0
+	variable int SittingDuckCounter=0
+	variable int PhylacteryCounter=0
+	; Get PhylacteryNum if character is a PhylacteryCharacter
+	variable int PhylacteryNum=0
+	if ${OgreBotAPI.Get_Variable["PhylacteryCharacter1"].Equal[${Me.Name}]}
+		PhylacteryNum:Set[1]
+	elseif ${OgreBotAPI.Get_Variable["PhylacteryCharacter2"].Equal[${Me.Name}]}
+		PhylacteryNum:Set[2]
+	elseif ${OgreBotAPI.Get_Variable["PhylacteryCharacter3"].Equal[${Me.Name}]}
+		PhylacteryNum:Set[3]
+	; Run as long as named is alive
+	call CheckGoldfeatherExists
+	while ${GoldfeatherExists}
+	{
+		; Handle "Ruffled Feathers"
+		; 	Named casts spell that memwipes with damage?, want to interrupt
+		if ${GoldfeatherRuffledFeathersIncoming}
+		{
+			; Cast Interrupt
+			call CastInterrupt "FALSE"
+			; Set Ruffled Feathers as handled
+			GoldfeatherRuffledFeathersIncoming:Set[FALSE]
+		}
+		; Handle Feathered Frenzy
+		; 	Get message Goldfeather's about to go into a Feathered Frenzy!
+		; 	Need to complete Mage HO to prevent it
+		if ${GoldfeatherFeatheredFrenzyIncoming}
+		{
+			; Check to see if character is HOMage
+			if ${OgreBotAPI.Get_Variable["HOMage"].Equal[${Me.Name}]}
+			{
+				; Perform solo Mage HO
+				call PerformSoloMageHO "${Me.Name}"
+				; Re-check No Interrupts
+				oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_nointerrupts TRUE TRUE
+			}
+			; Consider the Feathered Frenzy handled
+			GoldfeatherFeatheredFrenzyIncoming:Set[FALSE]
+		}
+		; Perform checks every second
+		if ${SecondLoopCount:Inc} >= 10
+		{
+			; Check to see if character has Mutagenesis Disease
+			if ${Me.Effect[Query, "Detrimental" && MainIconID == 257 && BackDropIconID == 257].ID(exists)}
+				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}HasCurse" "TRUE"
+			else
+				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}HasCurse" "FALSE"
+			; Check to see if character needs to dispel an aurumutation
+			DispelTargetID:Set[${OgreBotAPI.Get_Variable["${Me.Name}DispelTargetID"]}]
+			if ${DispelTargetID} > 0
+			{
+				; Pause Ogre
+				oc !ci -Pause ${Me.Name}
+				wait 1
+				; Clear ability queue
+				eq2execute clearabilityqueue
+				; Cancel anything currently being cast
+				oc !ci -CancelCasting ${Me.Name}
+				; Target aurumutation
+				Actor[${DispelTargetID}]:DoTarget
+				wait 5
+				; Dispel Metallic Mutagenesis depending on class/archetype
+				if ${Me.SubClass.Equal[mystic]}
+					oc !ci -CastAbility ${Me.Name} "Scourge"
+				elseif ${Me.Archetype.Equal[mage]}
+					oc !ci -CastAbility ${Me.Name} "Absorb Magic"
+				; Have everyone else use an energy inverter item to dispel
+				else
+					oc !ci -UseItem ${Me.Name} "Zimaran Energy Inverter"
+				; Check to see if Metallic Mutagenesis was dispelled
+				Counter:Set[0]
+				while ${Counter:Inc} <= 5
+				{
+					wait 10
+					call GetActorEffectIncrements "${DispelTargetID}" "Metallic Mutagenesis" "2"
+					if ${Return} != 0
+						break
+				}
+				; Target self (auto-assist will fix later)
+				Me:DoTarget
+				; Resume 
+				oc !ci -Resume ${Me.Name}
+				; If Metallic Mutagenesis was dispelled, clear DispelTargetID
+				if ${Return} != 0
+				{
+					oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}DispelTargetID" "0"
+					wait 1
+				}
+			}
+			; Handle Flecks of Regret detrimental
+			; 	Gets cast on everyone in group and deals damamge and power drains
+			; 	If cured from entire group gets re-applied to entire group
+			; 	Want to cure on everyone except fighter
+			; Check to see if this character needs to be cured (if not already handled within last 2 seconds)
+			; 	There are multiple types of detrimentals during this fight, so just using cure pots to make sure only cure flecks
+			if ${FlecksCounter} < 0
+				FlecksCounter:Inc
+			if ${FlecksCounter} == 0 && !${Me.Archetype.Equal[fighter]}
+			{
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
+				{
+					; Use cure pot to cure
+					oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+					FlecksCounter:Set[-2]
+				}
+			}
+			; Handle Bellowing Bill detrimental
+			; 	Gets cast on everyone in group, Stuns fighter/scout and Stifles mage/priest
+			; 	Kills target on expiration
+			; Immunity runes should take care of the Stun/Stifle
+			; Use cure pot to remove from everyone
+			if ${BellowCounter} < 0
+				BellowCounter:Inc
+			if ${BellowCounter} == 0
+			{
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 86 && BackDropIconID == 86].ID(exists)}
+				{
+					; Use cure pot to cure
+					oc !ci -UseItem ${Me.Name} "Zimaran Cure Noxious"
+					BellowCounter:Set[-2]
+				}
+			}
+			; Check to see if character is a PhylacteryCharacter and not in combat
+			if ${PhylacteryNum} > 0 && !${Me.InCombat}
+			{
+				; Update HasPhylactery
+				if ${Me.Inventory[Query, Name == "Goldfeather's Phylactery" && Location == "Inventory"].ID(exists)}
+					oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter${PhylacteryNum}HasPhylactery" "TRUE"
+				else
+					oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter${PhylacteryNum}HasPhylactery" "FALSE"
+				; If character needs a phylactery and there is one nearby, grab it
+				if !${OgreBotAPI.Get_Variable["PhylacteryCharacter${PhylacteryNum}HasPhylactery"]]}
+					call GrabGoldfeatherPhylactery
+			}
+			; Check to see if character is a PhylacteryCharacter and in combat
+			if ${PhylacteryCounter} < 0
+				PhylacteryCounter:Inc
+			if ${PhylacteryCounter} == 0 && ${PhylacteryNum} > 0 && ${Me.InCombat}
+			{
+				; Check to see if Goldfeather is in combat
+				if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse" && Target.ID != 0].ID(exists)}
+				{
+					; If character is missing Feather for a Feather detrimental, have them Use Goldfeather's Phylactery to re-acquire it
+					if !${Me.Effect[Query, "Detrimental" && MainIconID == 233 && BackDropIconID == 873].ID(exists)}
+					{
+						; Use Goldfeather's Phylactery
+						oc !c -UseItem igw:${Me.Name} "Goldfeather's Phylactery"
+						PhylacteryCounter:Set[-3]
+					}
+				}
+			}
+			; Reset SecondLoopCount
+			SecondLoopCount:Set[0]
+		}
+		; Short wait before looping (to respond as quickly as possible to events)
+		wait 1
+		; Update GoldfeatherExists every 3 seconds
+		if ${GoldfeatherExistsCount:Inc} >= 30
+		{
+			call CheckGoldfeatherExists
+			GoldfeatherExistsCount:Set[0]
+		}
+	}
+	; Detach Atoms
+	Event[EQ2_onIncomingText]:DetachAtom[GoldfeatherIncomingText]
+	Event[EQ2_onIncomingChatText]:DetachAtom[GoldfeatherIncomingChatText]
+}
+
+function CheckGoldfeatherExists()
+{
+	; Assume GoldfeatherExists if in Combat
+	if ${Me.InCombat}
+	{
+		GoldfeatherExists:Set[TRUE]
+		return
+	}
+	; Check to see if Goldfeather exists
+	if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse"].ID(exists)}
+	{
+		GoldfeatherExists:Set[TRUE]
+		return
+	}
+	; Goldfeather not found
+	GoldfeatherExists:Set[FALSE]
+}
+
+function GrabGoldfeatherPhylactery()
+{
+	; See if there is a nearby aurum cluster
+	variable actor Phylactery
+	Phylactery:Set[${Actor[Query, Name=="Goldfeather's phylactery" && Type == "NoKill NPC" && Distance < 6].ID}]
+	if ${Phylactery.ID} == 0
+		return
+	; Pause Ogre
+	oc !ci -Pause ${Me.Name}
+	wait 3
+	; Clear ability queue
+	eq2execute clearabilityqueue
+	; Cancel anything currently being cast
+	oc !ci -CancelCasting ${Me.Name}
+	; Grab Phylactery
+	wait 3
+	Phylactery:DoTarget
+	wait 3
+	Phylactery:DoubleClick
+	; Resume Ogre
+	oc !ci -Resume ${Me.Name}
+}
+
+atom GoldfeatherIncomingText(string Text)
+{
+	; Look for message that Feathered Frenzy is incoming
+	; 	Goldfeather's about to go into a Feathered Frenzy! A timely Heroic Opportunity started by Arcane Augur may calm him!
+	; 	Goldfeather's about to go into a Feathered Frenzy!
+	if ${Text.Find["Goldfeather's about to go into a Feathered Frenzy!"]}
+		GoldfeatherFeatheredFrenzyIncoming:Set[TRUE]
+}
+
+atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
+{
+	; Look for message that Ruffled Feathers is being cast
+	; 	Goldfeather ruffles its feathers!
+	if ${Message.Find["ruffles its feathers!"]}
+		GoldfeatherRuffledFeathersIncoming:Set[TRUE]
 	
 	; Debug text to see messages
 	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}

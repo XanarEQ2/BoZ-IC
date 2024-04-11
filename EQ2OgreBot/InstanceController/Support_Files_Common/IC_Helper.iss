@@ -34,6 +34,8 @@ function SetInitialInstanceSettings()
 	; Enable Cures and Interrupts
 	call SetupAllCures "TRUE"
 	call SetupAllInterrupts "TRUE"
+	; Disable Interrupt Mode
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_interrupt_mode FALSE TRUE
 	; Auto Target
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_enabled TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning TRUE TRUE
@@ -1045,28 +1047,203 @@ function GetActorEffectIncrements(int ActorID, string EffectName, int MaxEffects
 	return -1
 }
 
-function CastInterrupt()
+function CastInterrupt(bool Group=TRUE)
 {
-	; Pause Ogre
-	oc !ci -Pause igw:${Me.Name}
-	wait 3
-	; Clear ability queue
+	; Have group interrupt
+	if ${Group}
+	{
+		; Pause Ogre
+		oc !ci -Pause igw:${Me.Name}
+		wait 1
+		; Clear ability queue
+		relay ${OgreRelayGroup} eq2execute clearabilityqueue
+		; Cast Interrupt ability depending on Class (modify as needed based on group setup)
+		oc !ci -CancelCasting igw:${Me.Name}+berserker -CastAbility "Mock"
+		oc !ci -CancelCasting igw:${Me.Name}+shadowknight -CastAbility "Blasphemy"
+		oc !ci -CancelCasting igw:${Me.Name}+ranger -CastAbility "Hilt Strike"
+		oc !ci -CancelCasting igw:${Me.Name}+dirge -CastAbility "Hymn of Horror"
+		oc !ci -CancelCasting igw:${Me.Name}+swashbuckler -CastAbility "Tease"
+		oc !ci -CancelCasting igw:${Me.Name}+beastlord -CastAbility "Sharpened Claws"
+		oc !ci -CancelCasting igw:${Me.Name}+coercer -CastAbility "Hemorrhage"
+		;oc !ci -CancelCasting igw:${Me.Name}+coercer -CastAbility "Spellblade's Counter"
+		;oc !ci -CancelCasting igw:${Me.Name}+fury -CastAbility "Maddening Swarm"
+		;oc !ci -CancelCasting igw:${Me.Name}+mystic -CastAbility "Echoes of the Ancients"
+		; Resume Ogre
+		oc !ci -Resume igw:${Me.Name}
+	}
+	; Have just this character interrupt
+	else
+	{
+		
+		
+		; *********************************
+		; *********************************
+		; *********************************
+		oc ${Me.Name} Solo Interrupt
+		; *********************************
+		; *********************************
+		; *********************************
+		
+		
+		; Pause Ogre
+		oc !ci -Pause ${Me.Name}
+		wait 1
+		; Clear ability queue
+		eq2execute clearabilityqueue
+		; Cast Interrupt ability depending on Class (modify as needed based on group setup)
+		oc !ci -CancelCasting ${Me.Name}+berserker -CastAbility "Mock"
+		oc !ci -CancelCasting ${Me.Name}+shadowknight -CastAbility "Blasphemy"
+		oc !ci -CancelCasting ${Me.Name}+ranger -CastAbility "Hilt Strike"
+		oc !ci -CancelCasting ${Me.Name}+dirge -CastAbility "Hymn of Horror"
+		oc !ci -CancelCasting ${Me.Name}+swashbuckler -CastAbility "Tease"
+		oc !ci -CancelCasting ${Me.Name}+beastlord -CastAbility "Sharpened Claws"
+		oc !ci -CancelCasting ${Me.Name}+coercer -CastAbility "Hemorrhage"
+		;oc !ci -CancelCasting ${Me.Name}+coercer "Spellblade's Counter"
+		;oc !ci -CancelCasting ${Me.Name}+fury "Maddening Swarm"
+		;oc !ci -CancelCasting ${Me.Name}+mystic "Echoes of the Ancients"
+		; Resume Ogre
+		oc !ci -Resume ${Me.Name}
+	}
+}
+
+function PerformSoloMageHO(string CharacterName)
+{
+	; Disable scout coin and priest hammer HO abilities (don't want to interfere with mage HO path)
+	; 	Need to also disable HO Starter/Wheel as they ignore the HO ID-specific settings
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-mage checkbox_settings_ho_starter FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-mage checkbox_settings_ho_wheel FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 TRUE TRUE
+	; Enable HO Starter/Wheel on mage
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_ho_wheel TRUE TRUE
+	; Make sure No Interrupts is not checked (can interfere with completing HO)
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_nointerrupts FALSE TRUE
+	wait 1
+	; Clear ability queue (for everyone, make sure no scout coin or priest hammer abilities queued up)
 	relay ${OgreRelayGroup} eq2execute clearabilityqueue
-	; Cancel anything currently being cast
-	oc !ci -CancelCasting igw:${Me.Name}
-	; Cast Interrupt ability depending on Class (modify as needed based on group setup)
-	oc !ci -CastAbility igw:${Me.Name}+berserker "Mock"
-	oc !ci -CastAbility igw:${Me.Name}+shadowknight "Blasphemy"
-	oc !ci -CastAbility igw:${Me.Name}+ranger "Hilt Strike"
-	oc !ci -CastAbility igw:${Me.Name}+dirge "Hymn of Horror"
-	oc !ci -CastAbility igw:${Me.Name}+swashbuckler "Tease"
-	oc !ci -CastAbility igw:${Me.Name}+beastlord "Sharpened Claws"
-	oc !ci -CastAbility igw:${Me.Name}+coercer "Hemorrhage"
-	;oc !ci -CastAbility igw:${Me.Name}+coercer "Spellblade's Counter"
-	;oc !ci -CastAbilityNoChecks igw:${Me.Name}+fury "Maddening Swarm"
-	;oc !ci -CastAbilityNoChecks igw:${Me.Name}+mystic "Echoes of the Ancients"
+	wait 1
+	; Cancel anything currently being cast for scouts/priests
+	oc !ci -CancelCasting igw:${Me.Name}+-fighter+-mage
+	wait 1
+	; Cast Divine Providence to bring up HO window
+	oc !ci -CancelCasting ${CharacterName} -CastAbility "Arcane Augur"
+	wait 1
+	; Wait for HO window to pop up (up to 4 seconds)
+	variable int Counter=0
+	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
+	{
+		wait 1
+	}
+	; Wait for HO to complete (up to 6 seconds)
+	Counter:Set[0]
+	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 60
+	{
+		wait 1
+	}
+	; Re-enable scout coin and priest hammer HO abilities and Starter/Wheel in case HO failed to complete for some reason
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 FALSE TRUE
+}
+
+function PerformSoloPriestHO(string CharacterName)
+{
+	; Disable scout coin HO abilities (don't want to interfere with priest HO path)
+	; 	Need to also disable HO Starter/Wheel as they ignore the HO ID-specific settings
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
+	; Pause Ogre
+	oc !ci -Pause ${CharacterName}
+	wait 1
+	; Clear ability queue (for everyone, make sure no scout coin abilities queued up)
+	relay ${OgreRelayGroup} eq2execute clearabilityqueue
+	wait 1
+	; Cancel anything currently being cast for scouts
+	oc !ci -CancelCasting igw:${Me.Name}+scout
+	wait 1
+	; Cast Divine Providence to bring up HO window
+	oc !ci -CancelCasting ${CharacterName} -CastAbility "Divine Providence"
+	wait 1
+	; Wait for HO window to pop up (up to 4 seconds)
+	variable int Counter=0
+	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
+	{
+		wait 1
+	}
+	; Cast Ability to start HO
+	oc !ci -CastAbility ${CharacterName}+mystic "Plague"
+	;oc !ci -CastHOIconID igw:${Me.Name}+priest 14 "TestScript"
+	wait 10
+	; Cast Ability to complete HO
+	oc !ci -CastAbility ${CharacterName}+mystic "Velium Winds"
+	;oc !ci -CastHOIconID igw:${Me.Name}+priest 14 "TestScript"
+	; Wait for HO to complete (up to 3 seconds)
+	Counter:Set[0]
+	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 30
+	{
+		wait 1
+	}
 	; Resume Ogre
-	oc !ci -Resume igw:${Me.Name}
+	oc !ci -Resume ${CharacterName}
+	; Re-enable scout coin HO abilities and Starter/Wheel in case HO failed to complete for some reason
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
+}
+
+function PerformSoloFighterHO(string CharacterName)
+{
+	; Disable scout coin, priest chalice/hammer, and mage lightning HO abilities (don't want to interfere with fighter HO path)
+	; 	Need to also disable HO Starter/Wheel as they ignore the HO ID-specific settings
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 TRUE TRUE
+	; Pause Ogre
+	oc !ci -Pause ${CharacterName}
+	wait 1
+	; Clear ability queue (for everyone, make sure no HO abilities queued up)
+	relay ${OgreRelayGroup} eq2execute clearabilityqueue
+	wait 1
+	; Cancel anything currently being cast for non-fighters
+	oc !ci -CancelCasting igw:${Me.Name}+-fighter
+	wait 1
+	; Cast Fighting Chance to bring up HO window
+	oc !ci -CancelCasting ${CharacterName} -CastAbility "Fighting Chance"
+	wait 1
+	; Wait for HO window to pop up (up to 4 seconds)
+	variable int Counter=0
+	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
+	{
+		wait 1
+	}
+	; Cast Ability to start HO
+	oc !ci -CastAbility ${CharacterName}+shadowknight "Siphon Strike"
+	oc !ci -CastAbility ${CharacterName}+berserker "Rupture"
+	wait 8
+	; Cast Ability to complete HO
+	oc !ci -CastAbility ${CharacterName}+shadowknight "Hateful Slam"
+	oc !ci -CastAbility ${CharacterName}+berserker "Body Check"
+	; Wait for HO to complete (up to 3 seconds)
+	Counter:Set[0]
+	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 30
+	{
+		wait 1
+	}
+	; Resume Ogre
+	oc !ci -Resume ${CharacterName}
+	; Re-enable scout coin, priest chalice/hammer, and mage lightning HO abilities and Starter/Wheel in case HO failed to complete for some reason
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 FALSE TRUE
 }
 
 /**********************************************************************************************************

@@ -188,11 +188,11 @@ objectdef Object_Instance
 		call move_to_next_waypoint "-464.32,117.52,288.22" "1"
 		call move_to_next_waypoint "-440.11,121.06,291.19" "1"
 		wait 20
-		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Lower Lift"
+		oc !ci -ApplyVerbForWho igw:${Me.Name} "screw_elevator_control" "Lower Lift"
 		wait 80
 		call move_to_next_waypoint "-429.55,121.68,290.76" "1"
 		wait 60
-		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Raise Lift"
+		oc !ci -ApplyVerbForWho igw:${Me.Name} "screw_elevator_control" "Raise Lift"
 		wait 100
 		Ob_AutoTarget:Clear
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
@@ -219,11 +219,11 @@ objectdef Object_Instance
 		call move_to_next_waypoint "-666.80,117.52,290.66" "1"
 		call move_to_next_waypoint "-685.76,121.06,294.40" "1"
 		wait 20
-		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Lower Lift"
+		oc !ci -ApplyVerbForWho igw:${Me.Name} "screw_elevator_control" "Lower Lift"
 		wait 80
 		call move_to_next_waypoint "-695.29,121.68,294.02" "1"
 		wait 60
-		oc !ci -ApplyVerbForWho ${Me.Name} "screw_elevator_control" "Raise Lift"
+		oc !ci -ApplyVerbForWho igw:${Me.Name} "screw_elevator_control" "Raise Lift"
 		wait 100
 		Ob_AutoTarget:Clear
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
