@@ -22,6 +22,8 @@ variable time CoppernicusExpectedHelioTime
 variable bool GoldfeatherRespawn=FALSE
 variable bool GoldfeatherPlumeBoomIncoming=FALSE
 variable bool GoldfeatherPlumeBoomCast=FALSE
+; Custom variables for Goldan
+variable bool GoldanRespawn=FALSE
 
 #include "${LavishScript.HomeDirectory}/Scripts/EQ2OgreBot/InstanceController/Ogre_Instance_Include.iss"
 
@@ -31,6 +33,8 @@ call function_Handle_Startup_Process ${_StartingPoint} "-NoAutoLoadMapOnZone" ${
 }
 atom atexit()
 {
+	; End ZoneHelperScript
+	oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
 	echo ${Time}: ${Script.Filename} done
 }
 objectdef Object_Instance
@@ -71,6 +75,12 @@ objectdef Object_Instance
 			{
 				_StartingPoint:Set[4]
 				GoldfeatherRespawn:Set[TRUE]
+			}
+			; Check to see if at "Goldan's Landing" respawn point after wiping to Goldan
+			if ${Math.Distance[${Me.X},${Me.Y},${Me.Z},655.21,270.23,884.84]} < 50
+			{
+				_StartingPoint:Set[5]
+				GoldanRespawn:Set[TRUE]
 			}
 		}
 		; Move to and kill Named 1
@@ -120,10 +130,10 @@ objectdef Object_Instance
 		; Move to and kill Named 5
 		if ${_StartingPoint} == 5
 		{
-			call This.Named5 ""
+			call This.Named5 "Goldan"
 			if !${Return}
 			{
-				Obj_OgreIH:Message_FailedZone["#5: "]
+				Obj_OgreIH:Message_FailedZone["#5: Goldan"]
 				return FALSE
 			}
 			_StartingPoint:Inc
@@ -132,7 +142,13 @@ objectdef Object_Instance
 		; Zone Out
 		if ${_StartingPoint} == 6
 		{
-			call move_to_next_waypoint "" "1"
+			
+			
+			; Need zone out info
+			return FALSE
+			
+			
+			;call move_to_next_waypoint "" "1"
 			Ob_AutoTarget:Clear
 			Obj_OgreIH:LetsGo
 			oc ${Me.Name} looted ${ShiniesLooted} shinies
@@ -154,7 +170,8 @@ objectdef Object_Instance
 ***********************************************************************************************************/
 	
 	; Setup Variables needed outside Named1 function
-	variable int TimeSinceBanditKill=0
+	variable time BanditMoveTimestamp
+	variable int BanditMoveTimeLimit=40
 	
 	function:bool Named1(string _NamedNPC="Doesnotexist")
 	{
@@ -207,10 +224,20 @@ objectdef Object_Instance
 		call AurumBanditMove "861.36,202.50,-80.17" "FALSE"
 		call AurumBanditMove "838.65,200.09,-100.14" "FALSE"
 		if ${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
-			wait 200
+		{
+			while ${Math.Calc[${Time.Timestamp}-${BanditMoveTimestamp.Timestamp}]} < ${BanditMoveTimeLimit}
+			{
+				wait 10
+			}
+		}
 		call AurumBanditMove "831.50,208.57,-127.22" "FALSE"
 		if ${Actor[namednpc,"${_NamedNPC}"].ID(exists)}
-			wait 200
+		{
+			while ${Math.Calc[${Time.Timestamp}-${BanditMoveTimestamp.Timestamp}]} < ${BanditMoveTimeLimit}
+			{
+				wait 10
+			}
+		}
 		call AurumBanditMove "804.56,202.35,-99.89" "FALSE"
 		
 		; Check if already killed
@@ -277,14 +304,12 @@ objectdef Object_Instance
 						{
 							; Wait a second before looping
 							wait 10
-							; Increment TimeSinceBanditKill
-							TimeSinceBanditKill:Inc
 						}
 						; Move back to previous BanditSpot
 						call AurumBanditMove "${BanditSpot[${SpotNum}]}" "TRUE"
 					}
-					; If it has been at least 30 seconds since the last bandit was killed, move to next BanditSpot
-					if ${TimeSinceBanditKill} >= 30
+					; If it has been at least BanditMoveTimeLimit seconds since the last bandit was pulled, move to next BanditSpot
+					if ${Math.Calc[${Time.Timestamp}-${BanditMoveTimestamp.Timestamp}]} >= ${BanditMoveTimeLimit}
 					{
 						; Move to next BanditSpot
 						if ${SpotNum:Inc} <= ${BanditSpot.Size}
@@ -355,8 +380,6 @@ objectdef Object_Instance
 			}
 			; Wait a second before looping
 			wait 10
-			; Increment TimeSinceBanditKill
-			TimeSinceBanditKill:Inc
 		}
 		
 		; Detach Atoms
@@ -498,6 +521,8 @@ objectdef Object_Instance
 		; Kill Bandit
 		if ${Bandit.ID(exists)}
 		{
+			; Update BanditMoveTimestamp
+			BanditMoveTimestamp:Set[${Time.Timestamp}]
 			; Get initial Bandit location
 			variable point3f BanditInitialLoc
 			BanditInitialLoc:Set[${Bandit.Loc}]
@@ -528,8 +553,6 @@ objectdef Object_Instance
 				; Wait a few seconds before checking again
 				wait 30
 			}
-			; Update TimeSinceBanditKill
-			TimeSinceBanditKill:Set[0]
 		}
 		; If in combat with an æther æraquis, kill it
 		variable actor Aeraquis
@@ -540,15 +563,12 @@ objectdef Object_Instance
 			Aeraquis:DoTarget
 			oc !ci -PetAssist igw:${Me.Name}
 			wait 30
-			TimeSinceBanditKill:Inc[3]
 			; Kill Aeraquis
 			while ${Aeraquis.ID(exists)}
 			{
 				wait 10
-				TimeSinceBanditKill:Inc
 			}
 		}
-		
 	}
 	
 	function PullBanditRespawns(point3f KillSpot)
@@ -673,6 +693,12 @@ objectdef Object_Instance
 			if ${Me.Group[${GroupNum}].Class.Equal[dirge]} || ${Me.Group[${GroupNum}].Class.Equal[troubador]} || ${Me.Group[${GroupNum}].Class.Equal[swashbuckler]} || ${Me.Group[${GroupNum}].Class.Equal[brigand]}
 				GroupCharacter:Set[${Me.Group[${GroupNum}].Name}]
 		}
+		; If no bard or rogue, look for a non-shaman healer
+		if ${GroupCharacter.Length} == 0
+		{
+			if ${Me.Group[${GroupNum}].Class.Equal[channeler]} || ${Me.Group[${GroupNum}].Class.Equal[inquisitor]} || ${Me.Group[${GroupNum}].Class.Equal[templar]} || ${Me.Group[${GroupNum}].Class.Equal[fury]} || ${Me.Group[${GroupNum}].Class.Equal[warden]}
+				GroupCharacter:Set[${Me.Group[${GroupNum}].Name}]
+		}
 		; Make sure a GroupCharacter was found
 		if ${GroupCharacter.Length} == 0
 			return
@@ -680,10 +706,10 @@ objectdef Object_Instance
 		oc !ci -Set_Variable igw:${Me.Name} "PullBanditCharacter" "${GroupCharacter}"
 		; Have GroupCharacter cast Sprint so they can move quickly (may get out of range of group speed buffs if not a bard)
 		oc !ci -CastAbility ${GroupCharacter} "Sprint"
-		; Send GroupCharacter to bandit PullSpot and priests to HealPullSpot
-		; 	Send priests out a bit to extend heal range in case GroupCharacter needs heals while out
+		; Send GroupCharacter to bandit PullSpot and shaman to HealPullSpot
+		; 	Send shaman out a bit to extend heal range in case GroupCharacter needs heals while out
 		oc !ci -ChangeCampSpotWho ${GroupCharacter} ${BanditRespawnPullSpot.X} ${BanditRespawnPullSpot.Y} ${BanditRespawnPullSpot.Z}
-		oc !ci -ChangeCampSpotWho igw:${Me.Name}+priest ${HealPullSpot.X} ${HealPullSpot.Y} ${HealPullSpot.Z}
+		oc !ci -ChangeCampSpotWho igw:${Me.Name}+shaman ${HealPullSpot.X} ${HealPullSpot.Y} ${HealPullSpot.Z}
 		Counter:Set[0]
 		while ${Math.Distance[${Me.Group[${GroupCharacter}].Loc.X},${Me.Group[${GroupCharacter}].Loc.Z},${BanditRespawnPullSpot.X},${BanditRespawnPullSpot.Z}]} > 5 && ${Counter:Inc} <= 6
 		{
@@ -704,8 +730,8 @@ objectdef Object_Instance
 		{
 			wait 5
 		}
-		; Bring Character, priests, and bandit back (wait up to 20 seconds)
-		oc !ci -ChangeCampSpotWho igw:${Me.Name}+${GroupCharacter}|priest ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+		; Bring Character, shaman, and bandit back (wait up to 20 seconds)
+		oc !ci -ChangeCampSpotWho igw:${Me.Name}+${GroupCharacter}|igw:${Me.Name}+shaman ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 		Counter:Set[0]
 		while ${PullBandit.ID(exists)} && ${PullBandit.Distance} > 30 && ${Counter:Inc} <= 40
 		{
@@ -927,6 +953,10 @@ objectdef Object_Instance
 		
 		; Pull Named
 		Ob_AutoTarget:Clear
+		Ob_AutoTarget:AddActor["a blightflight blinder",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a corrupted blightflight",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["an irate blightflight",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a gleaming goldslug",0,FALSE,FALSE,101,TRUE]
 		Ob_AutoTarget:AddActor["a gleaming goldslug",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
 		oc ${Me.Name} is pulling ${_NamedNPC}
@@ -1066,24 +1096,31 @@ objectdef Object_Instance
 			if ${StupendousSweepIncoming}
 			{
 				; Want fighter in front of named and rest of group in back, but first want the named looking at direction without a bush in the line of fire
-				; 	Heading 150 should get it pointed in a good direction from KillSpot
-				FighterNamedOffset:Set[150 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
-				call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "7" "${FighterNamedOffset}"
+				; 	Heading 140 should get it pointed in a good direction from KillSpot
+				FighterNamedOffset:Set[140 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
+				call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
 				FighterNamedOffset:Inc[180]
-				call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "7" "${FighterNamedOffset}"
+				call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
 				wait 20
 				; Cast Immunization on fighter in case they don't successfully dodge the sweep
+				oc !ci -CancelCasting igw:${Me.Name}+mystic
 				oc !ci -CastAbilityOnPlayer igw:${Me.Name}+mystic "Immunization" ${Me.Name} 0
 				; Wait until sweep is about to go off, then send fighter to side to joust it (wait up to 6 seconds)
 				Counter:Set[0]
 				SweepCount:Set[0]
 				while (${Counter:Inc} <= 20 || (${Me.GetGameData["Target.Casting"].Percent} > 0 && ${Counter} <= 60)) && !${NuggetAbsorbAndCrushArmorIncoming}
 				{
-					; Move fighter to side when sweep >= 70% cast
-					if ${Me.GetGameData["Target.Casting"].Percent} >= 70
+					; Move fighter to back when sweep >= 75% cast
+					if ${Me.GetGameData["Target.Casting"].Percent} >= 75
 					{
-						FighterNamedOffset:Set[90]
-						call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "7" "${FighterNamedOffset}"
+						FighterNamedOffset:Set[180]
+						call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+						wait 1
+						while ${Me.GetGameData["Target.Casting"].Percent} > 0 && ${Counter:Inc} <= 60 && !${NuggetAbsorbAndCrushArmorIncoming}
+						{
+							wait 1
+						}
+						break
 					}
 					; Otherwise if not >= 50% cast reposition again just to make sure
 					elseif !${Me.GetGameData["Target.Casting"].Percent} >= 50
@@ -1092,19 +1129,19 @@ objectdef Object_Instance
 							SweepCount:Inc
 						if ${SweepCount} == 0
 						{
-							FighterNamedOffset:Set[150 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
-							call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "7" "${FighterNamedOffset}"
+							FighterNamedOffset:Set[140 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
+							call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
 							FighterNamedOffset:Inc[180]
-							call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "7" "${FighterNamedOffset}"
+							call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
 							; Set SweepCount to prevent from being triggered again for another half second
 							SweepCount:Set[-5]
 						}
 					}
 					wait 1
 				}
-				; Move everyone back to KillSpot when finished
+				; Wait a couple more seconds after it finishes before moving back to KillSpot
 				Counter:Set[0]
-				while ${Counter:Inc} <= 10 && !${NuggetAbsorbAndCrushArmorIncoming}
+				while ${Counter:Inc} <= 20 && !${NuggetAbsorbAndCrushArmorIncoming}
 				{
 					wait 1
 				}
@@ -1134,6 +1171,7 @@ objectdef Object_Instance
 				{
 					wait 1
 				}
+				wait 10
 				; Resume Ogre and pets
 				oc !ci -Resume igw:${Me.Name}
 				oc !ci -PetAssist igw:${Me.Name}
@@ -1355,9 +1393,9 @@ objectdef Object_Instance
 		variable int UnearthedForwardSteps
 		variable int UnearthedBackwardSteps
 		variable int UnearthedMoveInc
+		variable point3f NewSpot
 		variable bool FoundCluster=TRUE
 		variable bool NeedsFlecksCure
-		variable bool FoundSlug
 		
 		; Add AdditionalClusters to TargetAurumCount
 		while ${AdditionalClusters} > 0
@@ -1452,23 +1490,14 @@ objectdef Object_Instance
 					if ${UnearthedBackwardSteps} < ${UnearthedForwardSteps}
 						UnearthedMoveInc:Set[-1]
 					; Move between UnearthedSpots to get to ClosestUnearthedNum
-					FoundSlug:Set[FALSE]
+					;FoundSlug:Set[FALSE]
 					while ${UnearthedNum} != ${ClosestUnearthedNum}
 					{
-						; Check to make sure not in combat with a gleaming goldslug, otherwise wait to kill it before moving
-						while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0].ID(exists)}
-						{
-							FoundSlug:Set[TRUE]
-							wait 5
-						}
 						; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
 						while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
 						{
 							wait 5
 						}
-						; If FoundSlug, don't continue because may have come across another cluster on the way to target cluster and want to mine it first
-						if ${FoundSlug} 
-							break
 						; Update UnearthedNum
 						UnearthedNum:Inc[${UnearthedMoveInc}]
 						if ${UnearthedNum} > ${UnearthedSpot.Size}
@@ -1484,35 +1513,25 @@ objectdef Object_Instance
 					{
 						wait 5
 					}
-					; If FoundSlug, loop again to refresh which cluster is closest
-					if ${FoundSlug} 
-						continue
 					; Move from UnearthedSpot to cluster, but stop just short of it
 					; 	Clusters can spawn right by bushes, so don't want to potentially run into a bush and get adds
-					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "5"
+					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "3"
 					Obj_OgreIH:ChangeCampSpot["${Return}"]
 					call Obj_OgreUtilities.HandleWaitForCampSpot 10
-					
-					
-					
-					
-					; ************************************************************
-					; ************************************************************
-					; ************************************************************
-					; Testing!!!
-					
-					; Bring fighter back to pull slug away from cluster
-					;call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "20"
-					;oc !ci -ChangeCampSpotWho ${Me.Name} ${Return.X} ${Return.Y} ${Return.Z}
-					
-					; ************************************************************
-					; ************************************************************
-					; ************************************************************
-					
-					
-					
-					
-					
+					; Wait a bit to gain aggro on any slugs
+					wait 20
+					while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0 && Target.ID != ${Me.ID}].ID(exists)}
+					{
+						wait 1
+					}
+					; Bring fighter back to pull slugs away from cluster
+					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "25"
+					NewSpot:Set[${Return}]
+					oc !ci -ChangeCampSpotWho ${Me.Name} ${NewSpot.X} ${NewSpot.Y} ${NewSpot.Z}
+					wait 30
+					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "20"
+					NewSpot:Set[${Return}]
+					oc !ci -ChangeCampSpotWho ${Me.Name} ${NewSpot.X} ${NewSpot.Y} ${NewSpot.Z}
 					; Wait as long as cluster exists (up to 60 seconds)
 					Counter:Set[0]
 					while ${ClosestUnearthed.ID(exists)} && ${Counter:Inc} <= 600
@@ -1524,30 +1543,6 @@ objectdef Object_Instance
 					{
 						wait 5
 					}
-					
-					
-					; ************************************************************
-					; ************************************************************
-					; ************************************************************
-					; Testing!!!
-					
-					; Check to make sure not in combat with a gleaming goldslug, otherwise wait to kill it before moving
-					;while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0].ID(exists)}
-					;{
-					;	wait 5
-					;}
-					; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
-					;while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
-					;{
-					;	wait 5
-					;}
-					
-					; ************************************************************
-					; ************************************************************
-					; ************************************************************
-					
-					
-					
 					; Move back to UnearthedSpot
 					Obj_OgreIH:ChangeCampSpot["${UnearthedSpot[${UnearthedNum}]}"]
 					call Obj_OgreUtilities.HandleWaitForCampSpot 10
@@ -1638,7 +1633,7 @@ objectdef Object_Instance
 		; Undo Nugget custom settings
 		call SetupNugget "FALSE"
 		
-		; Set Loot settings for last boss (not the last boss, but does drop NO-TRADE Bell)
+		; Set Loot settings for last boss (not the last boss, but does drop NO-TRADE item)
 		call SetLootForLastBoss
 		
 		; Setup variables
@@ -2413,7 +2408,7 @@ objectdef Object_Instance
 		; Disable cures (don't need to start curing on the way to named)
 		call SetupAllCures "FALSE"
 		
-		; Set Loot settings for last boss (not the last boss, but may drop NO-TRADE Bell)
+		; Set Loot settings for last boss (not the last boss, but does drop NO-TRADE item)
 		call SetLootForLastBoss
 		
 		; Setup variables
@@ -2992,13 +2987,16 @@ objectdef Object_Instance
 	}
 
 /**********************************************************************************************************
- 	Named 5 *********************    Move to, spawn and kill - ??? ***********************
+ 	Named 5 *********************    Move to, spawn and kill - Goldan *************************************
 ***********************************************************************************************************/
 
+	; Setup Variables needed outside Named5 function
+	variable bool GoldanExists
+	
 	function:bool Named5(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[0,0,0]
+		KillSpot:Set[656.92,270.45,894.29]
 		
 		; Undo Goldfeather custom settings
 		call SetupGoldfeather "FALSE"
@@ -3006,8 +3004,171 @@ objectdef Object_Instance
 		; Set Loot settings for last boss
 		call SetLootForLastBoss
 		
+		; Setup variables
+		variable int GroupNum
+		variable int Counter
+		variable string HOScout
+		variable int SecondLoopCount=10
+		variable int GoldanExistsCount=0
+		variable actor Goldan
+		;variable bool FightersIn=FALSE
+		;variable bool ScoutsIn=FALSE
+		;variable bool MagessIn=FALSE
+		;variable bool PriestsIn=FALSE
 		
-		return FALSE
+		; Set variables to use in helper script
+		;oc !ci -Set_Variable igw:${Me.Name} "ScoutHOComplete" "FALSE"
+		
+		; Determine HOScout
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			; Check if scout
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["scout"]}
+			{
+				HOScout:Set["${Me.Group[${GroupNum}].Name}"]
+				break
+			}
+		}
+		
+		; Repair if needed
+		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
+		
+		; Setup for named
+		call initialize_move_to_next_boss "${_NamedNPC}" "5"
+		
+		; Move to named from Goldfeather
+		if !${GoldanRespawn}
+		{
+			; Enable PreCastTag to allow priest to setup wards before engaging first mob
+			oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
+			wait 60
+			call move_to_next_waypoint "592.37,249.74,431.54"
+			call move_to_next_waypoint "607.67,251.22,484.89"
+			call move_to_next_waypoint "601.07,257.18,542.10"
+			call move_to_next_waypoint "623.99,259.70,595.41"
+			call move_to_next_waypoint "693.19,255.31,621.67"
+			call move_to_next_waypoint "666.80,252.64,709.13"
+			call move_to_next_waypoint "623.61,252.64,669.20"
+			call move_to_next_waypoint "580.96,255.43,658.90"
+			call move_to_next_waypoint "564.54,252.64,699.16"
+			call move_to_next_waypoint "603.02,250.00,730.19"
+			call move_to_next_waypoint "624.69,246.49,766.60"
+		}
+		; Otherwise move from respawn point
+		else
+		{
+			call move_to_next_waypoint "656.42,270.56,890.62"
+			call move_to_next_waypoint "639.78,246.60,820.35"
+		}
+		
+		; Travel to portal
+		call move_to_next_waypoint "633.82,247.52,797.49"
+		
+		; Port to named
+		call EnterPortal "flight_pad_01" "Travel" "100" "20" "10"
+		
+		; Set custom settings for Goldan
+		call SetupGoldan "TRUE"
+		
+		; Make sure HOHelperScript is not running (want to leave HO's in starter phase)
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${HOHelperScript}
+		
+		; Run ZoneHelperScript
+		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
+		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
+		
+		; Let script run for a couple of seconds to update pad position of each character, and jump characters to platform
+		wait 60
+		
+		; Jump scouts in (want to perform scout HO at start)
+		;oc !ci -Set_Variable igw:${Me.Name} "JumpScoutsIn" "TRUE"
+		;wait 40
+		
+		; Enable PreCastTag to allow priest to setup wards before engaging named
+		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
+		wait 60
+		
+		; Get Goldan
+		Goldan:Set[${Actor[Query,Name=="Goldan" && Type != "Corpse"].ID}]
+		
+		; Pull Named
+		Ob_AutoTarget:Clear
+		oc ${Me.Name} is pulling ${_NamedNPC}
+		while ${Goldan.Target.ID} == 0
+		{
+			Goldan:DoTarget
+			wait 1
+		}
+		
+		; Perform solo Scout HO at start of fight
+		wait 20
+		call PerformSoloScoutHO "${HOScout}"
+		
+		; Kill named
+		call CheckGoldanExists
+		while ${GoldanExists}
+		{
+			; Handle updates every second
+			if ${SecondLoopCount:Inc} >= 10
+			{
+			
+				; Reset SecondLoopCount
+				SecondLoopCount:Set[0]
+			}
+			; Short wait before looping (to respond as quickly as possible to events)
+			wait 1
+			; Update GoldanExists every 3 seconds
+			if ${GoldanExistsCount:Inc} >= 30
+			{
+				call CheckGoldanExists
+				GoldanExistsCount:Set[0]
+			}
+		}
+		
+		; Check named is dead
+		if ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].ID(exists)}
+		{
+			Obj_OgreIH:Message_FailedToKill["${_NamedNPC}"]
+			return FALSE
+		}
+		
+		; Get Chest
+		eq2execute summon
+		wait 10
+		call Obj_OgreIH.Get_Chest
+		
+		; Finished with named
+		return TRUE
+	}
+	
+	function CheckGoldanExists()
+	{
+		; Assume GoldanExists if in Combat
+		if ${Me.InCombat}
+		{
+			GoldanExists:Set[TRUE]
+			return
+		}
+		; Check to see if Goldan exists
+		if ${Actor[Query,Name=="Goldan" && Type != "Corpse"].ID(exists)}
+		{
+			GoldanExists:Set[TRUE]
+			return
+		}
+		; Goldan not found
+		GoldanExists:Set[FALSE]
+	}
+	
+	function SetupGoldan(bool EnableGoldan)
+	{
+		; Setup Cures
+		variable bool SetDisable
+		SetDisable:Set[!${EnableGoldan}]
+		call SetupAllCures "${SetDisable}"
+		; Set initial HO settings
+		call SetInitialHOSettings
 	}
 }
 

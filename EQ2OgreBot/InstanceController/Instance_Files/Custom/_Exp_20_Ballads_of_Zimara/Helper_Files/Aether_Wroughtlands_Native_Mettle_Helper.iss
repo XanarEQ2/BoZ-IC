@@ -20,6 +20,9 @@ function main(string _NamedNPC)
 		case Goldfeather
 			call Goldfeather "${_NamedNPC}"
 			break
+		case Goldan
+			call Goldan "${_NamedNPC}"
+			break
 	}
 }
 
@@ -577,9 +580,6 @@ function MineAurum()
 	AurumCluster:Set[${Actor[Query, Name =- "aurum cluster" && Distance < 8].ID}]
 	if ${AurumCluster.ID} == 0
 		return
-	; Make sure not in combat with a gleaming goldslug
-	if ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0].ID(exists)}
-		return
 	; Check to see if character needs to mine additional aurum
 	variable int AurumCount
 	variable item AurumOre
@@ -1104,6 +1104,267 @@ atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, s
 	; 	Goldfeather ruffles its feathers!
 	if ${Message.Find["ruffles its feathers!"]}
 		GoldfeatherRuffledFeathersIncoming:Set[TRUE]
+	
+	; Debug text to see messages
+	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
+}
+
+/*******************************************************************************************
+    Named 5 **********************    Goldan   *********************************************
+********************************************************************************************/
+
+variable bool GoldanExists
+variable bool GoldanAtPlatform=FALSE
+;variable bool GoldanFighterPlatformIncoming=FALSE
+;variable bool GoldanScoutPlatformIncoming=FALSE
+;variable bool GoldanMagePlatformIncoming=FALSE
+;variable bool GoldanPriestPlatformIncoming=FALSE
+function Goldan(string _NamedNPC)
+{
+	; Handle text events
+	Event[EQ2_onIncomingChatText]:AttachAtom[GoldanIncomingChatText]
+	; Setup variables
+	variable int Counter
+	variable int SecondLoopCount=10
+	variable int GoldanExistsCount=0
+	variable point3f PadCenterLocation
+	variable point3f PadOuterMidLocation
+	variable point3f PlatformCenterLocation="659.83,270.30,908.93"
+	variable point3f PlatformOuterLocation
+	; Setup pad/platform locations based on character starting position
+	ActorLoc:Set[${Me.Loc}]
+	; Pad 1
+	if ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},627.80,915.37]} < 10
+	{
+		PadCenterLocation:Set[627.80,270.57,915.37]
+		PadOuterMidLocation:Set[631.04,270.56,914.65]
+		PlatformOuterLocation:Set[643.17,270.50,912.65]
+	}
+	; Pad 2
+	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},631.25,899.18]} < 10
+	{
+		PadCenterLocation:Set[631.25,270.57,899.18]
+		PadOuterMidLocation:Set[634.74,270.56,900.41]
+		PlatformOuterLocation:Set[645.38,270.56,903.87]
+	}
+	; Pad 3
+	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},639.62,883.45]} < 10
+	{
+		PadCenterLocation:Set[639.62,270.57,883.45]
+		PadOuterMidLocation:Set[640.94,270.56,885.82]
+		PlatformOuterLocation:Set[648.32,270.56,896.15]
+	}
+	; Pad 4
+	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},669.18,877.59]} < 10
+	{
+		PadCenterLocation:Set[669.18,270.57,877.59]
+		PadOuterMidLocation:Set[668.42,270.56,880.54]
+		PlatformOuterLocation:Set[665.72,270.56,892.89]
+	}
+	; Pad 5
+	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},682.59,888.62]} < 10
+	{
+		PadCenterLocation:Set[682.59,270.57,888.62]
+		PadOuterMidLocation:Set[680.16,270.56,890.77]
+		PlatformOuterLocation:Set[671.70,270.41,899.64]
+	}
+	; Pad 6
+	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},692.46,903.21]} < 10
+	{
+		PadCenterLocation:Set[692.46,270.57,903.21]
+		PadOuterMidLocation:Set[689.34,270.56,903.60]
+		PlatformOuterLocation:Set[677.19,270.56,905.85]
+	}
+	
+	; At start, jump to Platform
+	call GoldanJumpPadToPlatform ${PadOuterMidLocation} ${PlatformCenterLocation}
+	
+	; Run as long as named is alive
+	call CheckGoldanExists
+	while ${GoldanExists}
+	{
+		; Perform checks every second
+		if ${SecondLoopCount:Inc} >= 10
+		{
+			; Handle fighter platform being made classless
+			;if ${GoldanFighterPlatformIncoming}
+			;{
+			;	; If fighter, jump from pad to Platform
+			;	if ${Me.Archetype.Equal[fighter]}
+			;		call GoldanJumpPadToPlatform ${PlatformOuterLocation}
+			;	; Set GoldanFighterPlatformIncoming as handled
+			;	GoldanFighterPlatformIncoming:Set[FALSE]
+			;}
+			; Handle scout platform being made classless
+			;if ${GoldanScoutPlatformIncoming}
+			;{
+			;	; If scout, jump from pad to Platform
+			;	if ${Me.Archetype.Equal[scout]}
+			;		call GoldanJumpPadToPlatform ${PlatformOuterLocation}
+			;	; Set GoldanScoutPlatformIncoming as handled
+			;	GoldanScoutPlatformIncoming:Set[FALSE]
+			;}
+			; Handle mage platform being made classless
+			;if ${GoldanMagePlatformIncoming}
+			;{
+			;	; If mage, jump from pad to Platform
+			;	if ${Me.Archetype.Equal[mage]}
+			;		call GoldanJumpPadToPlatform ${PlatformOuterLocation}
+			;	; Set GoldanMagePlatformIncoming as handled
+			;	GoldanMagePlatformIncoming:Set[FALSE]
+			;}
+			; Handle priest platform being made classless
+			;if ${GoldanPriestPlatformIncoming}
+			;{
+			;	; If priest, jump from pad to Platform
+			;	if ${Me.Archetype.Equal[priest]}
+			;		call GoldanJumpPadToPlatform ${PlatformOuterLocation}
+			;	; Set GoldanPriestPlatformIncoming as handled
+			;	GoldanPriestPlatformIncoming:Set[FALSE]
+			;}
+			
+			
+			
+			
+			
+			
+			; if at platform, and on ground, and have scout buff, and don't have Aether Adhesive, jump out
+			; unless fighter, in which case they only can't jump out if their platform was disabled, in which ase they need to kill the adds...
+			
+			
+			; NEED TO FIGURE OUT THE ICONID OF AETHER ADHESIVE!!!!!!!!!
+			
+			
+			; If not at platform, monitor character height and if they get knocked into the air send them to platform
+			if !${GoldanAtPlatform}
+			{
+				if ${Me.Y} > 290
+				{
+					; Change CampSpot to plaform
+					oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
+					; Set GoldanAtPlatform = TRUE
+					GoldanAtPlatform:Set[TRUE]
+				}
+			}
+			; Handle Flecks of Regret detrimental
+			; 	Gets cast on everyone in group and deals damamge and power drains
+			; 	If cured from entire group gets re-applied to entire group
+			; 	Want to cure on everyone except fighter
+			; Check to see if this character needs to be cured (if not already handled within last 2 seconds)
+			; 	Using cure pots to cure
+			if ${FlecksCounter} < 0
+				FlecksCounter:Inc
+			if ${FlecksCounter} == 0 && !${Me.Archetype.Equal[fighter]}
+			{
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
+				{
+					; Use cure pot to cure
+					oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+					FlecksCounter:Set[-2]
+				}
+			}
+			; Reset SecondLoopCount
+			SecondLoopCount:Set[0]
+		}
+		; Short wait before looping (to respond as quickly as possible to events)
+		wait 1
+		; Update GoldanExists every 3 seconds
+		if ${GoldanExistsCount:Inc} >= 30
+		{
+			call CheckGoldanExists
+			GoldanExistsCount:Set[0]
+		}
+	}
+	; Detach Atoms
+	Event[EQ2_onIncomingChatText]:DetachAtom[GoldanIncomingChatText]
+}
+
+function CheckGoldanExists()
+{
+	; Assume GoldanExists if in Combat
+	if ${Me.InCombat}
+	{
+		GoldanExists:Set[TRUE]
+		return
+	}
+	; Check to see if Goldan exists
+	if ${Actor[Query,Name=="Goldan" && Type != "Corpse"].ID(exists)}
+	{
+		GoldanExists:Set[TRUE]
+		return
+	}
+	; Goldan not found
+	GoldanExists:Set[FALSE]
+}
+
+function GoldanJumpPadToPlatform(point3f PadOuterMidLocation, point3f PlatformCenterLocation)
+{
+	
+	oc ${Me.Name} Jump to Platform
+	
+	; Move from center of pad to PadOuterMidLocation
+	oc !ci -campspot ${Me.Name}
+	oc !ci -ChangeCampSpotWho ${Me.Name} ${PadOuterMidLocation.X} ${PadOuterMidLocation.Y} ${PadOuterMidLocation.Z}
+	wait 20
+	; Jump to plaform
+	oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
+	wait 2
+	oc !ci -Jump ${Me.Name}
+	; Set GoldanAtPlatform = TRUE
+	GoldanAtPlatform:Set[TRUE]
+	
+	
+	;wait 20
+	;oc !ci -campspot ${Me.Name} "1" "200"
+	;oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformOuterLocation.X} ${PlatformOuterLocation.Y} ${PlatformOuterLocation.Z}
+}
+
+function GoldanJumpPlatformToPad(point3f PadCenterLocation, point3f PadOuterMidLocation)
+{
+	
+	oc ${Me.Name} Jump to Pad
+	
+	
+	
+	; need to go to PlatformOuterLocation first!!!
+	
+	
+	
+	; Jump back to pad
+	oc !ci -CS_ClearCampSpot ${Me.Name}
+	face ${PadCenterLocation.X} ${PadCenterLocation.Z}
+	wait 5
+	press ${OgreJumpKey}
+	press -hold "${OgreForwardKey}"
+	wait 8
+	press -release "${OgreForwardKey}"
+	press -hold "${OgreBackwardKey}"
+	wait 2
+	press -release "${OgreBackwardKey}"
+	wait 20
+	oc !ci -campspot ${Me.Name}
+	oc !ci -ChangeCampSpotWho ${Me.Name} ${PadCenterLocation.X} ${PadCenterLocation.Y} ${PadCenterLocation.Z}
+	wait 20
+	oc !ci -ChangeCampSpotWho ${Me.Name} ${PadOuterMidLocation.X} ${PadOuterMidLocation.Y} ${PadOuterMidLocation.Z}
+}
+
+atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
+{
+	; Look for message that platform is being made classless
+	; 	Goldan says, "The maedjinn often wish to test their mettle against fighters!"
+	; 	Goldan says, "The maedjinn are attracted to magic and mages."
+	; 	Goldan says, "The maedjinn keep their secrets, much like scouts."
+	; 	Goldan says, "The maedjinn think themselves more divine than priests."
+	; 	Any declared archetypes on their hover pads, watch out!
+	; 	This is a classless platform! Nobody can be here, not even you!
+	;if ${Message.Find["The maedjinn often wish to test their mettle against fighters!"]}
+	;	GoldanFighterPlatformIncoming:Set[TRUE]
+	;elseif ${Message.Find["The maedjinn keep their secrets, much like scouts."]}
+	;	GoldanScoutPlatformIncoming:Set[TRUE]
+	;elseif ${Message.Find["The maedjinn are attracted to magic and mages."]}
+	;	GoldanMagePlatformIncoming:Set[TRUE]
+	;elseif ${Message.Find["The maedjinn think themselves more divine than priests."]}
+	;	GoldanPriestPlatformIncoming:Set[TRUE]
 	
 	; Debug text to see messages
 	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}

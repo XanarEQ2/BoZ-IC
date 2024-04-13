@@ -784,7 +784,7 @@ function MoveInRelationToActorID(string ForWho, int ActorID, float Distance, flo
 function CalcSpotOffset(point3f InitialSpot, point3f FinalSpot, float Offset)
 {
 	; Given an InitialSpot and FinalSpot, calculate a new FinalSpot along the path but at an Offset from FinalSpot
-	; 	For when you want to move to a new location, but stop just short of it
+	; 	For when you want to move to a new location, but stop at an offset from it
 	
 	; Calculate Slope in degrees based on a line from InitialSpot to FinalSpot
 	; 	SlopeDegrees is number of degrees from the positive X Axis
@@ -813,7 +813,6 @@ function CalcSpotOffset(point3f InitialSpot, point3f FinalSpot, float Offset)
 	NewSpot.X:Inc[${Distance}*${Math.Cos[${SlopeDegrees}]}]
 	NewSpot.Z:Inc[${Distance}*${Math.Sin[${SlopeDegrees}]}]
 	return ${NewSpot}
-	
 }
 
 /**********************************************************************************************************
@@ -1106,6 +1105,104 @@ function CastInterrupt(bool Group=TRUE)
 	}
 }
 
+function PerformSoloFighterHO(string CharacterName)
+{
+	; Disable scout coin, priest chalice/hammer, and mage lightning HO abilities (don't want to interfere with fighter HO path)
+	; 	Need to also disable HO Starter/Wheel as they ignore the HO ID-specific settings
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 TRUE TRUE
+	; Pause Ogre
+	oc !ci -Pause ${CharacterName}
+	wait 1
+	; Clear ability queue (for everyone, make sure no HO abilities queued up)
+	relay ${OgreRelayGroup} eq2execute clearabilityqueue
+	wait 1
+	; Cancel anything currently being cast for non-fighters
+	oc !ci -CancelCasting igw:${Me.Name}+-fighter
+	wait 1
+	; Cast Fighting Chance to bring up HO window
+	oc !ci -CancelCasting ${CharacterName} -CastAbility "Fighting Chance"
+	wait 1
+	; Wait for HO window to pop up (up to 4 seconds)
+	variable int Counter=0
+	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
+	{
+		wait 1
+	}
+	; Cast Ability to start HO
+	oc !ci -CastAbility ${CharacterName}+shadowknight "Siphon Strike"
+	oc !ci -CastAbility ${CharacterName}+berserker "Rupture"
+	wait 8
+	; Cast Ability to complete HO
+	oc !ci -CastAbility ${CharacterName}+shadowknight "Hateful Slam"
+	oc !ci -CastAbility ${CharacterName}+berserker "Body Check"
+	; Wait for HO to complete (up to 3 seconds)
+	Counter:Set[0]
+	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 30
+	{
+		wait 1
+	}
+	; Resume Ogre
+	oc !ci -Resume ${CharacterName}
+	; Re-enable scout coin, priest chalice/hammer, and mage lightning HO abilities and Starter/Wheel in case HO failed to complete for some reason
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 FALSE TRUE
+}
+
+function PerformSoloScoutHO(string CharacterName)
+{
+	; Disable fighter horn/boot and priest chalice HO abilities (don't want to interfere with scout HO path)
+	; 	Need to also disable HO Starter/Wheel as they ignore the HO ID-specific settings
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-scout checkbox_settings_ho_starter FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-scout checkbox_settings_ho_wheel FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_2 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_4 TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 TRUE TRUE
+	; Enable HO Starter/Wheel on scout
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_ho_wheel TRUE TRUE
+	; Disable cast stack for CharacterName (don't want them casting anything that isn't trying to complete the HO)
+	oc !ci -ChangeOgreBotUIOption ${CharacterName} checkbox_settings_disablecaststack TRUE TRUE
+	wait 1
+	; Clear ability queue (for everyone, make sure no fighter horn/boot or priest chalice abilities queued up)
+	relay ${OgreRelayGroup} eq2execute clearabilityqueue
+	wait 1
+	; Cancel anything currently being cast for fighters/priests
+	oc !ci -CancelCasting igw:${Me.Name}+-scout+-mage
+	wait 1
+	; Cast Lucky Break to bring up HO window
+	oc !ci -CancelCasting ${CharacterName} -CastAbility "Lucky Break"
+	wait 1
+	; Wait for HO window to pop up (up to 4 seconds)
+	variable int Counter=0
+	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
+	{
+		wait 1
+	}
+	; Wait for HO to complete (up to 6 seconds)
+	Counter:Set[0]
+	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 60
+	{
+		wait 1
+	}
+	; Re-enable fighter horn/boot and priest chalice HO abilities and Starter/Wheel in case HO failed to complete for some reason
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_2 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_4 FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 FALSE TRUE
+	; Re-enable cast stack for CharacterName
+	oc !ci -ChangeOgreBotUIOption ${CharacterName} checkbox_settings_disablecaststack FALSE TRUE
+}
+
 function PerformSoloMageHO(string CharacterName)
 {
 	; Disable scout coin and priest hammer HO abilities (don't want to interfere with mage HO path)
@@ -1126,7 +1223,7 @@ function PerformSoloMageHO(string CharacterName)
 	; Cancel anything currently being cast for scouts/priests
 	oc !ci -CancelCasting igw:${Me.Name}+-fighter+-mage
 	wait 1
-	; Cast Divine Providence to bring up HO window
+	; Cast Arcane Augur to bring up HO window
 	oc !ci -CancelCasting ${CharacterName} -CastAbility "Arcane Augur"
 	wait 1
 	; Wait for HO window to pop up (up to 4 seconds)
@@ -1194,58 +1291,6 @@ function PerformSoloPriestHO(string CharacterName)
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
 }
 
-function PerformSoloFighterHO(string CharacterName)
-{
-	; Disable scout coin, priest chalice/hammer, and mage lightning HO abilities (don't want to interfere with fighter HO path)
-	; 	Need to also disable HO Starter/Wheel as they ignore the HO ID-specific settings
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 TRUE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 TRUE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 TRUE TRUE
-	; Pause Ogre
-	oc !ci -Pause ${CharacterName}
-	wait 1
-	; Clear ability queue (for everyone, make sure no HO abilities queued up)
-	relay ${OgreRelayGroup} eq2execute clearabilityqueue
-	wait 1
-	; Cancel anything currently being cast for non-fighters
-	oc !ci -CancelCasting igw:${Me.Name}+-fighter
-	wait 1
-	; Cast Fighting Chance to bring up HO window
-	oc !ci -CancelCasting ${CharacterName} -CastAbility "Fighting Chance"
-	wait 1
-	; Wait for HO window to pop up (up to 4 seconds)
-	variable int Counter=0
-	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
-	{
-		wait 1
-	}
-	; Cast Ability to start HO
-	oc !ci -CastAbility ${CharacterName}+shadowknight "Siphon Strike"
-	oc !ci -CastAbility ${CharacterName}+berserker "Rupture"
-	wait 8
-	; Cast Ability to complete HO
-	oc !ci -CastAbility ${CharacterName}+shadowknight "Hateful Slam"
-	oc !ci -CastAbility ${CharacterName}+berserker "Body Check"
-	; Wait for HO to complete (up to 3 seconds)
-	Counter:Set[0]
-	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 30
-	{
-		wait 1
-	}
-	; Resume Ogre
-	oc !ci -Resume ${CharacterName}
-	; Re-enable scout coin, priest chalice/hammer, and mage lightning HO abilities and Starter/Wheel in case HO failed to complete for some reason
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter TRUE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 FALSE TRUE
-}
-
 /**********************************************************************************************************
 ****************************************    Misc Functions    *********************************************
 ***********************************************************************************************************/
@@ -1258,12 +1303,21 @@ function EnterPortal(string PortalName, string PortalAction="Teleport", int Port
 	; Stop movement
 	oc !ci -LetsGo igw:${Me.Name}
 	Obj_OgreIH:Set_NoMove
+	; Pause Ogre
+	oc !ci -Pause igw:${Me.Name}
+	wait 1
+	; Clear ability queue
+	relay ${OgreRelayGroup} eq2execute clearabilityqueue
+	; Cancel anything currently being cast
+	oc !ci -CancelCasting igw:${Me.Name}
 	; Teleport
 	wait ${PortalInitialWaitTime}
 	relay ${OgreRelayGroup} face ${PortalName}
 	wait ${PortalFaceWaitTime}
 	oc !ci -ApplyVerbForWho igw:${Me.Name} "${PortalName}" "${PortalAction}"
 	wait ${PortalWaitTime}
+	; Resume 
+	oc !ci -Resume igw:${Me.Name}
 	; Set CampSpot at new destination
 	Obj_OgreIH:SetCampSpot
 }
