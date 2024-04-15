@@ -315,25 +315,23 @@ function Nugget(string _NamedNPC)
 	Event[EQ2_onIncomingText]:AttachAtom[NuggetIncomingText]
 	Event[EQ2_onAnnouncement]:AttachAtom[NuggetAnnouncement]
 	; Default Variable values
-	oc !ci -Set_Variable ${Me.Name} "${Me.Name}NeedsFlecksCure" "FALSE"
 	oc !ci -Set_Variable ${Me.Name} "NeedsCurseCure" "None"
 	; Setup variables
 	variable int GroupNum
 	variable int Counter
+	variable int SecondLoopCount=10
 	variable string GroupMembers[6]
 	variable int FlecksCounter=0
 	variable bool CastingFlecksCure=FALSE
 	variable int CurseCounter=0
 	variable string NeedsCurseCure="None"
-	variable int CombatEventCount=0
-	variable int MineCheckCount=0
 	variable int NuggetCheckCount=0
 	variable actor Tree
 	variable int AurumCount
 	variable item AurumOre
 	variable int AllMineCureDuration=7
 	variable bool FoundNeedsFlecksCure=FALSE
-	; Set AllMineCureDuration for fighter to cure at 15s remaining so it gets cured before non-fighters
+	; Set AllMineCureDuration for fighter to cure at 10s remaining so it gets cured before non-fighters
 	; 	This is to get Flecks re-applied to a fighter first so it doesn't get re-applied to the whole group when cured from non-fighters
 	if ${Me.Archetype.Equal[fighter]}
 		AllMineCureDuration:Set[10]
@@ -377,6 +375,7 @@ function Nugget(string _NamedNPC)
 			if !${Me.Archetype.Equal[fighter]}
 			{
 				; Handle clicking tree for up to 10 seconds
+				NuggetSlamCounter:Set[0]
 				while ${NuggetSlamCounter:Inc} <= 100
 				{
 					; Look for tree within 10m to hold onto
@@ -389,103 +388,39 @@ function Nugget(string _NamedNPC)
 							; Click Tree
 							Tree:DoubleClick
 							wait 1
-							NuggetSlamCounter:Inc
 							; Check for Holding on tight detrimental
 							if ${Me.Effect[Query, "Detrimental" && MainIconID == 187 && BackDropIconID == 187].ID(exists)}
 								break
 						}
 					}
 					; Short wait before checking again
+					NuggetSlamCounter:Inc
 					wait 1
 				}
 			}
 			; Consider the Slam handled
 			NuggetStupendousSlamIncoming:Set[FALSE]
 		}
-		; Handle Flecks of Regret detrimental
-		; 	Gets cast on everyone in group and deals damamge and power drains
-		; 	If cured from entire group gets re-applied to entire group
-		; 	Want to cure on everyone that is not a fighter
-		; Check to see if this character needs to be cured
-		if ${FlecksCounter} < 0
-			FlecksCounter:Inc
-		if ${FlecksCounter} == 0 && !${Me.Archetype.Equal[fighter]}
+		; Perform checks every second
+		if ${SecondLoopCount:Inc} >= 10
 		{
-			if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
+			; Handle Flecks of Regret detrimental
+			; 	Gets cast on everyone in group and deals damamge and power drains
+			; 	If cured from entire group gets re-applied to entire group
+			; 	Want to cure on everyone except fighter
+			; Check to see if this character needs to be cured (if not already handled within last 2 seconds)
+			; 	Using cure pots to cure
+			if ${FlecksCounter} < 0
+				FlecksCounter:Inc
+			if ${FlecksCounter} == 0 && !${Me.Archetype.Equal[fighter]}
 			{
-				; Set NeedsFlecksCure for group member to cure this character
-				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}NeedsFlecksCure" "TRUE"
-				wait 1
-				FlecksCounter:Set[-50]
-			}
-		}
-		; Check to see if this character needs to cure Flecks of Regret from anyone
-		; 	Don't try to cure on the move or if not near KillSpot
-		if ${Me.Archetype.Equal[priest]} && !${Me.IsMoving} && ${Math.Distance[${Me.X},${Me.Z},752.10,156.93]} < 20
-		{
-			; Loop as long as there is someone that needs a Flecks Cure
-			do
-			{
-				; Default FoundNeedsFlecksCure to FALSE
-				FoundNeedsFlecksCure:Set[FALSE]
-				; Loop through each Group member, checking to see if NeedsFlecksCure = TRUE
-				GroupNum:Set[0]
-				while ${GroupNum:Inc} <= ${GroupMembers.Size}
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 				{
-					; Check NeedsFlecksCure, skip if not TRUE
-					if !${OgreBotAPI.Get_Variable["${GroupMembers[${GroupNum}]}NeedsFlecksCure"].Equal["TRUE"]}
-						continue
-					; Make sure Group member is in Cure range
-					if !${Actor[Query, Name == "${GroupMembers[${GroupNum}]}" && (Type == "PC" || Type == "Me") && Distance <= 15].ID(exists)}
-						continue
-					; Set FoundNeedsFlecksCure = TRUE
-					FoundNeedsFlecksCure:Set[TRUE]
-					; Setup for casting Cure if this is the first character being cured
-					if !${CastingFlecksCure}
-					{
-						CastingFlecksCure:Set[TRUE]
-						; Pause Ogre
-						oc !ci -Pause ${Me.Name}
-						wait 3
-						; Clear ability queue
-						eq2execute clearabilityqueue
-						; Cancel anything currently being cast
-						oc !ci -CancelCasting ${Me.Name}
-					}
-					; Cast Cure
-					oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure" "${GroupMembers[${GroupNum}]}" "0"
-					; Wait for Cure to start casting (up to 2 seconds)
-					Counter:Set[0]
-					while !${Me.CastingSpell} && ${Counter:Inc} <= 20
-					{
-						wait 1
-					}
-					; Wait for Cure to be completed (up to 2 seconds)
-					Counter:Set[0]
-					while ${Me.CastingSpell} && ${Counter:Inc} <= 20
-					{
-						wait 1
-					}
-					; Wait for recovery
-					wait 4
-					; Set NeedsFlecksCure back to FALSE
-					oc !ci -Set_Variable igw:${Me.Name} "${GroupMembers[${GroupNum}]}NeedsFlecksCure" "FALSE"
-					wait 1
+					; Use cure pot to cure
+					oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+					FlecksCounter:Set[-2]
 				}
 			}
-			while ${FoundNeedsFlecksCure}
-			; Check to see if Cure was cast to Resume when completed
-			if ${CastingFlecksCure}
-			{
-				wait 1
-				CastingFlecksCure:Set[FALSE]
-				; Resume Ogre
-				oc !ci -Resume ${Me.Name}
-			}
-		}
-		; Check every second for combat events that don't need immediate response
-		if ${CombatEventCount:Inc} >= 10
-		{
 			; Handle All Mine curse (MainIconID: 773, BackDropIconID 773)
 			; 	Cast on everyone when named buries itself and spawns unearthed aurum clusters
 			; 	Allows harvesting of a single unearthed aurum cluster
@@ -531,22 +466,19 @@ function Nugget(string _NamedNPC)
 					wait 1
 				}
 			}
-			CombatEventCount:Set[0]
-		}
-		; Check every second to mine Aurum if needed
-		if ${MineCheckCount:Inc} >= 10
-		{
+			; Check to mine Aurum if needed
 			call MineAurum
-			MineCheckCount:Set[0]
+			; Reset SecondLoopCount
+			SecondLoopCount:Set[0]
 		}
+		; Short wait before looping (to respond as quickly as possible to events)
+		wait 1
 		; Update NuggetExists every 3 seconds
 		if ${NuggetCheckCount:Inc} >= 30
 		{
 			call CheckNuggetExists
 			NuggetCheckCount:Set[0]
 		}
-		; Short wait before looping (to respond as quickly as possible to events)
-		wait 1
 	}
 	; Detach Atoms
 	Event[EQ2_onIncomingText]:DetachAtom[NuggetIncomingText]
@@ -557,20 +489,14 @@ atom NuggetIncomingText(string Text)
 {
 	; Look for message that Stupendous Slam is incoming
 	if ${Text.Find["Hold on tight!"]}
-	{
 		NuggetStupendousSlamIncoming:Set[TRUE]
-		NuggetSlamCounter:Set[0]
-	}
 }
 
 atom NuggetAnnouncement(string Text, string SoundType, float Timer)
 {
 	; Look for message that Stupendous Slam is incoming
 	if ${Text.Find["Quick! Hold onto something! But not the same thing as anyone else!"]}
-	{
 		NuggetStupendousSlamIncoming:Set[TRUE]
-		NuggetSlamCounter:Set[0]
-	}
 }
 
 function MineAurum()
@@ -657,6 +583,7 @@ function Coppernicus(string _NamedNPC)
 	variable index:actor Materia
 	variable iterator MateriaIterator
 	variable actor TargetMateria
+	variable actor CoppernicusTarget
 	variable effect HelioEffect
 	variable bool HelioActive=FALSE
 	variable int FlecksCounter=0
@@ -738,9 +665,15 @@ function Coppernicus(string _NamedNPC)
 				; For PrePull phase, have characters target themselves
 				if ${CoppernicusPhase.Equal["PrePull"]}
 					Me:DoTarget
-				; Otherwise target Coppernicus
+				; Otherwise target either Coppernicus or any roaming adds that may join the fight
 				else
-					Actor["${_NamedNPC}"]:DoTarget
+				{
+					CoppernicusTarget:Set[${Actor[Query,Name != "Coppernicus" && Name != "celestial materia" && Type != "Corpse" && Type =- "NPC" && Target.ID != 0 && Distance < 50].ID}]
+					if ${CoppernicusTarget.ID(exists)}
+						CoppernicusTarget:DoTarget
+					else
+						Actor["${_NamedNPC}"]:DoTarget
+				}
 			}
 			; Handle Heliocentric detrimental
 			; 	When it expires, character's range to Coppernicus must match number of increments on the detrimental +/- 1m
@@ -754,15 +687,6 @@ function Coppernicus(string _NamedNPC)
 				; Set HelioDistance for this character as CurrentIncrements and set HelioDuration
 				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}HelioDistance" "${Math.Calc[${HelioEffect.CurrentIncrements}+5]}"
 				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}HelioDuration" "${HelioEffect.Duration}"
-				
-				; **************************************
-				; DEBUG TEXT
-				;oc ${Me.Name} Helio Distance ${HelioEffect.CurrentIncrements} set to ${Math.Calc[${HelioEffect.CurrentIncrements}+5]}
-				;oc ${Me.Name} Helio Duration ${HelioEffect.Duration} of ${HelioEffect.MaxDuration}
-				;if ${HelioEffect.Duration} < 3
-				;	oc ${Me.Name} Helio ${HelioEffect.CurrentIncrements} set to ${Math.Calc[${HelioEffect.CurrentIncrements}+5]} at distance ${Actor["${_NamedNPC}"].Distance}
-				; **************************************
-				
 				; Set HelioActive = TRUE
 				HelioActive:Set[TRUE]
 			}
@@ -881,6 +805,7 @@ function Goldfeather(string _NamedNPC)
 	variable int FlecksCounter=0
 	variable int BellowCounter=0
 	variable int SittingDuckCounter=0
+	variable int DipCounter=0
 	variable int PhylacteryCounter=0
 	; Get PhylacteryNum if character is a PhylacteryCharacter
 	variable int PhylacteryNum=0
@@ -972,12 +897,12 @@ function Goldfeather(string _NamedNPC)
 			; Handle Flecks of Regret detrimental
 			; 	Gets cast on everyone in group and deals damamge and power drains
 			; 	If cured from entire group gets re-applied to entire group
-			; 	Want to cure on everyone except fighter
+			; 	Want to cure on everyone except FlecksCharacter
 			; Check to see if this character needs to be cured (if not already handled within last 2 seconds)
 			; 	There are multiple types of detrimentals during this fight, so just using cure pots to make sure only cure flecks
 			if ${FlecksCounter} < 0
 				FlecksCounter:Inc
-			if ${FlecksCounter} == 0 && !${Me.Archetype.Equal[fighter]}
+			if ${FlecksCounter} == 0 && !${OgreBotAPI.Get_Variable["FlecksCharacter"].Equal[${Me.Name}]}
 			{
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 				{
@@ -1000,6 +925,49 @@ function Goldfeather(string _NamedNPC)
 					; Use cure pot to cure
 					oc !ci -UseItem ${Me.Name} "Zimaran Cure Noxious"
 					BellowCounter:Set[-2]
+				}
+			}
+			; Handle Sitting Duck detrimental
+			; 	Character takes increasing heat damage while still then moves to top of hate list
+			; 	Character is rooted
+			; Try moving character away, then back (counts as moving even if character is rooted in place as long as they are trying to move?)
+			if ${SittingDuckCounter} < 0
+				SittingDuckCounter:Inc
+			if ${SittingDuckCounter} == 0
+			{
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 434 && BackDropIconID == 581].ID(exists)}
+				{
+					; Move character into lake
+					oc !ci -ChangeCampSpotWho ${Me.Name} 600.05 245.78 403.62
+					; Setup a timedcommand to move character back after 15 seconds (Sitting Duck should have a 15 second duration)
+					timedcommand 150 oc !ci -ChangeCampSpotWho ${Me.Name} 602.36 248.94 416.31
+					SittingDuckCounter:Set[-20]
+				}
+			}
+			; Handle Take a Dip detrimental
+			; 	Character ported to a random location in lake
+			; 	If cured, will teleport character back
+			; 	Character dies if cured by anyone but themselves
+			if ${DipCounter} < 0
+				DipCounter:Inc
+			if ${DipCounter} == 0
+			{
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 564 && BackDropIconID == -1].ID(exists)}
+				{
+					; Pause Ogre
+					oc !ci -Pause ${Me.Name}
+					wait 1
+					; Clear ability queue
+					eq2execute clearabilityqueue
+					wait 1
+					; Cancel anything currently being cast
+					oc !ci -CancelCasting ${Me.Name}
+					; Use cure pot to cure
+					oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+					wait 30
+					; Resume Ogre
+					oc !ci -Resume ${Me.Name}
+					DipCounter:Set[-2]
 				}
 			}
 			; Check to see if character is a PhylacteryCharacter and not in combat
@@ -1123,57 +1091,60 @@ function Goldan(string _NamedNPC)
 {
 	; Handle text events
 	Event[EQ2_onIncomingChatText]:AttachAtom[GoldanIncomingChatText]
+	; Default Variable values
+	oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}PadAllowed" "TRUE"
 	; Setup variables
 	variable int Counter
 	variable int SecondLoopCount=10
 	variable int GoldanExistsCount=0
-	variable point3f PadCenterLocation
+	variable actor Pad
+	variable uint PadAllowedTintFlag
 	variable point3f PadOuterMidLocation
 	variable point3f PlatformCenterLocation="659.83,270.30,908.93"
 	variable point3f PlatformOuterLocation
-	; Setup pad/platform locations based on character starting position
-	ActorLoc:Set[${Me.Loc}]
+	variable bool NeedUpdateFlecksCureTime=FALSE
+	variable time FlecksCureTime=${Time.Timestamp}
+	
+	; Get Pad and PadAllowedTingFlag
+	Pad:Set[${Actor[Query,Name=-"hover_pad_0" && Distance < 10].ID}]
+	PadAllowedTintFlag:Set[${Pad.TintFlags}]
+		
+	; Setup pad/platform locations based on Pad Name
 	; Pad 1
-	if ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},627.80,915.37]} < 10
+	if ${Pad.Name.Equal["hover_pad_01"]}
 	{
-		PadCenterLocation:Set[627.80,270.57,915.37]
 		PadOuterMidLocation:Set[631.04,270.56,914.65]
 		PlatformOuterLocation:Set[643.17,270.50,912.65]
 	}
 	; Pad 2
-	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},631.25,899.18]} < 10
+	elseif ${Pad.Name.Equal["hover_pad_02"]}
 	{
-		PadCenterLocation:Set[631.25,270.57,899.18]
 		PadOuterMidLocation:Set[634.74,270.56,900.41]
 		PlatformOuterLocation:Set[645.38,270.56,903.87]
 	}
 	; Pad 3
-	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},639.62,883.45]} < 10
+	elseif ${Pad.Name.Equal["hover_pad_03"]}
 	{
-		PadCenterLocation:Set[639.62,270.57,883.45]
 		PadOuterMidLocation:Set[640.94,270.56,885.82]
 		PlatformOuterLocation:Set[648.32,270.56,896.15]
 	}
 	; Pad 4
-	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},669.18,877.59]} < 10
+	elseif ${Pad.Name.Equal["hover_pad_04"]}
 	{
-		PadCenterLocation:Set[669.18,270.57,877.59]
-		PadOuterMidLocation:Set[668.42,270.56,880.54]
-		PlatformOuterLocation:Set[665.72,270.56,892.89]
+		PadOuterMidLocation:Set[689.34,270.56,903.60]
+		PlatformOuterLocation:Set[677.19,270.56,905.85]
 	}
 	; Pad 5
-	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},682.59,888.62]} < 10
+	elseif ${Pad.Name.Equal["hover_pad_05"]}
 	{
-		PadCenterLocation:Set[682.59,270.57,888.62]
 		PadOuterMidLocation:Set[680.16,270.56,890.77]
 		PlatformOuterLocation:Set[671.70,270.41,899.64]
 	}
 	; Pad 6
-	elseif ${Math.Distance[${ActorLoc.X},${ActorLoc.Z},692.46,903.21]} < 10
+	elseif ${Pad.Name.Equal["hover_pad_06"]}
 	{
-		PadCenterLocation:Set[692.46,270.57,903.21]
-		PadOuterMidLocation:Set[689.34,270.56,903.60]
-		PlatformOuterLocation:Set[677.19,270.56,905.85]
+		PadOuterMidLocation:Set[668.42,270.56,880.54]
+		PlatformOuterLocation:Set[665.72,270.56,892.89]
 	}
 	
 	; At start, jump to Platform
@@ -1183,9 +1154,27 @@ function Goldan(string _NamedNPC)
 	call CheckGoldanExists
 	while ${GoldanExists}
 	{
+		; If NeedUpdateFlecksCureTime, check to see that flecks was removed
+		if ${NeedUpdateFlecksCureTime}
+		{
+			if !${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
+			{
+				FlecksCureTime:Set[${Time.Timestamp}]
+				NeedUpdateFlecksCureTime:Set[FALSE]
+			}
+		}
 		; Perform checks every second
 		if ${SecondLoopCount:Inc} >= 10
 		{
+			; Update PadAllowed
+			if ${Pad.TintFlags} == ${PadAllowedTintFlag}
+				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}PadAllowed" "TRUE"
+			else
+				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}PadAllowed" "FALSE"
+			
+			
+			
+			
 			; Handle fighter platform being made classless
 			;if ${GoldanFighterPlatformIncoming}
 			;{
@@ -1232,7 +1221,6 @@ function Goldan(string _NamedNPC)
 			; unless fighter, in which case they only can't jump out if their platform was disabled, in which ase they need to kill the adds...
 			
 			
-			; NEED TO FIGURE OUT THE ICONID OF AETHER ADHESIVE!!!!!!!!!
 			
 			
 			; If not at platform, monitor character height and if they get knocked into the air send them to platform
@@ -1250,17 +1238,25 @@ function Goldan(string _NamedNPC)
 			; 	Gets cast on everyone in group and deals damamge and power drains
 			; 	If cured from entire group gets re-applied to entire group
 			; 	Want to cure on everyone except fighter
+			; 		However have fighter cure themselves every 5 minutes because flecks being on a long time can cause it to start spiking up to 100B+ damage
 			; Check to see if this character needs to be cured (if not already handled within last 2 seconds)
 			; 	Using cure pots to cure
 			if ${FlecksCounter} < 0
 				FlecksCounter:Inc
-			if ${FlecksCounter} == 0 && !${Me.Archetype.Equal[fighter]}
+			if ${FlecksCounter} == 0
 			{
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 				{
-					; Use cure pot to cure
-					oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
-					FlecksCounter:Set[-2]
+					; Cure if not fighter or more than 5 minutes have passed since last cure
+					if !${Me.Archetype.Equal[fighter]} || ${Math.Calc[${Time.Timestamp}-${FlecksCureTime.Timestamp}]} > 300
+					{
+						; Use cure pot to cure
+						oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+						; For fighter, need to check that flecks was actually removed before setting new FlecksCureTime
+						if ${Me.Archetype.Equal[fighter]}
+							NeedUpdateFlecksCureTime:Set[TRUE]
+						FlecksCounter:Set[-2]		
+					}
 				}
 			}
 			; Reset SecondLoopCount

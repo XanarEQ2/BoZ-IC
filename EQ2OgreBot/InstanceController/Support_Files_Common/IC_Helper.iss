@@ -605,6 +605,42 @@ function RemoveHateRune(string CharacterName)
 	}
 }
 
+variable string PainlinkHelperScript="EQ2OgreBot/InstanceController/Support_Files_Common/Painlink_Helper"
+
+function UsePainlink()
+{
+	; Make sure not in combat
+	oc !ci -PetOff igw:${Me.Name}
+	call Obj_OgreUtilities.HandleWaitForCombat
+	; Set default values for PainlinkComplete
+	oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}_PainlinkComplete" "FALSE"
+	variable int GroupNum=0
+	while ${GroupNum:Inc} < ${Me.GroupCount}
+	{
+		oc !ci -Set_Variable igw:${Me.Name} "${Me.Group[${GroupNum}].Name}_PainlinkComplete" "FALSE"
+	}
+	; Add short delay to allow all variables to be set, otherwise won't work properly
+	wait 1
+	; Run PainlinkHelperScript on everyone in group to see if Painlink needs to be cast
+	oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${PainlinkHelperScript}
+	oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${PainlinkHelperScript}
+	; Wait for script to complete on each character (timeout if more than 60 seconds to run)
+	variable int Counter = 0
+	while !${OgreBotAPI.Get_Variable["${Me.Name}_PainlinkComplete"]} && ${Counter:Inc} <= 600
+	{
+		wait 1
+	}
+	GroupNum:Set[0]
+	while ${GroupNum:Inc} < ${Me.GroupCount}
+	{
+		Counter:Set[0]
+		while !${OgreBotAPI.Get_Variable["${Me.Group[${GroupNum}].Name}_PainlinkComplete"]} && ${Counter:Inc} <= 100
+		{
+			wait 1
+		}
+	}
+}
+
 function initialize_move_to_next_boss(string _NamedNPC, int startpoint)
 {
 	oc ${Me.Name} is moving to ${_NamedNPC} [${startpoint}].
@@ -1073,17 +1109,6 @@ function CastInterrupt(bool Group=TRUE)
 	; Have just this character interrupt
 	else
 	{
-		
-		
-		; *********************************
-		; *********************************
-		; *********************************
-		oc ${Me.Name} Solo Interrupt
-		; *********************************
-		; *********************************
-		; *********************************
-		
-		
 		; Pause Ogre
 		oc !ci -Pause ${Me.Name}
 		wait 1
@@ -1109,16 +1134,19 @@ function PerformSoloFighterHO(string CharacterName)
 {
 	; Disable scout coin, priest chalice/hammer, and mage lightning HO abilities (don't want to interfere with fighter HO path)
 	; 	Need to also disable HO Starter/Wheel as they ignore the HO ID-specific settings
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
-	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_ho_starter FALSE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_ho_wheel FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 TRUE TRUE
-	; Pause Ogre
-	oc !ci -Pause ${CharacterName}
+	; Enable HO Starter/Wheel on fighter
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_ho_wheel TRUE TRUE
+	; Disable cast stack for CharacterName (don't want them casting anything that isn't trying to complete the HO)
+	oc !ci -ChangeOgreBotUIOption ${CharacterName} checkbox_settings_disablecaststack TRUE TRUE
 	wait 1
-	; Clear ability queue (for everyone, make sure no HO abilities queued up)
+	; Clear ability queue (for everyone, make sure no scout coin, priest chalice/hammer, or mage lightning HO abilities queued up)
 	relay ${OgreRelayGroup} eq2execute clearabilityqueue
 	wait 1
 	; Cancel anything currently being cast for non-fighters
@@ -1126,28 +1154,18 @@ function PerformSoloFighterHO(string CharacterName)
 	wait 1
 	; Cast Fighting Chance to bring up HO window
 	oc !ci -CancelCasting ${CharacterName} -CastAbility "Fighting Chance"
-	wait 1
 	; Wait for HO window to pop up (up to 4 seconds)
 	variable int Counter=0
 	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
 	{
 		wait 1
 	}
-	; Cast Ability to start HO
-	oc !ci -CastAbility ${CharacterName}+shadowknight "Siphon Strike"
-	oc !ci -CastAbility ${CharacterName}+berserker "Rupture"
-	wait 8
-	; Cast Ability to complete HO
-	oc !ci -CastAbility ${CharacterName}+shadowknight "Hateful Slam"
-	oc !ci -CastAbility ${CharacterName}+berserker "Body Check"
-	; Wait for HO to complete (up to 3 seconds)
+	; Wait for HO to complete (up to 6 seconds)
 	Counter:Set[0]
-	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 30
+	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 60
 	{
 		wait 1
 	}
-	; Resume Ogre
-	oc !ci -Resume ${CharacterName}
 	; Re-enable scout coin, priest chalice/hammer, and mage lightning HO abilities and Starter/Wheel in case HO failed to complete for some reason
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
@@ -1155,6 +1173,8 @@ function PerformSoloFighterHO(string CharacterName)
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 FALSE TRUE
+	; Re-enable cast stack for CharacterName
+	oc !ci -ChangeOgreBotUIOption ${CharacterName} checkbox_settings_disablecaststack FALSE TRUE
 }
 
 function PerformSoloScoutHO(string CharacterName)
@@ -1180,7 +1200,6 @@ function PerformSoloScoutHO(string CharacterName)
 	wait 1
 	; Cast Lucky Break to bring up HO window
 	oc !ci -CancelCasting ${CharacterName} -CastAbility "Lucky Break"
-	wait 1
 	; Wait for HO window to pop up (up to 4 seconds)
 	variable int Counter=0
 	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
@@ -1217,6 +1236,9 @@ function PerformSoloMageHO(string CharacterName)
 	; Make sure No Interrupts is not checked (can interfere with completing HO)
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_nointerrupts FALSE TRUE
 	wait 1
+	; Disable cast stack for CharacterName (don't want them casting anything that isn't trying to complete the HO)
+	oc !ci -ChangeOgreBotUIOption ${CharacterName} checkbox_settings_disablecaststack TRUE TRUE
+	wait 1
 	; Clear ability queue (for everyone, make sure no scout coin or priest hammer abilities queued up)
 	relay ${OgreRelayGroup} eq2execute clearabilityqueue
 	wait 1
@@ -1225,7 +1247,6 @@ function PerformSoloMageHO(string CharacterName)
 	wait 1
 	; Cast Arcane Augur to bring up HO window
 	oc !ci -CancelCasting ${CharacterName} -CastAbility "Arcane Augur"
-	wait 1
 	; Wait for HO window to pop up (up to 4 seconds)
 	variable int Counter=0
 	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
@@ -1243,6 +1264,8 @@ function PerformSoloMageHO(string CharacterName)
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 FALSE TRUE
+	; Re-enable cast stack for CharacterName
+	oc !ci -ChangeOgreBotUIOption ${CharacterName} checkbox_settings_disablecaststack FALSE TRUE
 }
 
 function PerformSoloPriestHO(string CharacterName)
@@ -1252,8 +1275,11 @@ function PerformSoloPriestHO(string CharacterName)
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
-	; Pause Ogre
-	oc !ci -Pause ${CharacterName}
+	; Enable HO Starter/Wheel on priest
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_ho_starter TRUE TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_ho_wheel TRUE TRUE
+	; Disable cast stack for CharacterName (don't want them casting anything that isn't trying to complete the HO)
+	oc !ci -ChangeOgreBotUIOption ${CharacterName} checkbox_settings_disablecaststack TRUE TRUE
 	wait 1
 	; Clear ability queue (for everyone, make sure no scout coin abilities queued up)
 	relay ${OgreRelayGroup} eq2execute clearabilityqueue
@@ -1263,32 +1289,24 @@ function PerformSoloPriestHO(string CharacterName)
 	wait 1
 	; Cast Divine Providence to bring up HO window
 	oc !ci -CancelCasting ${CharacterName} -CastAbility "Divine Providence"
-	wait 1
 	; Wait for HO window to pop up (up to 4 seconds)
 	variable int Counter=0
 	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
 	{
 		wait 1
 	}
-	; Cast Ability to start HO
-	oc !ci -CastAbility ${CharacterName}+mystic "Plague"
-	;oc !ci -CastHOIconID igw:${Me.Name}+priest 14 "TestScript"
-	wait 10
-	; Cast Ability to complete HO
-	oc !ci -CastAbility ${CharacterName}+mystic "Velium Winds"
-	;oc !ci -CastHOIconID igw:${Me.Name}+priest 14 "TestScript"
-	; Wait for HO to complete (up to 3 seconds)
+	; Wait for HO to complete (up to 6 seconds)
 	Counter:Set[0]
-	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 30
+	while ${EQ2.HOWindowState} != -1 && ${Counter:Inc} <= 60
 	{
 		wait 1
 	}
-	; Resume Ogre
-	oc !ci -Resume ${CharacterName}
 	; Re-enable scout coin HO abilities and Starter/Wheel in case HO failed to complete for some reason
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel TRUE TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 FALSE TRUE
+	; Re-enable cast stack for CharacterName
+	oc !ci -ChangeOgreBotUIOption ${CharacterName} checkbox_settings_disablecaststack FALSE TRUE
 }
 
 /**********************************************************************************************************
