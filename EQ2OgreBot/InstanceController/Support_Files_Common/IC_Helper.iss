@@ -74,6 +74,24 @@ function SetupAllInterrupts(bool EnableInterrupts)
 	}
 }
 
+function SetupAllDPS(bool EnableDPS)
+{
+	; Used for disabling DPS during certain fights
+	variable bool SetCastStack
+	SetCastStack:Set[!${EnableDPS}]
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_ca ${SetCastStack} TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_namedca ${SetCastStack} TRUE
+	; Don't disable Combat on Priests, assume they have wards/buffs listed as Combat
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-priest checkbox_settings_disablecaststack_combat ${SetCastStack} TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_debuff ${SetCastStack} TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_nameddebuff ${SetCastStack} TRUE
+	; Enable/disable pets
+	if ${EnableDPS}
+		oc !ci -PetAssist igw:${Me.Name}
+	else
+		oc !ci -PetOff igw:${Me.Name}
+}
+
 function SetInitialHOSettings()
 {
 	; Set HO default values to clear any custom settings
@@ -1094,15 +1112,32 @@ function CastInterrupt(bool Group=TRUE)
 		relay ${OgreRelayGroup} eq2execute clearabilityqueue
 		; Cast Interrupt ability depending on Class (modify as needed based on group setup)
 		oc !ci -CancelCasting igw:${Me.Name}+berserker -CastAbility "Mock"
+		oc !ci -CancelCasting igw:${Me.Name}+guardian -CastAbility "Provoke"
 		oc !ci -CancelCasting igw:${Me.Name}+shadowknight -CastAbility "Blasphemy"
+		oc !ci -CancelCasting igw:${Me.Name}+paladin -CastAbility "Judgment"
+		oc !ci -CancelCasting igw:${Me.Name}+bruiser -CastAbility "Sonic Punch"
+		oc !ci -CancelCasting igw:${Me.Name}+monk -CastAbility "Challenge"
 		oc !ci -CancelCasting igw:${Me.Name}+ranger -CastAbility "Hilt Strike"
 		oc !ci -CancelCasting igw:${Me.Name}+dirge -CastAbility "Hymn of Horror"
+		oc !ci -CancelCasting igw:${Me.Name}+troubador -CastAbility "Breathtaking Bellow"
 		oc !ci -CancelCasting igw:${Me.Name}+swashbuckler -CastAbility "Tease"
+		oc !ci -CancelCasting igw:${Me.Name}+brigand -CastAbility "Cuss"
 		oc !ci -CancelCasting igw:${Me.Name}+beastlord -CastAbility "Sharpened Claws"
 		oc !ci -CancelCasting igw:${Me.Name}+coercer -CastAbility "Hemorrhage"
 		;oc !ci -CancelCasting igw:${Me.Name}+coercer -CastAbility "Spellblade's Counter"
-		;oc !ci -CancelCasting igw:${Me.Name}+fury -CastAbility "Maddening Swarm"
+		oc !ci -CancelCasting igw:${Me.Name}+conjuror -CastAbility "Winds of Velious"
+		oc !ci -CancelCasting igw:${Me.Name}+illusionist -CastAbility "Chromatic Storm"
+		oc !ci -CancelCasting igw:${Me.Name}+necromancer -CastAbility "Dooming Darkness"
+		oc !ci -CancelCasting igw:${Me.Name}+warlock -CastAbility "Nullify"
+		oc !ci -CancelCasting igw:${Me.Name}+wizard -CastAbility "Cease"
+		; Leaving the shaman commented out to let them keep casting wards/buffs/heals, but can uncomment if desired
 		;oc !ci -CancelCasting igw:${Me.Name}+mystic -CastAbility "Echoes of the Ancients"
+		;oc !ci -CancelCasting igw:${Me.Name}+defiler -CastAbility "Absolute Corruption"
+		oc !ci -CancelCasting igw:${Me.Name}+fury -CastAbility "Maddening Swarm"
+		oc !ci -CancelCasting igw:${Me.Name}+warden -CastAbility "Willow Wisp"
+		oc !ci -CancelCasting igw:${Me.Name}+channeler -CastAbility "Shadow Bind"
+		oc !ci -CancelCasting igw:${Me.Name}+inquisitor -CastAbility "Invocation"
+		oc !ci -CancelCasting igw:${Me.Name}+templar -CastAbility "Rebuke"
 		; Resume Ogre
 		oc !ci -Resume igw:${Me.Name}
 	}
@@ -1116,15 +1151,33 @@ function CastInterrupt(bool Group=TRUE)
 		eq2execute clearabilityqueue
 		; Cast Interrupt ability depending on Class (modify as needed based on group setup)
 		oc !ci -CancelCasting ${Me.Name}+berserker -CastAbility "Mock"
+		oc !ci -CancelCasting ${Me.Name}+guardian -CastAbility "Provoke"
 		oc !ci -CancelCasting ${Me.Name}+shadowknight -CastAbility "Blasphemy"
+		oc !ci -CancelCasting ${Me.Name}+paladin -CastAbility "Judgment"
+		oc !ci -CancelCasting ${Me.Name}+bruiser -CastAbility "Sonic Punch"
+		oc !ci -CancelCasting ${Me.Name}+monk -CastAbility "Challenge"
 		oc !ci -CancelCasting ${Me.Name}+ranger -CastAbility "Hilt Strike"
 		oc !ci -CancelCasting ${Me.Name}+dirge -CastAbility "Hymn of Horror"
+		oc !ci -CancelCasting ${Me.Name}+troubador -CastAbility "Breathtaking Bellow"
 		oc !ci -CancelCasting ${Me.Name}+swashbuckler -CastAbility "Tease"
+		oc !ci -CancelCasting ${Me.Name}+brigand -CastAbility "Cuss"
 		oc !ci -CancelCasting ${Me.Name}+beastlord -CastAbility "Sharpened Claws"
 		oc !ci -CancelCasting ${Me.Name}+coercer -CastAbility "Hemorrhage"
 		;oc !ci -CancelCasting ${Me.Name}+coercer "Spellblade's Counter"
-		;oc !ci -CancelCasting ${Me.Name}+fury "Maddening Swarm"
+		oc !ci -CancelCasting ${Me.Name}+conjuror -CastAbility "Winds of Velious"
+		oc !ci -CancelCasting ${Me.Name}+illusionist -CastAbility "Chromatic Storm"
+		oc !ci -CancelCasting ${Me.Name}+necromancer -CastAbility "Dooming Darkness"
+		oc !ci -CancelCasting ${Me.Name}+warlock -CastAbility "Nullify"
+		oc !ci -CancelCasting ${Me.Name}+wizard -CastAbility "Cease"
+		; Leaving the shaman commented out to let them keep casting wards/buffs/heals, but can uncomment if desired
 		;oc !ci -CancelCasting ${Me.Name}+mystic "Echoes of the Ancients"
+		;oc !ci -CancelCasting ${Me.Name}+defiler -CastAbility "Absolute Corruption"
+		oc !ci -CancelCasting ${Me.Name}+fury "Maddening Swarm"
+		oc !ci -CancelCasting ${Me.Name}+warden -CastAbility "Willow Wisp"
+		oc !ci -CancelCasting ${Me.Name}+channeler -CastAbility "Shadow Bind"
+		oc !ci -CancelCasting ${Me.Name}+inquisitor -CastAbility "Invocation"
+		oc !ci -CancelCasting ${Me.Name}+templar -CastAbility "Rebuke"
+		
 		; Resume Ogre
 		oc !ci -Resume ${Me.Name}
 	}

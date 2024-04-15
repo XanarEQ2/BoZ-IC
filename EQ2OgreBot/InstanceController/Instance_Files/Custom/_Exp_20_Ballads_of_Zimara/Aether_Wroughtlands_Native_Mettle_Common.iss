@@ -44,6 +44,8 @@ objectdef Object_Instance
 		Obj_OgreIH:SetCampSpot
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_movetoarea TRUE TRUE
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} textentry_setup_moveintomeleerangemaxdistance 20 TRUE
+		; Set IC File Option 1 to Auto-Painlink
+		Obj_InstanceControllerXML:Set_ICFileOption[1,"Auto-Painlink"]
 		; Check group setup (needed for group-specific code)
 		call CheckGroupSetup
 		
@@ -196,8 +198,9 @@ objectdef Object_Instance
 		; Swap to stifle immunity rune
 		call mend_and_rune_swap "stifle" "stifle" "stifle" "stifle"
 		
-		; Use Painlinks if needed
-		call UsePainlink
+		; Use Painlinks if desired
+		if ${Ogre_Instance_Controller.bICFileOption_1}
+			call UsePainlink
 		
 		; Setup for named
 		call initialize_move_to_next_boss "${_NamedNPC}" "1"
@@ -768,6 +771,7 @@ objectdef Object_Instance
 		; Setup Variables
 		variable int GroupNum
 		variable int Counter
+		variable int SecondLoopCount=10
 		variable point3f NuggetLoc
 		variable point3f TreeSpot[5]
 		variable string CharacterTree[5]
@@ -777,6 +781,9 @@ objectdef Object_Instance
 		variable bool NuggetAbsorbAndCrushArmorPreparing=FALSE
 		variable int NuggetHP=0
 		variable int NuggetHPCount=0
+		variable time SweepSlamTime
+		variable bool DPSEnabled=TRUE
+		variable bool DPSAllowed=TRUE
 		
 		; Get GroupMembers
 		GroupNum:Set[0]
@@ -889,8 +896,9 @@ objectdef Object_Instance
 		UnearthedSpot[7]:Set[706.82,205.32,65.62]
 		UnearthedSpot[8]:Set[737.48,200.59,108.64]
 		
-		; Use Painlinks if needed
-		call UsePainlink
+		; Use Painlinks if desired
+		if ${Ogre_Instance_Controller.bICFileOption_1}
+			call UsePainlink
 		
 		; Setup for named
 		call initialize_move_to_next_boss "${_NamedNPC}" "2"
@@ -1031,6 +1039,10 @@ objectdef Object_Instance
 			; 	Fighter will get message "As a fighter, you shrug off the attempted knock up.", so they don't need to move for this
 			if ${NuggetStupendousSlamIncoming}
 			{
+				; Update SweepSlamTime
+				SweepSlamTime:Set[${Time.Timestamp}]
+				; Disable DPS during Slam
+				call SetupAllDPS "FALSE"
 				; Send characters to Trees (keeping tank near the Priest)
 				oc !ci -ChangeCampSpotWho ${Me.Name} ${TreeSpot[1].X} ${TreeSpot[1].Y} ${TreeSpot[1].Z}
 				oc !ci -ChangeCampSpotWho ${CharacterTree[1]} ${TreeSpot[1].X} ${TreeSpot[1].Y} ${TreeSpot[1].Z}
@@ -1054,6 +1066,9 @@ objectdef Object_Instance
 				timedcommand 10 oc !ci -CancelMaintainedForWho ${CharacterTree[5]} "Sprint"
 				; Set Stupendous Slam as handled
 				NuggetStupendousSlamIncoming:Set[FALSE]
+				; Re-enable DPS after Slam
+				call SetupAllDPS "TRUE"
+				DPSEnabled:Set[TRUE]
 			}
 			; Handle Stupendous Sweep
 			; 	Ability casting ID 9122154, time = 4 sec
@@ -1061,6 +1076,10 @@ objectdef Object_Instance
 			; 	May also aggro adds in the bushes if hit by the spell
 			if ${StupendousSweepIncoming}
 			{
+				; Disable DPS during Sweep
+				call SetupAllDPS "FALSE"
+				; Update SweepSlamTime
+				SweepSlamTime:Set[${Time.Timestamp}]
 				; Want fighter in front of named and rest of group in back, but first want the named looking at direction without a bush in the line of fire
 				; 	Heading 140 should get it pointed in a good direction from KillSpot
 				FighterNamedOffset:Set[140 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
@@ -1114,6 +1133,9 @@ objectdef Object_Instance
 				oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				; Set Stupendous Sweep as handled
 				StupendousSweepIncoming:Set[FALSE]
+				; Re-enable DPS after Sweep
+				call SetupAllDPS "TRUE"
+				DPSEnabled:Set[TRUE]
 			}
 			; Handle All Mine incoming
 			; 	Nugget begins to cast All Mine, then buries itself into the ground and spawns clusters
@@ -1137,7 +1159,7 @@ objectdef Object_Instance
 				{
 					wait 1
 				}
-				wait 10
+				wait 20
 				; Resume Ogre and pets
 				oc !ci -Resume igw:${Me.Name}
 				oc !ci -PetAssist igw:${Me.Name}
@@ -1150,8 +1172,44 @@ objectdef Object_Instance
 			{
 				; Mine new unearthed aurum clusters
 				call MineUnearthedClusters
+				DPSEnabled:Set[TRUE]
 				; Handled ClustersSpawned
 				ClustersSpawned:Set[FALSE]
+			}
+			; Handle updates every second
+			if ${SecondLoopCount:Inc} >= 10
+			{
+				; Enable/disable DPS when near triggering Absorb and Crush Armor
+				; 	Happens at 76%, 51%, 26%
+				; 	Don't want it to happen immediately after a Sweep/Slam as may have a problem completing the HO
+				DPSAllowed:Set[TRUE]
+				; Get Nugget HP, see if at 77/78%, 52/53%, or 27/28%
+				NuggetHP:Set[${Actor[Query,Name=="Nugget" && Type != "Corpse"].Health}]
+				if ${NuggetHP} == 77 || ${NuggetHP} == 78 || ${NuggetHP} == 52 || ${NuggetHP} == 53 || ${NuggetHP} == 27 || ${NuggetHP} == 28
+				{
+					; Check SweepSlamTime, if not between 30 seconds to a minute after SweepSlamTime want to stop DPS
+					; 	May either be right after a Sweep/Slam and have to deal with adds/power issues
+					; 	Or could be a Sweep/Slam will be happening soon in which case want to wait until after it happens
+					if ${Math.Calc[${Time.Timestamp}-${SweepSlamTime.Timestamp}]} < 30 || ${Math.Calc[${Time.Timestamp}-${SweepSlamTime.Timestamp}]} > 60
+					{
+						; Check to see if there are adds (don't want to stop dps if trying to kill adds
+						if !${Actor[Query, Name != "Nugget" && Type != "Corpse" && Type =- "NPC" && Target.ID != 0 && Distance < 50].ID(exists)}
+						{
+							; Set DPSAllowed = FALSE
+							DPSAllowed:Set[FALSE]
+						}
+					}
+				}
+				; Check to see if there is a mismatch between DPSEnabled and DPSAllowed (^ is XOR, exclusive OR)
+				if ${DPSEnabled}^${DPSAllowed}
+				{
+					; Enable/disable DPS
+					call SetupAllDPS "${DPSAllowed}"
+					; Update DPSEnabled
+					DPSEnabled:Set[${DPSAllowed}]
+				}
+				; Reset SecondLoopCount
+				SecondLoopCount:Set[0]
 			}
 			; Short wait before looping (to respond as quickly as possible to events)
 			wait 1
@@ -1162,6 +1220,10 @@ objectdef Object_Instance
 				NuggetCheckCount:Set[0]
 			}
 		}
+		
+		; Make sure dps is re-enabled after fight
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack FALSE TRUE
+		call SetupAllDPS "TRUE"
 		
 		; Detach Atoms
 		Event[EQ2_onIncomingText]:DetachAtom[NuggetIncomingText]
@@ -1245,6 +1307,8 @@ objectdef Object_Instance
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Hateful Slam" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Rupture" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Body Check" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+paladin "Divine Vengeance" ${SetDisable} TRUE
+		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+paladin "Heroic Dash" ${SetDisable} TRUE
 	}
 
 	function CheckNuggetExists()
@@ -1362,6 +1426,8 @@ objectdef Object_Instance
 		variable point3f NewSpot
 		variable bool FoundCluster=TRUE
 		
+		; Make sure DPS is enabled
+		call SetupAllDPS "TRUE"
 		; Add AdditionalClusters to TargetAurumCount
 		while ${AdditionalClusters} > 0
 		{
@@ -1514,6 +1580,8 @@ objectdef Object_Instance
 				}
 			}
 		}
+		; Disable DPS on way back to KillSpot, don't want to trigger a Nugget ability when not at KillSpot
+		call SetupAllDPS "FALSE"
 		; Figure out if we can get UnearthedNum back to 1 faster moving in forward or backward direction looping through UnearthedSpots
 		UnearthedForwardSteps:Set[0]
 		Counter:Set[${UnearthedNum}]
@@ -1550,6 +1618,8 @@ objectdef Object_Instance
 			Obj_OgreIH:ChangeCampSpot["${UnearthedSpot[${UnearthedNum}]}"]
 			call Obj_OgreUtilities.HandleWaitForCampSpot 10
 		}
+		; Re-enable DPS at KillSpot
+		call SetupAllDPS "TRUE"
 	}
 
 /**********************************************************************************************************
@@ -2143,6 +2213,11 @@ objectdef Object_Instance
 						oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter+-priest checkbox_settings_disablecaststack_combat ${DPSEnabled} TRUE
 						oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_debuff ${DPSEnabled} TRUE
 						oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_nameddebuff ${DPSEnabled} TRUE
+						; Enable/disable pets
+						if ${DPSAllowed}
+							oc !ci -PetAssist igw:${Me.Name}
+						else
+							oc !ci -PetOff igw:${Me.Name}
 						; Update DPSEnabled
 						DPSEnabled:Set[${DPSAllowed}]
 					}
@@ -2159,6 +2234,9 @@ objectdef Object_Instance
 				CoppernicusExistsCount:Set[0]
 			}
 		}
+		
+		; Make sure dps is re-enabled after fight
+		call SetupAllDPS "TRUE"
 		
 		; Detach Atoms
 		Event[EQ2_onIncomingChatText]:DetachAtom[CoppernicusIncomingChatText]
@@ -2288,8 +2366,9 @@ objectdef Object_Instance
 		; Swap immunity runes (stun on fighter/scout, stifle on mage/priest)
 		call mend_and_rune_swap "stun" "stun" "stifle" "stifle"
 		
-		; Use Painlinks if needed
-		call UsePainlink
+		; Use Painlinks if desired
+		if ${Ogre_Instance_Controller.bICFileOption_1}
+			call UsePainlink
 		
 		; Setup for named
 		call initialize_move_to_next_boss "${_NamedNPC}" "4"
@@ -2960,8 +3039,9 @@ objectdef Object_Instance
 		; Repair if needed
 		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
 		
-		; Use Painlinks if needed
-		call UsePainlink
+		; Use Painlinks if desired
+		if ${Ogre_Instance_Controller.bICFileOption_1}
+			call UsePainlink
 		
 		; Setup for named
 		call initialize_move_to_next_boss "${_NamedNPC}" "5"

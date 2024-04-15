@@ -713,10 +713,10 @@ function Coppernicus(string _NamedNPC)
 				{
 					if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 					{
-						; If character is CoppernicusFlecksCharacter, only cure themselves if 5 minutes have passed since last cure
+						; If character is CoppernicusFlecksCharacter, only cure themselves if 3 minutes have passed since last cure
 						if ${Me.Name.Equal[${OgreBotAPI.Get_Variable["CoppernicusFlecksCharacter"]}]}
 						{
-							if ${Math.Calc[${Time.Timestamp}-${NeedFlecksCureTime.Timestamp}]} > 300
+							if ${Math.Calc[${Time.Timestamp}-${NeedFlecksCureTime.Timestamp}]} > 180
 							{
 								oc !ci -UseItem ${Me.Name} "Zimaran Cure Elemental"
 								NeedFlecksCureTime:Set[${Time.Timestamp}]
@@ -1247,8 +1247,8 @@ function Goldan(string _NamedNPC)
 			{
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 				{
-					; Cure if not fighter or more than 5 minutes have passed since last cure
-					if !${Me.Archetype.Equal[fighter]} || ${Math.Calc[${Time.Timestamp}-${FlecksCureTime.Timestamp}]} > 300
+					; Cure if not fighter or more than 3 minutes have passed since last cure
+					if !${Me.Archetype.Equal[fighter]} || ${Math.Calc[${Time.Timestamp}-${FlecksCureTime.Timestamp}]} > 180
 					{
 						; Use cure pot to cure
 						oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
