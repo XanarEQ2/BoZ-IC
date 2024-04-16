@@ -385,12 +385,25 @@ function Nugget(string _NamedNPC)
 						; Make sure character is not moving (may pass by another tree on the way to destination tree)
 						if !${Me.IsMoving}
 						{
+							
+							
+							
+							oc ${Me.Name} Click Tree at ${Tree.Distance}
+							
+							
 							; Click Tree
 							Tree:DoubleClick
 							wait 1
 							; Check for Holding on tight detrimental
 							if ${Me.Effect[Query, "Detrimental" && MainIconID == 187 && BackDropIconID == 187].ID(exists)}
+							{
+								
+								
+								oc ${Me.Name} Have Holding on Tight detrimental
+								
+								
 								break
+							}
 						}
 					}
 					; Short wait before checking again
@@ -1082,17 +1095,15 @@ atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, s
 ********************************************************************************************/
 
 variable bool GoldanExists
-variable bool GoldanAtPlatform=FALSE
-;variable bool GoldanFighterPlatformIncoming=FALSE
-;variable bool GoldanScoutPlatformIncoming=FALSE
-;variable bool GoldanMagePlatformIncoming=FALSE
-;variable bool GoldanPriestPlatformIncoming=FALSE
+variable bool GoldanAtPad=TRUE
+variable bool GoldanFighterPadNotAllowedIncoming=FALSE
+variable bool GoldanScoutPadNotAllowedIncoming=FALSE
+variable bool GoldanMagePadNotAllowedIncoming=FALSE
+variable bool GoldanPriestPadNotAllowedIncoming=FALSE
 function Goldan(string _NamedNPC)
 {
 	; Handle text events
 	Event[EQ2_onIncomingChatText]:AttachAtom[GoldanIncomingChatText]
-	; Default Variable values
-	oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}PadAllowed" "TRUE"
 	; Setup variables
 	variable int Counter
 	variable int SecondLoopCount=10
@@ -1102,11 +1113,12 @@ function Goldan(string _NamedNPC)
 	variable point3f PadOuterMidLocation
 	variable point3f PlatformCenterLocation="659.83,270.30,908.93"
 	variable point3f PlatformOuterLocation
+	variable bool PadDisabled=FALSE
 	variable bool NeedUpdateFlecksCureTime=FALSE
 	variable time FlecksCureTime=${Time.Timestamp}
 	
-	; Get Pad and PadAllowedTingFlag
-	Pad:Set[${Actor[Query,Name=-"hover_pad_0" && Distance < 10].ID}]
+	; Get Pad and PadAllowedTintFlag
+	Pad:Set[${Actor[Query,Name =- "hover_pad_0" && Distance < 10].ID}]
 	PadAllowedTintFlag:Set[${Pad.TintFlags}]
 		
 	; Setup pad/platform locations based on Pad Name
@@ -1147,13 +1159,68 @@ function Goldan(string _NamedNPC)
 		PlatformOuterLocation:Set[665.72,270.56,892.89]
 	}
 	
-	; At start, jump to Platform
-	call GoldanJumpPadToPlatform ${PadOuterMidLocation} ${PlatformCenterLocation}
-	
 	; Run as long as named is alive
 	call CheckGoldanExists
 	while ${GoldanExists}
 	{
+		; Handle platforms being made classless
+		; If a character's Archetype is called out, set PadAllowed = FALSE for them to jump out
+		; 	but set PadAllowed back to TRUE 5 seconds later so they can jump back on if pad isn't disabled
+		if ${GoldanFighterPadNotAllowedIncoming}
+		{
+			if ${Me.Archetype.Equal[fighter]}
+			{
+				oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
+				timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
+				wait 1
+			}
+			GoldanFighterPadNotAllowedIncoming:Set[FALSE]
+		}
+		elseif ${GoldanScoutPadNotAllowedIncoming}
+		{
+			if ${Me.Archetype.Equal[scout]}
+			{
+				oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
+				timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
+				wait 1
+			}
+			GoldanScoutPadNotAllowedIncoming:Set[FALSE]
+		}
+		elseif ${GoldanMagePadNotAllowedIncoming}
+		{
+			if ${Me.Archetype.Equal[mage]}
+			{
+				oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
+				timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
+				wait 1
+			}
+			GoldanMagePadNotAllowedIncoming:Set[FALSE]
+		}
+		elseif ${GoldanPriestPadNotAllowedIncoming}
+		{
+			if ${Me.Archetype.Equal[priest]}
+			{
+				oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
+				timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
+				wait 1
+			}
+			GoldanPriestPadNotAllowedIncoming:Set[FALSE]
+		}
+		; Jump to pad/platform as needed based on PadAllowed/PadDisabled
+		if ${GoldanAtPad}
+		{
+			if !${OgreBotAPI.Get_Variable["PadAllowed"]} || ${PadDisabled}
+			{
+				call GoldanJumpPadToPlatform ${PlatformCenterLocation}
+			}
+		}
+		else
+		{
+			if ${OgreBotAPI.Get_Variable["PadAllowed"]} && !${PadDisabled}
+			{
+				call GoldanJumpPlatformToPad ${PlatformOuterLocation} ${Pad.Loc} ${PadOuterMidLocation}
+			}
+		}
 		; If NeedUpdateFlecksCureTime, check to see that flecks was removed
 		if ${NeedUpdateFlecksCureTime}
 		{
@@ -1166,72 +1233,24 @@ function Goldan(string _NamedNPC)
 		; Perform checks every second
 		if ${SecondLoopCount:Inc} >= 10
 		{
-			; Update PadAllowed
-			if ${Pad.TintFlags} == ${PadAllowedTintFlag}
-				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}PadAllowed" "TRUE"
+			; Update PadDisabled
+			if ${Pad.TintFlags} != ${PadAllowedTintFlag}
+				PadDisabled:Set[TRUE]
 			else
-				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}PadAllowed" "FALSE"
-			
-			
-			
-			
-			; Handle fighter platform being made classless
-			;if ${GoldanFighterPlatformIncoming}
-			;{
-			;	; If fighter, jump from pad to Platform
-			;	if ${Me.Archetype.Equal[fighter]}
-			;		call GoldanJumpPadToPlatform ${PlatformOuterLocation}
-			;	; Set GoldanFighterPlatformIncoming as handled
-			;	GoldanFighterPlatformIncoming:Set[FALSE]
-			;}
-			; Handle scout platform being made classless
-			;if ${GoldanScoutPlatformIncoming}
-			;{
-			;	; If scout, jump from pad to Platform
-			;	if ${Me.Archetype.Equal[scout]}
-			;		call GoldanJumpPadToPlatform ${PlatformOuterLocation}
-			;	; Set GoldanScoutPlatformIncoming as handled
-			;	GoldanScoutPlatformIncoming:Set[FALSE]
-			;}
-			; Handle mage platform being made classless
-			;if ${GoldanMagePlatformIncoming}
-			;{
-			;	; If mage, jump from pad to Platform
-			;	if ${Me.Archetype.Equal[mage]}
-			;		call GoldanJumpPadToPlatform ${PlatformOuterLocation}
-			;	; Set GoldanMagePlatformIncoming as handled
-			;	GoldanMagePlatformIncoming:Set[FALSE]
-			;}
-			; Handle priest platform being made classless
-			;if ${GoldanPriestPlatformIncoming}
-			;{
-			;	; If priest, jump from pad to Platform
-			;	if ${Me.Archetype.Equal[priest]}
-			;		call GoldanJumpPadToPlatform ${PlatformOuterLocation}
-			;	; Set GoldanPriestPlatformIncoming as handled
-			;	GoldanPriestPlatformIncoming:Set[FALSE]
-			;}
-			
-			
-			
-			
-			
-			
-			; if at platform, and on ground, and have scout buff, and don't have Aether Adhesive, jump out
-			; unless fighter, in which case they only can't jump out if their platform was disabled, in which ase they need to kill the adds...
-			
-			
-			
-			
-			; If not at platform, monitor character height and if they get knocked into the air send them to platform
-			if !${GoldanAtPlatform}
+				PadDisabled:Set[FALSE]
+			; Update GoldanAtPad based on distance to pad
+			if ${Math.Distance[${Me.X},${Me.Z},${Pad.X},${Pad.Z}]} < 10
+				GoldanAtPad:Set[TRUE]
+			else
+				GoldanAtPad:Set[FALSE]
+			; If at pad, monitor character height and if they get knocked into the air send them to platform
+			if ${GoldanAtPad}
 			{
 				if ${Me.Y} > 290
 				{
 					; Change CampSpot to plaform
+					oc !ci -campspot ${Me.Name} "1" "200"
 					oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
-					; Set GoldanAtPlatform = TRUE
-					GoldanAtPlatform:Set[TRUE]
 				}
 			}
 			; Handle Flecks of Regret detrimental
@@ -1293,55 +1312,42 @@ function CheckGoldanExists()
 	GoldanExists:Set[FALSE]
 }
 
-function GoldanJumpPadToPlatform(point3f PadOuterMidLocation, point3f PlatformCenterLocation)
+function GoldanJumpPadToPlatform(point3f PlatformCenterLocation)
 {
-	
-	oc ${Me.Name} Jump to Platform
-	
-	; Move from center of pad to PadOuterMidLocation
-	oc !ci -campspot ${Me.Name}
-	oc !ci -ChangeCampSpotWho ${Me.Name} ${PadOuterMidLocation.X} ${PadOuterMidLocation.Y} ${PadOuterMidLocation.Z}
-	wait 20
-	; Jump to plaform
+	; Jump to platform
+	oc !ci -campspot ${Me.Name} "1" "200"
 	oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
 	wait 2
 	oc !ci -Jump ${Me.Name}
-	; Set GoldanAtPlatform = TRUE
-	GoldanAtPlatform:Set[TRUE]
-	
-	
-	;wait 20
-	;oc !ci -campspot ${Me.Name} "1" "200"
-	;oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformOuterLocation.X} ${PlatformOuterLocation.Y} ${PlatformOuterLocation.Z}
+	; Wait to land
+	wait 50	
 }
 
-function GoldanJumpPlatformToPad(point3f PadCenterLocation, point3f PadOuterMidLocation)
+function GoldanJumpPlatformToPad(point3f PlatformOuterLocation, point3f PadCenterLocation, point3f PadOuterMidLocation)
 {
-	
-	oc ${Me.Name} Jump to Pad
-	
-	
-	
-	; need to go to PlatformOuterLocation first!!!
-	
-	
-	
-	; Jump back to pad
+	; Move to PlatformOuterLocation
+	oc !ci -campspot ${Me.Name} "1" "200"
+	oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformOuterLocation.X} ${PlatformOuterLocation.Y} ${PlatformOuterLocation.Z}
+	wait 40
+	; Jump to pad
 	oc !ci -CS_ClearCampSpot ${Me.Name}
 	face ${PadCenterLocation.X} ${PadCenterLocation.Z}
 	wait 5
 	press ${OgreJumpKey}
 	press -hold "${OgreForwardKey}"
-	wait 8
+	call Wait_ms "${Math.Calc[700 * 340/(${Me.Speed}+100)]}"
 	press -release "${OgreForwardKey}"
 	press -hold "${OgreBackwardKey}"
-	wait 2
+	call Wait_ms "175"
 	press -release "${OgreBackwardKey}"
 	wait 20
-	oc !ci -campspot ${Me.Name}
+	oc !ci -campspot ${Me.Name} "1" "200"
 	oc !ci -ChangeCampSpotWho ${Me.Name} ${PadCenterLocation.X} ${PadCenterLocation.Y} ${PadCenterLocation.Z}
 	wait 20
 	oc !ci -ChangeCampSpotWho ${Me.Name} ${PadOuterMidLocation.X} ${PadOuterMidLocation.Y} ${PadOuterMidLocation.Z}
+	wait 20
+	; Clear CampSpot (in case character dies and needs to be revived, don't want them to immediately run to pad)
+	oc !ci -CS_ClearCampSpot ${Me.Name}
 }
 
 atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
@@ -1353,14 +1359,14 @@ atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string
 	; 	Goldan says, "The maedjinn think themselves more divine than priests."
 	; 	Any declared archetypes on their hover pads, watch out!
 	; 	This is a classless platform! Nobody can be here, not even you!
-	;if ${Message.Find["The maedjinn often wish to test their mettle against fighters!"]}
-	;	GoldanFighterPlatformIncoming:Set[TRUE]
-	;elseif ${Message.Find["The maedjinn keep their secrets, much like scouts."]}
-	;	GoldanScoutPlatformIncoming:Set[TRUE]
-	;elseif ${Message.Find["The maedjinn are attracted to magic and mages."]}
-	;	GoldanMagePlatformIncoming:Set[TRUE]
-	;elseif ${Message.Find["The maedjinn think themselves more divine than priests."]}
-	;	GoldanPriestPlatformIncoming:Set[TRUE]
+	if ${Message.Find["The maedjinn often wish to test their mettle against fighters!"]}
+		GoldanFighterPadNotAllowedIncoming:Set[TRUE]
+	elseif ${Message.Find["The maedjinn keep their secrets, much like scouts."]}
+		GoldanScoutPadNotAllowedIncoming:Set[TRUE]
+	elseif ${Message.Find["The maedjinn are attracted to magic and mages."]}
+		GoldanMagePadNotAllowedIncoming:Set[TRUE]
+	elseif ${Message.Find["The maedjinn think themselves more divine than priests."]}
+		GoldanPriestPadNotAllowedIncoming:Set[TRUE]
 	
 	; Debug text to see messages
 	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}

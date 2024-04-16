@@ -797,7 +797,7 @@ objectdef Object_Instance
 		TreeSpot[1]:Set[721.81,201.65,191.29]
 		TreeSpot[2]:Set[777.72,203.99,162.75]
 		TreeSpot[3]:Set[797.06,203.15,161.76]
-		TreeSpot[4]:Set[737.85,204.26,90.90]
+		TreeSpot[4]:Set[739.58,205.42,86.67]
 		TreeSpot[5]:Set[690.42,199.91,136.58]
 		
 		; Assign characters to trees
@@ -1083,10 +1083,8 @@ objectdef Object_Instance
 				; Want fighter in front of named and rest of group in back, but first want the named looking at direction without a bush in the line of fire
 				; 	Heading 140 should get it pointed in a good direction from KillSpot
 				FighterNamedOffset:Set[140 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
-				call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
-				FighterNamedOffset:Inc[180]
-				call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
-				wait 20
+				call MoveInRelationToNamed "igw:${Me.Name}" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+				wait 30
 				; Cast Immunization on fighter in case they don't successfully dodge the sweep
 				oc !ci -CancelCasting igw:${Me.Name}+mystic
 				oc !ci -CastAbilityOnPlayer igw:${Me.Name}+mystic "Immunization" ${Me.Name} 0
@@ -1098,8 +1096,19 @@ objectdef Object_Instance
 					; Move fighter to back when sweep >= 75% cast
 					if ${Me.GetGameData["Target.Casting"].Percent} >= 75
 					{
-						FighterNamedOffset:Set[180]
-						call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+						
+						
+						; ***********************************
+						; ***********************************
+						; ***********************************
+						oc move back at ${Me.GetGameData["Target.Casting"].Percent} pct
+						; ***********************************
+						; ***********************************
+						; ***********************************
+						
+						
+						
+						call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "190"
 						wait 1
 						while ${Me.GetGameData["Target.Casting"].Percent} > 0 && ${Counter:Inc} <= 60 && !${NuggetAbsorbAndCrushArmorIncoming}
 						{
@@ -1107,23 +1116,44 @@ objectdef Object_Instance
 						}
 						break
 					}
-					; Otherwise if not >= 50% cast reposition again just to make sure
-					elseif !${Me.GetGameData["Target.Casting"].Percent} >= 50
+					; Otherwise reposition again just to make sure
+					else
 					{
 						if ${SweepCount} < 0
 							SweepCount:Inc
 						if ${SweepCount} == 0
 						{
-							FighterNamedOffset:Set[140 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
-							call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
-							FighterNamedOffset:Inc[180]
-							call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "5" "${FighterNamedOffset}"
+							
+							
+							; ***********************************
+							; ***********************************
+							; ***********************************
+							oc reposition
+							; ***********************************
+							; ***********************************
+							; ***********************************
+							
+							
+							
+							call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "0"
+							call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "5" "190"
 							; Set SweepCount to prevent from being triggered again for another half second
 							SweepCount:Set[-5]
 						}
 					}
 					wait 1
 				}
+				
+				
+				; ***********************************
+				; ***********************************
+				; ***********************************
+				oc wait for sweep to go off
+				; ***********************************
+				; ***********************************
+				; ***********************************
+				
+				
 				; Wait a couple more seconds after it finishes before moving back to KillSpot
 				Counter:Set[0]
 				while ${Counter:Inc} <= 20 && !${NuggetAbsorbAndCrushArmorIncoming}
@@ -1147,6 +1177,8 @@ objectdef Object_Instance
 				oc !ci -Pause igw:${Me.Name}
 				oc !ci -PetOff igw:${Me.Name}
 				wait 1
+				; Target self
+				Me:DoTarget
 				; Clear ability queue
 				relay ${OgreRelayGroup} eq2execute clearabilityqueue
 				wait 1
@@ -1183,9 +1215,9 @@ objectdef Object_Instance
 				; 	Happens at 76%, 51%, 26%
 				; 	Don't want it to happen immediately after a Sweep/Slam as may have a problem completing the HO
 				DPSAllowed:Set[TRUE]
-				; Get Nugget HP, see if at 77/78%, 52/53%, or 27/28%
+				; Get Nugget HP, see if at near 76%, 51%, 26%
 				NuggetHP:Set[${Actor[Query,Name=="Nugget" && Type != "Corpse"].Health}]
-				if ${NuggetHP} == 77 || ${NuggetHP} == 78 || ${NuggetHP} == 52 || ${NuggetHP} == 53 || ${NuggetHP} == 27 || ${NuggetHP} == 28
+				if (${NuggetHP} >= 77 && ${NuggetHP} <= 80) || (${NuggetHP} == 52 && ${NuggetHP} <= 55) || (${NuggetHP} >= 27 && ${NuggetHP} <= 30)
 				{
 					; Check SweepSlamTime, if not between 30 seconds to a minute after SweepSlamTime want to stop DPS
 					; 	May either be right after a Sweep/Slam and have to deal with adds/power issues
@@ -1203,6 +1235,17 @@ objectdef Object_Instance
 				; Check to see if there is a mismatch between DPSEnabled and DPSAllowed (^ is XOR, exclusive OR)
 				if ${DPSEnabled}^${DPSAllowed}
 				{
+					
+					; *******************************
+					; *******************************
+					; *******************************
+					oc DPS Enabled ${DPSEnabled} Allowed ${DPSAllowed}
+					oc HP ${NuggetHP} time ${Math.Calc[${Time.Timestamp}-${SweepSlamTime.Timestamp}]}
+					; *******************************
+					; *******************************
+					; *******************************
+					
+					
 					; Enable/disable DPS
 					call SetupAllDPS "${DPSAllowed}"
 					; Update DPSEnabled
@@ -1558,10 +1601,28 @@ objectdef Object_Instance
 					; Bring fighter back to pull slugs away from cluster
 					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "25"
 					NewSpot:Set[${Return}]
+					; Make sure NewSpot doesn't run fighter off the cliff
+					if ${NewSpot.X} < 690
+					{
+						NewSpot.X:Set[690]
+						if ${NewSpot.Z} >= ${UnearthedLoc.Z}
+							NewSpot.Z:Inc[5]
+						else
+							NewSpot.Z:Dec[5]
+					}
 					oc !ci -ChangeCampSpotWho ${Me.Name} ${NewSpot.X} ${NewSpot.Y} ${NewSpot.Z}
 					wait 30
 					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "20"
 					NewSpot:Set[${Return}]
+					; Make sure NewSpot doesn't run fighter off the cliff
+					if ${NewSpot.X} < 690
+					{
+						NewSpot.X:Set[690]
+						if ${NewSpot.Z} >= ${UnearthedLoc.Z}
+							NewSpot.Z:Inc[5]
+						else
+							NewSpot.Z:Dec[5]
+					}
 					oc !ci -ChangeCampSpotWho ${Me.Name} ${NewSpot.X} ${NewSpot.Y} ${NewSpot.Z}
 					; Wait as long as cluster exists (up to 60 seconds)
 					Counter:Set[0]
@@ -3015,13 +3076,18 @@ objectdef Object_Instance
 		variable int SecondLoopCount=10
 		variable int GoldanExistsCount=0
 		variable actor Goldan
-		;variable bool FightersIn=FALSE
-		;variable bool ScoutsIn=FALSE
-		;variable bool MagessIn=FALSE
-		;variable bool PriestsIn=FALSE
+		; Assume this character is a fighter
+		variable bool FoundFighter=TRUE
+		variable bool FoundScout=FALSE
+		variable bool FoundMage=FALSE
+		variable bool FoundPriest=FALSE
+		variable actor KeepMaedjinn
+		variable actor KillMaedjinn
+		variable int DispelCounter=0
 		
 		; Set variables to use in helper script
-		oc !ci -Set_Variable igw:${Me.Name} "MaedjinnDispelID" "0"
+		oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "KeepMaedjinnID" "0"
 		
 		; Determine HOScout
 		GroupNum:Set[0]
@@ -3087,8 +3153,9 @@ objectdef Object_Instance
 		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
 		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
 		
-		; Let script run for a couple of seconds to update pad position of each character, and jump characters to platform
-		wait 60
+		; Let script run for a bit to update pad position of each character, and jump characters to platform
+		; 	Defaulting PadAllowed = FALSE will cause them to jump to platform
+		wait 80
 		
 		; Enable PreCastTag to allow priest to setup wards before engaging named
 		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
@@ -3110,6 +3177,45 @@ objectdef Object_Instance
 		wait 20
 		call PerformSoloScoutHO "${HOScout}"
 		
+		; Wait until get Extended Reach from Scout HO
+		while !${Me.Effect[Query, "Detrimental" && MainIconID == 832 && BackDropIconID == 317].ID(exists)}
+		{
+			wait 10
+		}
+		
+		; Look for a duplicate Archetype to send to platform
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			; Get Archetype
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["fighter"]} && !${FoundFighter}
+				FoundFighter:Set[TRUE]
+			elseif ${Return.Equal["scout"]} && !${FoundScout}
+				FoundScout:Set[TRUE]
+			elseif ${Return.Equal["mage"]} && !${FoundMage}
+				FoundMage:Set[TRUE]
+			elseif ${Return.Equal["priest"]} && !${FoundPriest}
+				FoundPriest:Set[TRUE]
+			; When a duplicate is found, set PadAllowed = TRUE
+			else
+			{
+				oc !ci -Set_Variable ${Me.Group[${GroupNum}].Name} "PadAllowed" "TRUE"
+				break
+			}
+		}
+		
+		; Wait for a maedjinn disruptor to spawn (will keep this one alive throughout the fight because we know it is tied to a duplicate Archetype and having it up will increase dps)
+		while !${KeepMaedjinn.ID(exists)}
+		{
+			KeepMaedjinn:Set[${Actor[Query,Name=="a maedjinn disruptor" && Type != "Corpse"].ID}]
+			wait 10
+		}
+		
+		; After the first maedjinn has spawned, update KeepMaedjinnID and set PadAllowed = TRUE on all characters to start killing Goladn
+		oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "TRUE"
+		oc !ci -Set_Variable igw:${Me.Name} "KeepMaedjinnID" "${KeepMaedjinn.ID}"
+		
 		; Kill named
 		call CheckGoldanExists
 		while ${GoldanExists}
@@ -3117,50 +3223,30 @@ objectdef Object_Instance
 			; Handle updates every second
 			if ${SecondLoopCount:Inc} >= 10
 			{
-				
-				
-				
-				; dealing with adds
-				; have everyone in helper script look for Aether Adhesive detrimental
-				; if they have it, look for "a maedjinn disruptor" mob targeting them
-				; if found, set a variable "MaedjinnDispelID" with the ID of that mob
-				; mages can monitor that variable, and if found cast Absorb Magic on it
-				; 	have like a 10 second timeout before checking again or something
-				; fighter can monitor that variable
-				; 	if set and mob doesn't have aether adhesive, target it to draw aggro
-				; 		only target it on tank, don't necessarily want to kill it...
-				; 		assume it will regain aether adhesive on fighter after 5 seconds
-				; 	if set and mob is targeting tank, clear MaedjinnDispelID
-				
-				; need some way to determine which adds to kill and which to leave alive
-				; 	kill if it locks out an archetype you only have 1 of
-				; 	leave alive it if locks out an archetype that has another person with access to a platform...
-				; 	but how to track which add is assigned to which platform???
-				; 		add may not reliably lock onto the person that was locked out...
-				
-				; would have to use main script to keep track
-				; 	maybe 2 sets of 2 variables, add id and name of person the add corresponds to
-				; 	oc !ci -Set_Variable igw:${Me.Name} "Maedjinn1ID" "0"
-				; 	oc !ci -Set_Variable igw:${Me.Name} "Maedjinn1CharacterName" ""
-				; 	oc !ci -Set_Variable igw:${Me.Name} "Maedjinn2ID" "0"
-				; 	oc !ci -Set_Variable igw:${Me.Name} "Maedjinn2CharacterName" ""
-				
-				; check each and see if the add ids still exist
-				; query any maedjinn and compare with list
-				; only add to list if there is a person locked out (not sure if add or lockout happens first)
-				
-				
-				; KANNKOR sets up so on pull only send classes with a duplicate out to pads so get an add can keep up!!!
-				
-				
-				
-				; or to simplify, start with Kannkor's method to get an add to keep the whole fight
-				; then kill any others that spawn.
-				; would just need 1 variable with a KeepMaedjinn1ID or something, then kill any maedjinn that aren't that
-				
-				
-				
-				
+				; Check to see if there is a maedjinn disruptor add to kill
+				if ${DispelCounter} < 0
+					DispelCounter:Inc
+				if ${KillMaedjinn.ID(exists)}
+				{
+					; If the maedjinn is not targeting this character, need to dispel Aether Adhesive from it
+					if ${KillMaedjinn.Target.ID} != ${Me.ID} && ${DispelCounter} == 0
+					{
+						; Adding small delay to cast in order to make sure KillMaedjinn is targeted
+						timedcommand 5 oc !ci -CastAbility igw:${Me.Name}+mage "Absorb Magic"
+						DispelCounter:Set[-3]
+					}
+				}
+				; If no maedjinn to kill, look for one
+				elseif ${KillMaedjinn.ID} == 0
+					KillMaedjinn:Set[${Actor[Query,Name=="a maedjinn disruptor" && ID != ${KeepMaedjinn.ID} && Type != "Corpse"].ID}]
+				; After maedjin has been killed, clear KillMaedjinn
+				else
+					KillMaedjinn:Set[0]
+				; Update Target as KillMaedjinn or Goldan
+				if ${KillMaedjinn.ID(exists)}
+					KillMaedjinn:DoTarget
+				else
+					Goldan:DoTarget
 				; Reset SecondLoopCount
 				SecondLoopCount:Set[0]
 			}

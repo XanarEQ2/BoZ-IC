@@ -1570,3 +1570,13 @@ function ZoneOut(string ZoneOutName)
 	else
 		return FALSE
 }
+
+function Wait_ms(int WaitTime_ms)
+{
+	variable int EndTime
+	EndTime:Set[${Math.Calc[${LavishScript.RunningTime} + ${WaitTime_ms}]}]
+	while ${LavishScript.RunningTime} < ${EndTime}
+	{
+		waitframe
+	}
+}
