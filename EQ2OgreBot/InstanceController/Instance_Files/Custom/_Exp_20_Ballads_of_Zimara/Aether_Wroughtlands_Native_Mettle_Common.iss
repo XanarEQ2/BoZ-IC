@@ -2073,11 +2073,11 @@ objectdef Object_Instance
 						TargetIncrements:Set[${CentralFireIncrements}]
 					; Update Joust locations based on current location of Coppernicus
 					; 	Ring should be at 22.5m from Coppernicus (17m displayed distance, but +5.5 to account for difference between displayed and calculated distance)
-					; 		so set In as 18.5 away and Out as 26.5 away
+					; 		so set In as 17.5 away and Out as 26.5 away
 					; 	Arena is angled ~22 degrees off X axis
 					JoustInLoc:Set[${CoppernicusLoc}]
-					JoustInLoc.X:Dec[${Math.Calc[18.5*${Math.Cos[52]}]}]
-					JoustInLoc.Z:Inc[${Math.Calc[18.5*${Math.Sin[52]}]}]
+					JoustInLoc.X:Dec[${Math.Calc[17.5*${Math.Cos[52]}]}]
+					JoustInLoc.Z:Inc[${Math.Calc[17.5*${Math.Sin[52]}]}]
 					JoustOutLoc:Set[${CoppernicusLoc}]
 					JoustOutLoc.X:Dec[${Math.Calc[26.5*${Math.Cos[52]}]}]
 					JoustOutLoc.Z:Inc[${Math.Calc[26.5*${Math.Sin[52]}]}]
