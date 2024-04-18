@@ -1136,6 +1136,7 @@ function CastInterrupt(bool Group=TRUE)
 		oc !ci -CancelCasting igw:${Me.Name}+bruiser -CastAbility "Sonic Punch"
 		oc !ci -CancelCasting igw:${Me.Name}+monk -CastAbility "Challenge"
 		oc !ci -CancelCasting igw:${Me.Name}+ranger -CastAbility "Hilt Strike"
+		oc !ci -CancelCasting igw:${Me.Name}+assassin -CastAbility "Hilt Strike"
 		oc !ci -CancelCasting igw:${Me.Name}+dirge -CastAbility "Hymn of Horror"
 		oc !ci -CancelCasting igw:${Me.Name}+troubador -CastAbility "Breathtaking Bellow"
 		oc !ci -CancelCasting igw:${Me.Name}+swashbuckler -CastAbility "Tease"
@@ -1175,6 +1176,7 @@ function CastInterrupt(bool Group=TRUE)
 		oc !ci -CancelCasting ${Me.Name}+bruiser -CastAbility "Sonic Punch"
 		oc !ci -CancelCasting ${Me.Name}+monk -CastAbility "Challenge"
 		oc !ci -CancelCasting ${Me.Name}+ranger -CastAbility "Hilt Strike"
+		oc !ci -CancelCasting ${Me.Name}+assassin -CastAbility "Hilt Strike"
 		oc !ci -CancelCasting ${Me.Name}+dirge -CastAbility "Hymn of Horror"
 		oc !ci -CancelCasting ${Me.Name}+troubador -CastAbility "Breathtaking Bellow"
 		oc !ci -CancelCasting ${Me.Name}+swashbuckler -CastAbility "Tease"
@@ -1195,7 +1197,6 @@ function CastInterrupt(bool Group=TRUE)
 		oc !ci -CancelCasting ${Me.Name}+channeler -CastAbility "Shadow Bind"
 		oc !ci -CancelCasting ${Me.Name}+inquisitor -CastAbility "Invocation"
 		oc !ci -CancelCasting ${Me.Name}+templar -CastAbility "Rebuke"
-		
 		; Resume Ogre
 		oc !ci -Resume ${Me.Name}
 	}

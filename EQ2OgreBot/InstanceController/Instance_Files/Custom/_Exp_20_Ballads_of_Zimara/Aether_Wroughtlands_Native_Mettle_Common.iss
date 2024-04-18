@@ -1,5 +1,10 @@
 ; **************************************************************************************************************************************
 ; Notes for running H3 zone
+; 	This was created with group SK/ranger/swash/coercer/BL/mystic, but I tried to support other group setups
+; 	In the IC window the IC File Option 1 is changed to Auto-Painlink
+; 		If checked, before each fight (except Coppernicus) it will cancel Painlink if it has less than 30 minutes remaining
+; 		It will then re-cast Painlink to get a fresh version on all characters
+; 		Note that this is coded specifically for the Handcrafted Zimaran Painlink, not the Mastercrafted version
 ; Aurum Outlaw
 ; 	Will kill initial bandits, trying to space out the kills a bit so they don't all respawn at the same time
 ; 	For second phase of fight, will move next to mountain to try to avoid roaming aeraquis
@@ -1914,6 +1919,9 @@ objectdef Object_Instance
 			while ${TargetMateria.Target.ID} == 0
 			{
 				relay ${OgreRelayGroup} eq2execute pet attack
+				oc !ci -CastAbility igw:${Me.Name}+necromancer "Shift of Death"
+				oc !ci -CastAbility igw:${Me.Name}+conjuror "Planar Motion"
+				oc !ci -CastAbility igw:${Me.Name}+beastlord "Warder's Shadow Step"
 				wait 10
 			}
 			; Wait for Celestial Materia to be pulled back to group
@@ -1949,6 +1957,9 @@ objectdef Object_Instance
 			while ${TargetMateria.Target.ID} == 0
 			{
 				relay ${OgreRelayGroup} eq2execute pet attack
+				oc !ci -CastAbility igw:${Me.Name}+necromancer "Shift of Death"
+				oc !ci -CastAbility igw:${Me.Name}+conjuror "Planar Motion"
+				oc !ci -CastAbility igw:${Me.Name}+beastlord "Warder's Shadow Step"
 				wait 10
 			}
 			; Wait for Celestial Materia to be pulled back to group
