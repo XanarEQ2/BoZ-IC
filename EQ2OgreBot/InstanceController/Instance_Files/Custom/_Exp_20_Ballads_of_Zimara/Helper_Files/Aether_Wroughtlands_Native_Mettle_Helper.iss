@@ -387,8 +387,13 @@ function Nugget(string _NamedNPC)
 						{
 							
 							
-							
-							oc ${Me.Name} Click Tree at ${Tree.Distance}
+							; **************************
+							; **************************
+							; **************************
+							oc ${Me.Name} Click Tree at distance ${Tree.Distance} away
+							; **************************
+							; **************************
+							; **************************
 							
 							
 							; Click Tree
@@ -398,8 +403,13 @@ function Nugget(string _NamedNPC)
 							if ${Me.Effect[Query, "Detrimental" && MainIconID == 187 && BackDropIconID == 187].ID(exists)}
 							{
 								
-								
+								; **************************
+								; **************************
+								; **************************
 								oc ${Me.Name} Have Holding on Tight detrimental
+								; **************************
+								; **************************
+								; **************************
 								
 								
 								break
@@ -919,9 +929,14 @@ function Goldfeather(string _NamedNPC)
 			{
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 				{
-					; Use cure pot to cure
-					oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
-					FlecksCounter:Set[-2]
+					; Only use Cure pot to cure if Goldfeather has at least 40% HP
+					; 	Don't want to have cure pots on cooldown when Bellowing Bill hits
+					if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse"].Health} > 40
+					{
+						; Use cure pot to cure
+						oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+						FlecksCounter:Set[-2]
+					}
 				}
 			}
 			; Handle Bellowing Bill detrimental
@@ -935,6 +950,18 @@ function Goldfeather(string _NamedNPC)
 			{
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 86 && BackDropIconID == 86].ID(exists)}
 				{
+					
+					
+					
+					; ***************************
+					; ***************************
+					; ***************************
+					oc ${Me.Name} Bellowing Bill at ${Actor["Goldfeather"].Health}
+					; ***************************
+					; ***************************
+					; ***************************
+					
+					
 					; Use cure pot to cure
 					oc !ci -UseItem ${Me.Name} "Zimaran Cure Noxious"
 					BellowCounter:Set[-2]
@@ -967,20 +994,25 @@ function Goldfeather(string _NamedNPC)
 			{
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 564 && BackDropIconID == -1].ID(exists)}
 				{
-					; Pause Ogre
-					oc !ci -Pause ${Me.Name}
-					wait 1
-					; Clear ability queue
-					eq2execute clearabilityqueue
-					wait 1
-					; Cancel anything currently being cast
-					oc !ci -CancelCasting ${Me.Name}
-					; Use cure pot to cure
-					oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
-					wait 30
-					; Resume Ogre
-					oc !ci -Resume ${Me.Name}
-					DipCounter:Set[-2]
+					; Only use Cure pot to cure if Goldfeather has at least 40% HP
+					; 	Don't want to have cure pots on cooldown when Bellowing Bill hits
+					if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse"].Health} > 40
+					{
+						; Pause Ogre
+						oc !ci -Pause ${Me.Name}
+						wait 1
+						; Clear ability queue
+						eq2execute clearabilityqueue
+						wait 1
+						; Cancel anything currently being cast
+						oc !ci -CancelCasting ${Me.Name}
+						; Use cure pot to cure
+						oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+						wait 30
+						; Resume Ogre
+						oc !ci -Resume ${Me.Name}
+						DipCounter:Set[-2]
+					}
 				}
 			}
 			; Check to see if character is a PhylacteryCharacter and not in combat
@@ -1007,7 +1039,7 @@ function Goldfeather(string _NamedNPC)
 					if !${Me.Effect[Query, "Detrimental" && MainIconID == 233 && BackDropIconID == 873].ID(exists)}
 					{
 						; Use Goldfeather's Phylactery
-						oc !c -UseItem igw:${Me.Name} "Goldfeather's Phylactery"
+						oc !ci -UseItem igw:${Me.Name} "Goldfeather's Phylactery"
 						PhylacteryCounter:Set[-3]
 					}
 				}
@@ -1095,7 +1127,8 @@ atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, s
 ********************************************************************************************/
 
 variable bool GoldanExists
-variable bool GoldanAtPad=TRUE
+variable point3f PlatformCenterLocation="659.83,270.30,908.93"
+variable actor GoldanPad
 variable bool GoldanFighterPadNotAllowedIncoming=FALSE
 variable bool GoldanScoutPadNotAllowedIncoming=FALSE
 variable bool GoldanMagePadNotAllowedIncoming=FALSE
@@ -1108,117 +1141,70 @@ function Goldan(string _NamedNPC)
 	variable int Counter
 	variable int SecondLoopCount=10
 	variable int GoldanExistsCount=0
-	variable actor Pad
 	variable uint PadAllowedTintFlag
-	variable point3f PadOuterMidLocation
-	variable point3f PlatformCenterLocation="659.83,270.30,908.93"
-	variable point3f PlatformOuterLocation
+	variable bool GoldanAtPad=FALSE
 	variable bool PadDisabled=FALSE
 	variable bool NeedUpdateFlecksCureTime=FALSE
 	variable time FlecksCureTime=${Time.Timestamp}
 	
-	; Get Pad and PadAllowedTintFlag
-	Pad:Set[${Actor[Query,Name =- "hover_pad_0" && Distance < 10].ID}]
-	PadAllowedTintFlag:Set[${Pad.TintFlags}]
-		
-	; Setup pad/platform locations based on Pad Name
-	; Pad 1
-	if ${Pad.Name.Equal["hover_pad_01"]}
-	{
-		PadOuterMidLocation:Set[631.04,270.56,914.65]
-		PlatformOuterLocation:Set[643.17,270.50,912.65]
-	}
-	; Pad 2
-	elseif ${Pad.Name.Equal["hover_pad_02"]}
-	{
-		PadOuterMidLocation:Set[634.74,270.56,900.41]
-		PlatformOuterLocation:Set[645.38,270.56,903.87]
-	}
-	; Pad 3
-	elseif ${Pad.Name.Equal["hover_pad_03"]}
-	{
-		PadOuterMidLocation:Set[640.94,270.56,885.82]
-		PlatformOuterLocation:Set[648.32,270.56,896.15]
-	}
-	; Pad 4
-	elseif ${Pad.Name.Equal["hover_pad_04"]}
-	{
-		PadOuterMidLocation:Set[689.34,270.56,903.60]
-		PlatformOuterLocation:Set[677.19,270.56,905.85]
-	}
-	; Pad 5
-	elseif ${Pad.Name.Equal["hover_pad_05"]}
-	{
-		PadOuterMidLocation:Set[680.16,270.56,890.77]
-		PlatformOuterLocation:Set[671.70,270.41,899.64]
-	}
-	; Pad 6
-	elseif ${Pad.Name.Equal["hover_pad_06"]}
-	{
-		PadOuterMidLocation:Set[668.42,270.56,880.54]
-		PlatformOuterLocation:Set[665.72,270.56,892.89]
-	}
+	; Get GoldanPad and PadAllowedTintFlag
+	GoldanPad:Set[${Actor[Query,Name =- "hover_pad_0" && Distance < 10].ID}]
+	PadAllowedTintFlag:Set[${GoldanPad.TintFlags}]
+	
+	; At start, jump characters to platform
+	call GoldanJumpPadToPlatform
 	
 	; Run as long as named is alive
 	call CheckGoldanExists
 	while ${GoldanExists}
 	{
 		; Handle platforms being made classless
-		; If a character's Archetype is called out, set PadAllowed = FALSE for them to jump out
-		; 	but set PadAllowed back to TRUE 5 seconds later so they can jump back on if pad isn't disabled
 		if ${GoldanFighterPadNotAllowedIncoming}
 		{
 			if ${Me.Archetype.Equal[fighter]}
-			{
-				oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
-				timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
-				wait 1
-			}
+				call GoldanSetPadNotAllowed
 			GoldanFighterPadNotAllowedIncoming:Set[FALSE]
 		}
 		elseif ${GoldanScoutPadNotAllowedIncoming}
 		{
 			if ${Me.Archetype.Equal[scout]}
-			{
-				oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
-				timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
-				wait 1
-			}
+				call GoldanSetPadNotAllowed
 			GoldanScoutPadNotAllowedIncoming:Set[FALSE]
 		}
 		elseif ${GoldanMagePadNotAllowedIncoming}
 		{
 			if ${Me.Archetype.Equal[mage]}
-			{
-				oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
-				timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
-				wait 1
-			}
+				call GoldanSetPadNotAllowed
 			GoldanMagePadNotAllowedIncoming:Set[FALSE]
 		}
 		elseif ${GoldanPriestPadNotAllowedIncoming}
 		{
 			if ${Me.Archetype.Equal[priest]}
-			{
-				oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
-				timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
-				wait 1
-			}
+				call GoldanSetPadNotAllowed
 			GoldanPriestPadNotAllowedIncoming:Set[FALSE]
 		}
 		; Jump to pad/platform as needed based on PadAllowed/PadDisabled
 		if ${GoldanAtPad}
 		{
+			; If not allowed or disabled, need to get off
 			if !${OgreBotAPI.Get_Variable["PadAllowed"]} || ${PadDisabled}
 			{
-				call GoldanJumpPadToPlatform ${PlatformCenterLocation}
+				; Make sure character is on the pad not moving
+				if !${Me.IsMoving} && ${Me.Y} >= 269 && ${Me.Y} <= 272
+				{
+					call GoldanJumpPadToPlatform
+					GoldanAtPad:Set[FALSE]
+				}
 			}
 		}
-		else
+		; If not at pad, see if pad is available to go to
+		elseif ${OgreBotAPI.Get_Variable["PadAllowed"]} && !${PadDisabled}
 		{
-			if ${OgreBotAPI.Get_Variable["PadAllowed"]} && !${PadDisabled}
+			; Make sure character is on the platform not moving
+			if !${Me.IsMoving} && ${Me.Y} >= 269 && ${Me.Y} <= 272
 			{
-				call GoldanJumpPlatformToPad ${PlatformOuterLocation} ${Pad.Loc} ${PadOuterMidLocation}
+				call GoldanJumpPlatformToPad
+				GoldanAtPad:Set[TRUE]
 			}
 		}
 		; If NeedUpdateFlecksCureTime, check to see that flecks was removed
@@ -1234,25 +1220,18 @@ function Goldan(string _NamedNPC)
 		if ${SecondLoopCount:Inc} >= 10
 		{
 			; Update PadDisabled
-			if ${Pad.TintFlags} != ${PadAllowedTintFlag}
+			if ${GoldanPad.TintFlags} != ${PadAllowedTintFlag}
 				PadDisabled:Set[TRUE]
 			else
 				PadDisabled:Set[FALSE]
 			; Update GoldanAtPad based on distance to pad
-			if ${Math.Distance[${Me.X},${Me.Z},${Pad.X},${Pad.Z}]} < 10
+			if ${Math.Distance[${Me.X},${Me.Z},${GoldanPad.X},${GoldanPad.Z}]} < 10
 				GoldanAtPad:Set[TRUE]
 			else
 				GoldanAtPad:Set[FALSE]
 			; If at pad, monitor character height and if they get knocked into the air send them to platform
-			if ${GoldanAtPad}
-			{
-				if ${Me.Y} > 290
-				{
-					; Change CampSpot to plaform
-					oc !ci -campspot ${Me.Name} "1" "200"
-					oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
-				}
-			}
+			if ${GoldanAtPad} && ${Me.Y} > 290
+				call GoldanJumpPadToPlatform ${PlatformCenterLocation}
 			; Handle Flecks of Regret detrimental
 			; 	Gets cast on everyone in group and deals damamge and power drains
 			; 	If cured from entire group gets re-applied to entire group
@@ -1312,42 +1291,73 @@ function CheckGoldanExists()
 	GoldanExists:Set[FALSE]
 }
 
-function GoldanJumpPadToPlatform(point3f PlatformCenterLocation)
+function GoldanSetPadNotAllowed()
 {
-	; Jump to platform
-	oc !ci -campspot ${Me.Name} "1" "200"
-	oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
-	wait 2
-	oc !ci -Jump ${Me.Name}
-	; Wait to land
-	wait 50	
+	; Set pad as not allowed, but change back to allowed 5 seconds later
+	; 	By that point any add should have spawned and PadDisabled would prevent jumping back if not safe
+	oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
+	timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
+	wait 1
 }
 
-function GoldanJumpPlatformToPad(point3f PlatformOuterLocation, point3f PadCenterLocation, point3f PadOuterMidLocation)
+function GoldanJumpPadToPlatform()
 {
-	; Move to PlatformOuterLocation
-	oc !ci -campspot ${Me.Name} "1" "200"
-	oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformOuterLocation.X} ${PlatformOuterLocation.Y} ${PlatformOuterLocation.Z}
-	wait 40
-	; Jump to pad
+	; Set Campspot to PlatformCenterLocation
+	oc !ci -campspot ${Me.Name}
+	oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
+	; Wait until character starts moving away from pad (up to 4m away, wait for up to 2 seconds)
+	variable time StartTime
+	StartTime:Set[${Time.Timestamp}]
+	while ${Math.Distance[${Me.X},${Me.Z},${GoldanPad.X},${GoldanPad.Z}]} < 4 && ${Math.Calc[${Time.Timestamp}-${StartTime.Timestamp}]} < 2
+	{
+		waitframe
+	}
+	; Jump to platform
+	oc !ci -Jump ${Me.Name}
+}
+
+function GoldanJumpPlatformToPad()
+{
+	; Clear CampSpot and face pad
 	oc !ci -CS_ClearCampSpot ${Me.Name}
-	face ${PadCenterLocation.X} ${PadCenterLocation.Z}
+	wait 1
+	face ${GoldanPad.X} ${GoldanPad.Z}
 	wait 5
-	press ${OgreJumpKey}
+	; Start moving to pad
 	press -hold "${OgreForwardKey}"
-	call Wait_ms "${Math.Calc[700 * 340/(${Me.Speed}+100)]}"
+	; Wait until within 14m of pad (for up to 5 seconds)
+	variable time StartTime
+	StartTime:Set[${Time.Timestamp}]
+	while ${Math.Distance[${Me.X},${Me.Z},${GoldanPad.X},${GoldanPad.Z}]} > 14 && ${Math.Calc[${Time.Timestamp}-${StartTime.Timestamp}]} < 5
+	{
+		waitframe
+	}
+	; Jump to pad
+	press ${OgreJumpKey}
+	; Wait for the amount of time it takes for character to get to center of pad, accounting for movement Speed
+	call Wait_ms "${Math.Calc[500 * 340/(${Me.Speed}+100)]}"
 	press -release "${OgreForwardKey}"
+	; Press back for just the right amount of time to stop all forward momentum
+	; 	This should have the character land at the center of the pad
 	press -hold "${OgreBackwardKey}"
-	call Wait_ms "175"
+	
+	
+	
+	; ***********************************
+	; ***********************************
+	; ***********************************
+	
+	; 175 was good out of combat, but characters seemed to pull too far back in combat...
+	
+	;call Wait_ms "175"
+	call Wait_ms "165"
+	; ***********************************
+	; ***********************************
+	; ***********************************
+	
+	
+	
 	press -release "${OgreBackwardKey}"
-	wait 20
-	oc !ci -campspot ${Me.Name} "1" "200"
-	oc !ci -ChangeCampSpotWho ${Me.Name} ${PadCenterLocation.X} ${PadCenterLocation.Y} ${PadCenterLocation.Z}
-	wait 20
-	oc !ci -ChangeCampSpotWho ${Me.Name} ${PadOuterMidLocation.X} ${PadOuterMidLocation.Y} ${PadOuterMidLocation.Z}
-	wait 20
-	; Clear CampSpot (in case character dies and needs to be revived, don't want them to immediately run to pad)
-	oc !ci -CS_ClearCampSpot ${Me.Name}
 }
 
 atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)

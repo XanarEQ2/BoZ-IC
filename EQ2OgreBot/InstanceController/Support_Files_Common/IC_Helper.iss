@@ -92,6 +92,24 @@ function SetupAllDPS(bool EnableDPS)
 		oc !ci -PetOff igw:${Me.Name}
 }
 
+function SetupNonFighterDPS(bool EnableDPS)
+{
+	; Used for disabling DPS during certain fights for non-fighters
+	variable bool SetCastStack
+	SetCastStack:Set[!${EnableDPS}]
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_ca ${SetCastStack} TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_namedca ${SetCastStack} TRUE
+	; Don't disable Combat on Priests, assume they have wards/buffs listed as Combat
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-priest+-fighter checkbox_settings_disablecaststack_combat ${SetCastStack} TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_debuff ${SetCastStack} TRUE
+	oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_nameddebuff ${SetCastStack} TRUE
+	; Enable/disable pets
+	if ${EnableDPS}
+		oc !ci -PetAssist igw:${Me.Name}
+	else
+		oc !ci -PetOff igw:${Me.Name}
+}
+
 function SetInitialHOSettings()
 {
 	; Set HO default values to clear any custom settings
@@ -734,7 +752,7 @@ variable point3f KillSpot
 variable point3f ActorLoc
 variable point3f NewLoc
 
-function move_to_next_waypoint(point3f waypoint, int ScanRadius)
+function move_to_next_waypoint(point3f waypoint, int ScanRadius, bool MoveMelee = TRUE)
 {
 	oc !ci -resume igw:${Me.Name}
 	oc !ci -letsgo igw:${Me.Name}
@@ -752,7 +770,7 @@ function move_to_next_waypoint(point3f waypoint, int ScanRadius)
 	wait 10
 	if ${Me.InCombat}
 	{
-		call kill_trash
+		call kill_trash "${MoveMelee}"
 	}
 	if ${Actor[Query,Name=="?" && Distance < ${ScanRadius}](exists)} && !${Ogre_Instance_Controller.bSkipShinies}
 	{
@@ -778,7 +796,7 @@ function move_to_next_waypoint(point3f waypoint, int ScanRadius)
 	}
 	if ${Me.InCombat}
 	{
-		call kill_trash
+		call kill_trash "${MoveMelee}"
 	}
 	call Obj_OgreUtilities.HandleWaitForGroupDistance 5
 }
@@ -873,12 +891,12 @@ function CalcSpotOffset(point3f InitialSpot, point3f FinalSpot, float Offset)
 ****************************************    Combat Functions    *******************************************
 ***********************************************************************************************************/
 
-function kill_trash()
+function kill_trash(bool MoveMelee = TRUE)
 {
 	oc !ci -PetOff igw:${Me.Name}
 	call Obj_OgreUtilities.HandleWaitForCampSpot 5
 	oc !ci -PetAssist igw:${Me.Name}
-	if (!${Obj_OgreIH.DuoMode} && !${Obj_OgreIH.SoloMode})
+	if ${MoveMelee} && (!${Obj_OgreIH.DuoMode} && !${Obj_OgreIH.SoloMode})
 	{
 		oc !ci -LetsGo igw:${Me.Name}+scout
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_movemelee TRUE TRUE

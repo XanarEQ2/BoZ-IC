@@ -416,6 +416,8 @@ objectdef Object_Instance
 		variable bool SetDisable
 		SetDisable:Set[!${EnableAurom}]
 		call SetupAllCures "${SetDisable}"
+		; Leave cures enabled for channeler
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+channeler checkbox_settings_disablecaststack_cure FALSE TRUE
 		; Allow Heroic Setups (not needed, but seems to work fine along with my script)
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_grindoptions ${EnableAurom} TRUE
 		; Set HO settings
@@ -1084,10 +1086,11 @@ objectdef Object_Instance
 				; 	Heading 140 should get it pointed in a good direction from KillSpot
 				FighterNamedOffset:Set[140 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
 				call MoveInRelationToNamed "igw:${Me.Name}" "${_NamedNPC}" "5" "${FighterNamedOffset}"
-				wait 30
+				wait 20
 				; Cast Immunization on fighter in case they don't successfully dodge the sweep
 				oc !ci -CancelCasting igw:${Me.Name}+mystic
 				oc !ci -CastAbilityOnPlayer igw:${Me.Name}+mystic "Immunization" ${Me.Name} 0
+				wait 10
 				; Wait until sweep is about to go off, then send fighter to side to joust it (wait up to 6 seconds)
 				Counter:Set[0]
 				SweepCount:Set[0]
@@ -1298,6 +1301,8 @@ objectdef Object_Instance
 		variable bool SetDisable
 		SetDisable:Set[!${EnableNugget}]
 		call SetupAllCures "${SetDisable}"
+		; Leave cures enabled for channeler
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+channeler checkbox_settings_disablecaststack_cure FALSE TRUE
 		; Set HO settings
 		call SetupNuggetHO "${EnableNugget}"
 		; Disable Immunization so it is available during Stupendous Sweep
@@ -1469,8 +1474,9 @@ objectdef Object_Instance
 		variable point3f NewSpot
 		variable bool FoundCluster=TRUE
 		
-		; Make sure DPS is enabled
+		; Re-enable DPS, but only on non-fighters to make sure fighter can gain and keep aggro easily on the slugs
 		call SetupAllDPS "TRUE"
+		call SetupNonFighterDPS "FALSE"
 		; Add AdditionalClusters to TargetAurumCount
 		while ${AdditionalClusters} > 0
 		{
@@ -1564,7 +1570,6 @@ objectdef Object_Instance
 					if ${UnearthedBackwardSteps} < ${UnearthedForwardSteps}
 						UnearthedMoveInc:Set[-1]
 					; Move between UnearthedSpots to get to ClosestUnearthedNum
-					;FoundSlug:Set[FALSE]
 					while ${UnearthedNum} != ${ClosestUnearthedNum}
 					{
 						; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
@@ -1641,8 +1646,8 @@ objectdef Object_Instance
 				}
 			}
 		}
-		; Disable DPS on way back to KillSpot, don't want to trigger a Nugget ability when not at KillSpot
-		call SetupAllDPS "FALSE"
+		; Re-enable DPS on the way back to KillSpot to deal with the slugs
+		call SetupAllDPS "TRUE"
 		; Figure out if we can get UnearthedNum back to 1 faster moving in forward or backward direction looping through UnearthedSpots
 		UnearthedForwardSteps:Set[0]
 		Counter:Set[${UnearthedNum}]
@@ -1679,8 +1684,6 @@ objectdef Object_Instance
 			Obj_OgreIH:ChangeCampSpot["${UnearthedSpot[${UnearthedNum}]}"]
 			call Obj_OgreUtilities.HandleWaitForCampSpot 10
 		}
-		; Re-enable DPS at KillSpot
-		call SetupAllDPS "TRUE"
 	}
 
 /**********************************************************************************************************
@@ -2345,6 +2348,8 @@ objectdef Object_Instance
 		variable bool SetDisable
 		SetDisable:Set[!${EnableCoppernicus}]
 		call SetupAllCures "${SetDisable}"
+		; Leave cures enabled for channeler
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+channeler checkbox_settings_disablecaststack_cure FALSE TRUE
 		; Set initial HO settings
 		call SetInitialHOSettings
 		; Disable Assist, helper script will selectively target per character
@@ -2742,13 +2747,13 @@ objectdef Object_Instance
 			return FALSE
 		}
 		
+		; Send all characters back to KillSpot after fight
+		call move_to_next_waypoint "${KillSpot}" "1"
+		
 		; Get Chest
 		eq2execute summon
 		wait 10
 		call Obj_OgreIH.Get_Chest
-		
-		; Send all characters back to KillSpot after fight
-		call move_to_next_waypoint "${KillSpot}" "1"
 		
 		; Finished with named
 		return TRUE
@@ -3076,8 +3081,6 @@ objectdef Object_Instance
 		variable int SecondLoopCount=10
 		variable int GoldanExistsCount=0
 		variable actor Goldan
-		; Assume this character is a fighter
-		variable bool FoundFighter=TRUE
 		variable bool FoundScout=FALSE
 		variable bool FoundMage=FALSE
 		variable bool FoundPriest=FALSE
@@ -3118,17 +3121,18 @@ objectdef Object_Instance
 			; Enable PreCastTag to allow priest to setup wards before engaging first mob
 			oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
 			wait 60
-			call move_to_next_waypoint "592.37,249.74,431.54"
-			call move_to_next_waypoint "607.67,251.22,484.89"
-			call move_to_next_waypoint "601.07,257.18,542.10"
-			call move_to_next_waypoint "623.99,259.70,595.41"
-			call move_to_next_waypoint "693.19,255.31,621.67"
-			call move_to_next_waypoint "666.80,252.64,709.13"
-			call move_to_next_waypoint "623.61,252.64,669.20"
-			call move_to_next_waypoint "580.96,255.43,658.90"
-			call move_to_next_waypoint "564.54,252.64,699.16"
-			call move_to_next_waypoint "603.02,250.00,730.19"
-			call move_to_next_waypoint "624.69,246.49,766.60"
+			; Set MoveMelee = FALSE while moving to waypoints as mobs have a large knockbock that can cause problems with it
+			call move_to_next_waypoint "592.37,249.74,431.54" "1" "FALSE"
+			call move_to_next_waypoint "607.67,251.22,484.89" "1" "FALSE"
+			call move_to_next_waypoint "601.07,257.18,542.10" "1" "FALSE"
+			call move_to_next_waypoint "623.99,259.70,595.41" "1" "FALSE"
+			call move_to_next_waypoint "693.19,255.31,621.67" "1" "FALSE"
+			call move_to_next_waypoint "666.80,252.64,709.13" "1" "FALSE"
+			call move_to_next_waypoint "623.61,252.64,669.20" "1" "FALSE"
+			call move_to_next_waypoint "580.96,255.43,658.90" "1" "FALSE"
+			call move_to_next_waypoint "564.54,252.64,699.16" "1" "FALSE"
+			call move_to_next_waypoint "603.02,250.00,730.19" "1" "FALSE"
+			call move_to_next_waypoint "624.69,246.49,766.60" "1" "FALSE"
 		}
 		; Otherwise move from respawn point
 		else
@@ -3154,7 +3158,6 @@ objectdef Object_Instance
 		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
 		
 		; Let script run for a bit to update pad position of each character, and jump characters to platform
-		; 	Defaulting PadAllowed = FALSE will cause them to jump to platform
 		wait 80
 		
 		; Enable PreCastTag to allow priest to setup wards before engaging named
@@ -3173,32 +3176,29 @@ objectdef Object_Instance
 			wait 1
 		}
 		
-		; Perform solo Scout HO at start of fight
+		; Perform solo Scout HO at start of fight to get Extended Reach detrimental
 		wait 20
-		call PerformSoloScoutHO "${HOScout}"
-		
-		; Wait until get Extended Reach from Scout HO
 		while !${Me.Effect[Query, "Detrimental" && MainIconID == 832 && BackDropIconID == 317].ID(exists)}
 		{
-			wait 10
+			call PerformSoloScoutHO "${HOScout}"
+			wait 20
 		}
 		
-		; Look for a duplicate Archetype to send to platform
+		; Look for a duplicate non-fighter Archetype to send to platform
 		GroupNum:Set[0]
 		while ${GroupNum:Inc} < ${Me.GroupCount}
 		{
 			; Get Archetype
 			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
-			if ${Return.Equal["fighter"]} && !${FoundFighter}
-				FoundFighter:Set[TRUE]
-			elseif ${Return.Equal["scout"]} && !${FoundScout}
+			if ${Return.Equal["scout"]} && !${FoundScout}
 				FoundScout:Set[TRUE]
 			elseif ${Return.Equal["mage"]} && !${FoundMage}
 				FoundMage:Set[TRUE]
 			elseif ${Return.Equal["priest"]} && !${FoundPriest}
 				FoundPriest:Set[TRUE]
-			; When a duplicate is found, set PadAllowed = TRUE
-			else
+			; When a duplicate non-fighter is found, set PadAllowed = TRUE for that character
+			; 	This will cause them to jump to the pad and eventually spawn a maedjinn disruptor
+			elseif !${Return.Equal["fighter"]}
 			{
 				oc !ci -Set_Variable ${Me.Group[${GroupNum}].Name} "PadAllowed" "TRUE"
 				break
@@ -3213,6 +3213,7 @@ objectdef Object_Instance
 		}
 		
 		; After the first maedjinn has spawned, update KeepMaedjinnID and set PadAllowed = TRUE on all characters to start killing Goladn
+		wait 20
 		oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "TRUE"
 		oc !ci -Set_Variable igw:${Me.Name} "KeepMaedjinnID" "${KeepMaedjinn.ID}"
 		
@@ -3231,9 +3232,26 @@ objectdef Object_Instance
 					; If the maedjinn is not targeting this character, need to dispel Aether Adhesive from it
 					if ${KillMaedjinn.Target.ID} != ${Me.ID} && ${DispelCounter} == 0
 					{
+						
+						
+						; ***********************************
+						; ***********************************
+						; ***********************************
+						; Why was this not working???
+						; ***********************************
+						; ***********************************
+						; ***********************************
+						
+						
+						
 						; Adding small delay to cast in order to make sure KillMaedjinn is targeted
-						timedcommand 5 oc !ci -CastAbility igw:${Me.Name}+mage "Absorb Magic"
+						timedcommand 5 oc !c -CastAbility igw:${Me.Name}+mage "Absorb Magic"
 						DispelCounter:Set[-3]
+						
+						
+						
+						
+						
 					}
 				}
 				; If no maedjinn to kill, look for one
@@ -3300,6 +3318,8 @@ objectdef Object_Instance
 		variable bool SetDisable
 		SetDisable:Set[!${EnableGoldan}]
 		call SetupAllCures "${SetDisable}"
+		; Leave cures enabled for channeler
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+channeler checkbox_settings_disablecaststack_cure FALSE TRUE
 		; Set initial HO settings
 		call SetInitialHOSettings
 	}
