@@ -1,7 +1,7 @@
 # BoZ-IC
-OgreBot Instance Controller files for BoZ Solo/H1/H2/Chrono zones.  To use, download the zip file and copy all of the files in the BoZ-IC-main folder to the InnerSpace\Scripts folder.  Everything should go in the folder structure that I have setup.  The Ogre IC main files are run from a "Default" folder.  I put my files in a "Custom" folder to not interfere with the main files.  You can navigate to the custom folder from within IC, or use an MCP button to run the instance.
+OgreBot Instance Controller files for BoZ Solo/H1/H2/H3/Chrono zones.  To use, download the zip file and copy all of the files in the BoZ-IC-main folder to the InnerSpace\Scripts folder.  Everything should go in the folder structure that I have setup.  The Ogre IC main files are run from a "Default" folder.  I put my files in a "Custom" folder to not interfere with the main files.  You can navigate to the custom folder from within IC, or use an MCP button to run the instance.
 
-For the MCP, I have separate scripts for loading up the Solo/H1/H2/Chrono zones.  Right click an empty MCP button and paste in Inner Space console (not Ogre console):
+For the MCP, I have separate scripts for loading up the Solo/H1/H2/H3/Chrono zones.  Right click an empty MCP button and paste in Inner Space console (not Ogre console):
 
 Obj_OgreMCP:PasteButton[OgreConsoleCommand,IC_Solo,-RunScriptOB_AP,\${Me.Name},IC_Custom_BOZ_Solo]
 Obj_OgreMCP:PasteButton[OgreConsoleCommand,IC_H1,-RunScriptOB_AP,\${Me.Name},IC_Custom_BOZ_H1]
@@ -24,11 +24,9 @@ Some notes about the IC files:
 
 - Vaashkaani: Every Which Way is not an easy zone to script.  My script mostly works, but spends a long time with characters waiting around for the nameds to randomly be in certain positions.  There are also a lot of things that can randomly go wrong.  Don't run this if you are in a hurry.  There is almost certainly a better way to do this zone, but after getting something that was mostly functional I was ready to move on.
 
-- I have not tested zones skipping shinies, there could be pathing issues.
-
 - For Chrono zones the idea is use Coldborne EverPorter to zone to Kael, run 1 of the zones then evac out, run the other zone then Call to Guild Hall or port somewhere else.  They will auto-use the Chrono Dungeons: [Level 130] items starting from the person that has the most items, or in alphabetical order if people have the same number.  Give everyone the same number of items at the start (or -1 if a character currently has a Commandar lockout) and it will cycle through the characters using them evenly.  You could run the set of 2 zones 3 times a day and it would use the chrono items once on each character.
 
-- H3 is not a complete zone and very much a work in progress
+- H3 is complete, but still a work in progress
 
 I can't take full credit for all of the code, a lot of this was based on or copied from code that others have posted, especially Kordulek and Jiimbo.  So big thanks to everyone that has provided previous IC files/scripts/code snippets as I couldn't have done this without them.
 

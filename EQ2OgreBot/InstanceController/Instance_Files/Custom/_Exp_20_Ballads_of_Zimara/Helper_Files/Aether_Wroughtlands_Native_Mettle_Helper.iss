@@ -1144,7 +1144,9 @@ function Goldan(string _NamedNPC)
 	variable uint PadAllowedTintFlag
 	variable bool GoldanAtPad=FALSE
 	variable bool PadDisabled=FALSE
+	variable int FangsCounter=0
 	variable bool NeedUpdateFlecksCureTime=FALSE
+	variable int FlecksCounter=0
 	variable time FlecksCureTime=${Time.Timestamp}
 	
 	; Get GoldanPad and PadAllowedTintFlag
@@ -1219,6 +1221,24 @@ function Goldan(string _NamedNPC)
 		; Perform checks every second
 		if ${SecondLoopCount:Inc} >= 10
 		{
+			
+			; ********************************************
+			; ********************************************
+			; ********************************************
+			; FOR DEBUG!!!!
+			;${OgreBotAPI.Get_Variable["PadAllowed"]}
+			oc !ci -Set_Variable ${Me.Name} "PadDisabled" "${PadDisabled}"
+			;${OgreBotAPI.Get_Variable["PadDisabled"]}
+			oc !ci -Set_Variable ${Me.Name} "GoldanAtPad" "${GoldanAtPad}"
+			;${OgreBotAPI.Get_Variable["GoldanAtPad"]}
+			oc !ci -Set_Variable ${Me.Name} "GoldanPadTintFlags" "${GoldanPad.TintFlags}"
+			;${OgreBotAPI.Get_Variable["GoldanPadTintFlags"]}
+			oc !ci -Set_Variable ${Me.Name} "PadAllowedTintFlag" "${PadAllowedTintFlag}"
+			;${OgreBotAPI.Get_Variable["PadAllowedTintFlag"]}
+			; ********************************************
+			; ********************************************
+			; ********************************************
+			
 			; Update PadDisabled
 			if ${GoldanPad.TintFlags} != ${PadAllowedTintFlag}
 				PadDisabled:Set[TRUE]
@@ -1231,7 +1251,46 @@ function Goldan(string _NamedNPC)
 				GoldanAtPad:Set[FALSE]
 			; If at pad, monitor character height and if they get knocked into the air send them to platform
 			if ${GoldanAtPad} && ${Me.Y} > 290
-				call GoldanJumpPadToPlatform ${PlatformCenterLocation}
+			{
+				
+				
+				; ********************************************
+				; ********************************************
+				; ********************************************
+				oc ${Me.Name} knocked up, need to move to platform
+				; ********************************************
+				; ********************************************
+				; ********************************************
+				
+				
+				call GoldanJumpPadToPlatform
+			}
+			; Handle Spitting Fangs detrimental
+			; 	Curse deals damage, power drains, decrease Fervor/casting speed
+			; 	Can only cure while Divine Providence is active or during Priest HO wheel, otherwise character and priest die
+			if ${FangsCounter} < 0
+				FangsCounter:Inc
+			if ${FangsCounter} == 0
+			{
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 695 && BackDropIconID == 695].ID(exists)}
+				{
+					; Cure if LatestHO is Priest and HO window is up
+					if ${OgreBotAPI.Get_Variable["LatestHO"].Equal[Priest]} && ${EQ2.HOWindowState} != -1
+					{
+						; **************************
+						; **************************
+						; **************************
+						; Set AutoCurse for a priest to cure this character
+						oc !c -AutoCurse igw:${Me.Name}+priest ${Me.Name}
+						; **************************
+						; **************************
+						; **************************
+						
+						
+						FangsCounter:Set[-5]		
+					}
+				}
+			}
 			; Handle Flecks of Regret detrimental
 			; 	Gets cast on everyone in group and deals damamge and power drains
 			; 	If cured from entire group gets re-applied to entire group
@@ -1275,8 +1334,8 @@ function Goldan(string _NamedNPC)
 
 function CheckGoldanExists()
 {
-	; Assume GoldanExists if in Combat
-	if ${Me.InCombat}
+	; Assume GoldanExists if in Combat or dead or ID is invalid (likely due to zoning, such as after a revive)
+	if ${Me.InCombat} || ${Me.IsDead} || ${Me.ID} == 0
 	{
 		GoldanExists:Set[TRUE]
 		return
@@ -1335,7 +1394,7 @@ function GoldanJumpPlatformToPad()
 	; Jump to pad
 	press ${OgreJumpKey}
 	; Wait for the amount of time it takes for character to get to center of pad, accounting for movement Speed
-	call Wait_ms "${Math.Calc[500 * 340/(${Me.Speed}+100)]}"
+	call Wait_ms "${Math.Calc[550 * 340/(${Me.Speed}+100)]}"
 	press -release "${OgreForwardKey}"
 	; Press back for just the right amount of time to stop all forward momentum
 	; 	This should have the character land at the center of the pad
@@ -1350,7 +1409,7 @@ function GoldanJumpPlatformToPad()
 	; 175 was good out of combat, but characters seemed to pull too far back in combat...
 	
 	;call Wait_ms "175"
-	call Wait_ms "165"
+	call Wait_ms "150"
 	; ***********************************
 	; ***********************************
 	; ***********************************
