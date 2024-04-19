@@ -1100,12 +1100,16 @@ function Goldfeather(string _NamedNPC)
 				; Check to see if Goldfeather is in combat
 				if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse" && Target.ID != 0].ID(exists)}
 				{
-					; If character is missing Feather for a Feather detrimental, have them Use Goldfeather's Phylactery to re-acquire it
-					if !${Me.Effect[Query, "Detrimental" && MainIconID == 233 && BackDropIconID == 873].ID(exists)}
+					; Make sure not in combat with an add (will effectively pause dps on the named while dealing with the add)
+					if !${Actor[Query,(Name=-"aurumutation" || Name=-"ick") && Type != "Corpse" && Target.ID != 0].ID(exists)}
 					{
-						; Use Goldfeather's Phylactery
-						oc !ci -UseItem igw:${Me.Name} "Goldfeather's Phylactery"
-						PhylacteryCounter:Set[-3]
+						; If character is missing Feather for a Feather detrimental, have them Use Goldfeather's Phylactery to re-acquire it
+						if !${Me.Effect[Query, "Detrimental" && MainIconID == 233 && BackDropIconID == 873].ID(exists)}
+						{
+							; Use Goldfeather's Phylactery
+							oc !ci -UseItem igw:${Me.Name} "Goldfeather's Phylactery"
+							PhylacteryCounter:Set[-3]
+						}
 					}
 				}
 			}

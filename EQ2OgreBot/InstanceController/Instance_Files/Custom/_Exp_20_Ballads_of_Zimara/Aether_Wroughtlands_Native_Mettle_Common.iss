@@ -959,6 +959,9 @@ objectdef Object_Instance
 		; Setup for named
 		call initialize_move_to_next_boss "${_NamedNPC}" "2"
 		
+		; Display note for boss
+		oc For ${_NamedNPC}, have Zimaran Cure Trauma cure pots
+		
 		; Set custom settings for Nugget
 		call SetupNugget "TRUE"
 		
@@ -1763,6 +1766,9 @@ objectdef Object_Instance
 		; Setup for named
 		call initialize_move_to_next_boss "${_NamedNPC}" "3"
 		
+		; Display note for boss
+		oc For ${_NamedNPC}, have pet to pull adds and Zimaran Cure Elemental cure pots
+		
 		; Move to named from Nugget
 		if !${CoppernicusRespawn}
 		{
@@ -2461,6 +2467,10 @@ objectdef Object_Instance
 		; Setup for named
 		call initialize_move_to_next_boss "${_NamedNPC}" "4"
 		
+		; Display note for boss
+		oc For ${_NamedNPC}, have Zimaran Energy Inverter on all characters except mystic/mages to get curse
+		oc For ${_NamedNPC}, have Zimaran Cure Trauma/Noxious cure pots
+		
 		; Enable PreCastTag to allow priest to setup wards before engaging first mob
 		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
 		wait 60
@@ -2700,12 +2710,13 @@ objectdef Object_Instance
 		; Enable AutoTarget (but disable Out of Combat scanning)
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning FALSE TRUE
 		wait 1
+		Ob_AutoTarget:AddActor["a molten golden ick",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["an aurumutation",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
 		
-		; Set FeatherCureTime for 30 seconds from now
+		; Set FeatherCureTime for 20 seconds from now
 		FeatherCureTime:Set[${Time.Timestamp}]
-		FeatherCureTime.Second:Inc[30]
+		FeatherCureTime.Second:Inc[20]
 		FeatherCureTime:Update
 		
 		; Kill named
@@ -2740,7 +2751,7 @@ objectdef Object_Instance
 				; Update FeatherCureTime based on FeatherCureNum
 				FeatherCureTime:Set[${Time.Timestamp}]
 				if ${FeatherCureNum} == 1
-					FeatherCureTime.Second:Inc[30]
+					FeatherCureTime.Second:Inc[20]
 				else
 					FeatherCureTime.Second:Inc[10]
 				FeatherCureTime:Update
@@ -3137,6 +3148,9 @@ objectdef Object_Instance
 		
 		; Setup for named
 		call initialize_move_to_next_boss "${_NamedNPC}" "5"
+		
+		; Display note for boss
+		oc For ${_NamedNPC}, have Zimaran Cure Trauma cure pots
 		
 		; Move to named from Goldfeather
 		if !${GoldanRespawn}
