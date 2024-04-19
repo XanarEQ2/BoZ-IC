@@ -17,6 +17,7 @@
 ; 	Throughout fight may stop/start dps to try to have have required HO right after a sweep/slam
 ; 	Uses Zimaran Cure Trauma cure pots to cure Flecks of Regret
 ; 	Fight has been known to bug out and reset when Nugget goes in the ground after casting "All Mine" to respawn ores
+; 	If you wipe, end script and clear Campspot then respawn at "The Giltglen" then restart script, will pick up from respawn point
 ; Coppernicus
 ; 	Will start by pet pulling 2 far celestial materia
 ; 	Tank will then grab aggro on remaining 2 and keep aggro on all 4 throughout the fight
@@ -54,6 +55,7 @@ variable string MendRuneSwapHelperScript="EQ2OgreBot/InstanceController/Support_
 variable bool AuromQuickCurseIncoming=FALSE
 variable int AurumPhaseNum=1
 ; Custom variables for Nugget
+variable bool NuggetRespawn=FALSE
 variable bool ClustersSpawned=FALSE
 variable int AdditionalClusters=0
 variable bool StupendousSweepIncoming=FALSE
@@ -83,6 +85,8 @@ atom atexit()
 {
 	; End ZoneHelperScript
 	oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
+	; Clear CampSpot
+	oc !ci -CS_ClearCampSpot igw:${Me.Name}
 	echo ${Time}: ${Script.Filename} done
 }
 objectdef Object_Instance
@@ -114,20 +118,26 @@ objectdef Object_Instance
 			Obj_OgreIH:SetCampSpot
 			call Obj_OgreUtilities.PreCombatBuff 5
 			_StartingPoint:Inc
+			; Check to see if at "The Giltglen" respawn point after wiping to Nugget
+			if ${Math.Distance[${Me.X},${Me.Y},${Me.Z},711.03,216.03,1.43]} < 50
+			{
+				_StartingPoint:Set[2]
+				NuggetRespawn:Set[TRUE]
+			}
 			; Check to see if at "The Golden Terrace" respawn point after wiping to Coppernicus
-			if ${Math.Distance[${Me.X},${Me.Y},${Me.Z},745.04,312.38,68.43]} < 50
+			elseif ${Math.Distance[${Me.X},${Me.Y},${Me.Z},745.04,312.38,68.43]} < 50
 			{
 				_StartingPoint:Set[3]
 				CoppernicusRespawn:Set[TRUE]
 			}
 			; Check to see if at "Eighteen Karat Copse" respawn point after wiping to Goldfeather
-			if ${Math.Distance[${Me.X},${Me.Y},${Me.Z},790.69,279.30,547.14]} < 50
+			elseif ${Math.Distance[${Me.X},${Me.Y},${Me.Z},790.69,279.30,547.14]} < 50
 			{
 				_StartingPoint:Set[4]
 				GoldfeatherRespawn:Set[TRUE]
 			}
 			; Check to see if at "Goldan's Landing" respawn point after wiping to Goldan
-			if ${Math.Distance[${Me.X},${Me.Y},${Me.Z},655.21,270.23,884.84]} < 50
+			elseif ${Math.Distance[${Me.X},${Me.Y},${Me.Z},655.21,270.23,884.84]} < 50
 			{
 				_StartingPoint:Set[5]
 				GoldanRespawn:Set[TRUE]
@@ -805,12 +815,12 @@ objectdef Object_Instance
 	variable point3f OreSpot[26]
 	variable int OreNum
 	variable int TargetAurumCount[5]
-	variable point3f UnearthedSpot[8]
+	variable point3f UnearthedSpot[7]
 	
 	function:bool Named2(string _NamedNPC="Doesnotexist")
 	{
-		; Update KillSpot (if changing, make sure to change in Helper code as well)
-		KillSpot:Set[752.10,200.11,156.93]
+		; Update KillSpot
+		KillSpot:Set[734.68,200.25,175.54]
 		
 		; Undo The Aurum Outlaw custom settings
 		call SetupAurom "FALSE"
@@ -823,7 +833,7 @@ objectdef Object_Instance
 		variable point3f TreeSpot[5]
 		variable string CharacterTree[5]
 		variable int NuggetCheckCount
-		variable float FighterNamedOffset
+		variable float SweepHeadingOffset
 		variable int SweepCount=0
 		variable bool NuggetAbsorbAndCrushArmorPreparing=FALSE
 		variable int NuggetHP=0
@@ -841,11 +851,11 @@ objectdef Object_Instance
 		GroupMembers[6]:Set["${Me.Name}"]
 	
 		; Update TreeSpots
-		TreeSpot[1]:Set[721.81,201.65,191.29]
-		TreeSpot[2]:Set[777.72,203.99,162.75]
-		TreeSpot[3]:Set[797.06,203.15,161.76]
-		TreeSpot[4]:Set[739.58,205.42,86.67]
-		TreeSpot[5]:Set[690.42,199.91,136.58]
+		TreeSpot[1]:Set[723.66,200.95,190.74]
+		TreeSpot[2]:Set[753.44,206.96,205.23]
+		TreeSpot[3]:Set[777.18,203.96,162.71]
+		TreeSpot[4]:Set[793.71,203.49,160.79]
+		TreeSpot[5]:Set[689.08,199.95,140.75]
 		
 		; Assign characters to trees
 		; 	Assume this character is a fighter and doesn't need a tree
@@ -935,13 +945,12 @@ objectdef Object_Instance
 		
 		; Update UnearthedSpots
 		UnearthedSpot[1]:Set[${KillSpot}]
-		UnearthedSpot[2]:Set[751.50,200.10,176.17]
-		UnearthedSpot[3]:Set[724.49,200.07,174.85]
-		UnearthedSpot[4]:Set[690.77,200.43,155.08]
-		UnearthedSpot[5]:Set[701.66,199.38,122.64]
-		UnearthedSpot[6]:Set[686.26,200.91,88.73]
-		UnearthedSpot[7]:Set[706.82,205.32,65.62]
-		UnearthedSpot[8]:Set[737.48,200.59,108.64]
+		UnearthedSpot[2]:Set[690.77,200.43,155.08]
+		UnearthedSpot[3]:Set[701.66,199.38,122.64]
+		UnearthedSpot[4]:Set[686.26,200.91,88.73]
+		UnearthedSpot[5]:Set[706.82,205.32,65.62]
+		UnearthedSpot[6]:Set[737.48,200.59,108.64]
+		UnearthedSpot[7]:Set[751.50,200.10,176.17]
 		
 		; Use Painlinks if desired
 		if ${Ogre_Instance_Controller.bICFileOption_1}
@@ -962,8 +971,11 @@ objectdef Object_Instance
 		oc !ci -EndScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript}
 		oc !ci -RunScriptRequiresOgreBot igw:${Me.Name} ${ZoneHelperScript} "${_NamedNPC}"
 		
+		; Move to named from The Aurum Outlaw
+		if !${NuggetRespawn}
+			call move_to_next_waypoint "762.34,214.57,-64.10"
+		
 		; Move to named
-		call move_to_next_waypoint "762.34,214.57,-64.10"
 		call move_to_next_waypoint "730.52,218.29,-5.34"
 		
 		; Check if already killed
@@ -972,7 +984,8 @@ objectdef Object_Instance
 		{
 			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]
 			call move_to_next_waypoint "707.13,213.49,28.45"
-			call move_to_next_waypoint "728.60,204.25,91.12"
+			call move_to_next_waypoint "711.96,200.74,109.68"
+			call move_to_next_waypoint "716.61,200.02,172.82"
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
@@ -991,8 +1004,9 @@ objectdef Object_Instance
 		Event[EQ2_onIncomingChatText]:AttachAtom[NuggetIncomingChatText]
 		Event[EQ2_onAnnouncement]:AttachAtom[NuggetAnnouncement]
 		
-		; Wait until Nugget not within 40m of path to KillSpot
+		; Wait until Nugget not within 50m of path to KillSpot
 		; 	Don't want to aggro early and have a hard time curing Flecks from all characters before handling additional scripts
+		oc Waiting for Nugget to be in position for pull
 		variable bool ReadyForPull=FALSE
 		while !${ReadyForPull}
 		{
@@ -1000,9 +1014,9 @@ objectdef Object_Instance
 			NuggetLoc:Set[${Actor[Query,Name=="Nugget" && Type != "Corpse"].Loc}]
 			if ${NuggetLoc.X}!=0 || ${NuggetLoc.Y}!=0 || ${NuggetLoc.Z}!=0
 			{
-				if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},707.13,28.45]} > 40
-					if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},728.60,91.12]} > 40
-						if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},${KillSpot.X},${KillSpot.Z}]} > 40
+				if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},707.13,28.45]} > 50
+					if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},711.96,109.68]} > 50
+						if ${Math.Distance[${NuggetLoc.X},${NuggetLoc.Z},716.61,172.82]} > 50
 							ReadyForPull:Set[TRUE]
 			}
 		}
@@ -1013,16 +1027,21 @@ objectdef Object_Instance
 		
 		; Pull Named
 		Ob_AutoTarget:Clear
+		Ob_AutoTarget:AddActor["a gleaming goldslug",0,FALSE,FALSE,101,TRUE]
+		Ob_AutoTarget:AddActor["a gleaming goldslug",95,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a gleaming goldslug",90,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a gleaming goldslug",85,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a gleaming goldslug",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["a blightflight blinder",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["a corrupted blightflight",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["an irate blightflight",0,FALSE,FALSE]
-		Ob_AutoTarget:AddActor["a gleaming goldslug",0,FALSE,FALSE,101,TRUE]
-		Ob_AutoTarget:AddActor["a gleaming goldslug",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
 		oc ${Me.Name} is pulling ${_NamedNPC}
 		Obj_OgreIH:ChangeCampSpot["707.13,213.49,28.45"]
 		call Obj_OgreUtilities.HandleWaitForCampSpot 10
-		Obj_OgreIH:ChangeCampSpot["728.60,204.25,91.12"]
+		Obj_OgreIH:ChangeCampSpot["711.96,200.74,109.68"]
+		call Obj_OgreUtilities.HandleWaitForCampSpot 10
+		Obj_OgreIH:ChangeCampSpot["716.61,200.02,172.82"]
 		call Obj_OgreUtilities.HandleWaitForCampSpot 10
 		Obj_OgreIH:ChangeCampSpot["${KillSpot}"]
 		call Obj_OgreUtilities.HandleWaitForCampSpot 10
@@ -1108,9 +1127,9 @@ objectdef Object_Instance
 				}
 				; Bring characters back to KillSpot
 				oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
-				; Cancel Sprint on characters 4/5 after 10 seconds
-				timedcommand 10 oc !ci -CancelMaintainedForWho ${CharacterTree[4]} "Sprint"
-				timedcommand 10 oc !ci -CancelMaintainedForWho ${CharacterTree[5]} "Sprint"
+				; Cancel Sprint on characters 4/5 after 5 seconds
+				timedcommand 50 oc !ci -CancelMaintainedForWho ${CharacterTree[4]} "Sprint"
+				timedcommand 50 oc !ci -CancelMaintainedForWho ${CharacterTree[5]} "Sprint"
 				; Set Stupendous Slam as handled
 				NuggetStupendousSlamIncoming:Set[FALSE]
 				; Re-enable DPS after Slam
@@ -1127,87 +1146,24 @@ objectdef Object_Instance
 				call SetupAllDPS "FALSE"
 				; Update SweepSlamTime
 				SweepSlamTime:Set[${Time.Timestamp}]
-				; Want fighter in front of named and rest of group in back, but first want the named looking at direction without a bush in the line of fire
-				; 	Heading 140 should get it pointed in a good direction from KillSpot
-				FighterNamedOffset:Set[140 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
-				call MoveInRelationToNamed "igw:${Me.Name}" "${_NamedNPC}" "5" "${FighterNamedOffset}"
-				wait 20
-				; Cast Immunization on fighter in case they don't successfully dodge the sweep
+				; Move everyone to front of named at a position where he is not pointing towards a bush to cause adds when sweep goes off
+				; 	Heading 147 should get it pointed in a good direction from KillSpot
+				SweepHeadingOffset:Set[147 - ${Actor[Query,Name=="${_NamedNPC}" && Type != "Corpse"].Heading}]
+				call MoveInRelationToNamed "igw:${Me.Name}" "${_NamedNPC}" "5" "${SweepHeadingOffset}"
+				wait 15
+				; Cast Immunization on fighter to not get knocked up by the sweep
 				oc !ci -CancelCasting igw:${Me.Name}+mystic
 				oc !ci -CastAbilityOnPlayer igw:${Me.Name}+mystic "Immunization" ${Me.Name} 0
-				wait 10
-				; Wait until sweep is about to go off, then send fighter to side to joust it (wait up to 6 seconds)
-				Counter:Set[0]
-				SweepCount:Set[0]
-				while (${Counter:Inc} <= 20 || (${Me.GetGameData["Target.Casting"].Percent} > 0 && ${Counter} <= 60)) && !${NuggetAbsorbAndCrushArmorIncoming}
-				{
-					; Move fighter to back when sweep >= 75% cast
-					if ${Me.GetGameData["Target.Casting"].Percent} >= 75
-					{
-						
-						
-						; ***********************************
-						; ***********************************
-						; ***********************************
-						oc move back at ${Me.GetGameData["Target.Casting"].Percent} pct
-						; ***********************************
-						; ***********************************
-						; ***********************************
-						
-						
-						
-						call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "190"
-						wait 1
-						while ${Me.GetGameData["Target.Casting"].Percent} > 0 && ${Counter:Inc} <= 60 && !${NuggetAbsorbAndCrushArmorIncoming}
-						{
-							wait 1
-						}
-						break
-					}
-					; Otherwise reposition again just to make sure
-					else
-					{
-						if ${SweepCount} < 0
-							SweepCount:Inc
-						if ${SweepCount} == 0
-						{
-							
-							
-							; ***********************************
-							; ***********************************
-							; ***********************************
-							oc reposition
-							; ***********************************
-							; ***********************************
-							; ***********************************
-							
-							
-							
-							call MoveInRelationToNamed "igw:${Me.Name}+fighter" "${_NamedNPC}" "5" "0"
-							call MoveInRelationToNamed "igw:${Me.Name}+notfighter" "${_NamedNPC}" "5" "190"
-							; Set SweepCount to prevent from being triggered again for another half second
-							SweepCount:Set[-5]
-						}
-					}
-					wait 1
-				}
-				
-				
-				; ***********************************
-				; ***********************************
-				; ***********************************
-				oc wait for sweep to go off
-				; ***********************************
-				; ***********************************
-				; ***********************************
-				
-				
-				; Wait a couple more seconds after it finishes before moving back to KillSpot
-				Counter:Set[0]
-				while ${Counter:Inc} <= 20 && !${NuggetAbsorbAndCrushArmorIncoming}
-				{
-					wait 1
-				}
+				wait 15
+				; If there are adds and this character is a crusader, can cast Aura of the Crusader to become immune to forced target from adds
+				if ${Actor[Query, (Name =- "goldslug" || Name =- "blightflight") && Target.ID != 0].ID(exists)}
+					if ${Me.Class.Equal[crusader]}
+						oc !ci -CastAbility ${Me.Name} "Aura of the Crusader"
+				; Move everyone else behind named out of the line of fire
+				call MoveInRelationToNamed "igw:${Me.Name}+-fighter" "${_NamedNPC}" "5" "170"
+				; Wait for sweep to go off
+				wait 40
+				; Move everyone back to KillSpot
 				oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				; Set Stupendous Sweep as handled
 				StupendousSweepIncoming:Set[FALSE]
@@ -1499,7 +1455,7 @@ objectdef Object_Instance
 			wait 10
 		}
 	}
-	
+
 	function MineUnearthedClusters()
 	{
 		; Setup Variables
@@ -1507,21 +1463,21 @@ objectdef Object_Instance
 		variable int Counter
 		variable int MaxAurumCountGroupNum
 		variable bool TargetAurumCountUpdated[5]
+		variable bool FirstUnearthed=TRUE
 		variable int UnearthedNum=1
 		variable index:actor Unearthed
 		variable iterator UnearthedIterator
-		variable actor ClosestUnearthed
+		variable actor NewUnearthed
 		variable point3f UnearthedLoc
-		variable int ClosestUnearthedNum
+		variable int NewUnearthedNum
 		variable int UnearthedForwardSteps
 		variable int UnearthedBackwardSteps
 		variable int UnearthedMoveInc
 		variable point3f NewSpot
 		variable bool FoundCluster=TRUE
 		
-		; Re-enable DPS, but only on non-fighters to make sure fighter can gain and keep aggro easily on the slugs
+		; Re-enable DPS
 		call SetupAllDPS "TRUE"
-		call SetupNonFighterDPS "FALSE"
 		; Add AdditionalClusters to TargetAurumCount
 		while ${AdditionalClusters} > 0
 		{
@@ -1556,8 +1512,8 @@ objectdef Object_Instance
 		; Handle unearthed aurum cluster until they no longer exist
 		while ${FoundCluster}
 		{
-			; Clear ClosestUnearthed and FoundCluster
-			ClosestUnearthed:Set[0]
+			; Clear NewUnearthed and FoundCluster
+			NewUnearthed:Set[0]
 			FoundCluster:Set[FALSE]
 			; Search for all unearthed aurum clusters
 			EQ2:QueryActors[Unearthed, Name == "unearthed aurum cluster"]
@@ -1567,34 +1523,47 @@ objectdef Object_Instance
 				; Loop through clusters
 				do
 				{
-					; Update ClosestUnearthed if not set or cluster is closer
-					; 	Want to mine the closer clusters first to minimize chance of pulling extra slugs on the way to a cluster
-					if ${ClosestUnearthed.ID} == 0 || ${Math.Distance[${UnearthedIterator.Value.X},${UnearthedIterator.Value.Z},${Me.X},${Me.Z}]} < ${Math.Distance[${ClosestUnearthed.X},${ClosestUnearthed.Z},${Me.X},${Me.Z}]}
-						ClosestUnearthed:Set[${UnearthedIterator.Value.ID}]
+					
+					; For the first unearthed cluster mined want to use cluster furthest from KillSpot (so don't have a long journey back to KillSpot after mining is done)
+					if ${FirstUnearthed}
+					{
+						; Update NewUnearthed if not set or cluster is further
+						if ${NewUnearthed.ID} == 0 || ${Math.Distance[${UnearthedIterator.Value.X},${UnearthedIterator.Value.Z},${Me.X},${Me.Z}]} > ${Math.Distance[${NewUnearthed.X},${NewUnearthed.Z},${Me.X},${Me.Z}]}
+							NewUnearthed:Set[${UnearthedIterator.Value.ID}]
+					}
+					; For subsequent clusters, want to mine the closest one
+					else
+					{
+						; Update NewUnearthed if not set or cluster is closer
+						if ${NewUnearthed.ID} == 0 || ${Math.Distance[${UnearthedIterator.Value.X},${UnearthedIterator.Value.Z},${Me.X},${Me.Z}]} < ${Math.Distance[${NewUnearthed.X},${NewUnearthed.Z},${Me.X},${Me.Z}]}
+							NewUnearthed:Set[${UnearthedIterator.Value.ID}]
+					}
 				}
 				while ${UnearthedIterator:Next(exists)}
 			}
 			; Make sure a cluster was found
-			if ${ClosestUnearthed.ID} != 0
+			if ${NewUnearthed.ID} != 0
 			{
 				; Set FoundCluster = TRUE
 				FoundCluster:Set[TRUE]
+				; Set FirstUnearthed = FALSE
+				FirstUnearthed:Set[FALSE]
 				; Get cluster Location, make sure it is valid
-				UnearthedLoc:Set[${ClosestUnearthed.Loc}]
+				UnearthedLoc:Set[${NewUnearthed.Loc}]
 				if ${UnearthedLoc.X}!=0 || ${UnearthedLoc.Y}!=0 || ${UnearthedLoc.Z}!=0
 				{
 					; Loop through each UnearthedSpot, see which is closest to cluster
-					ClosestUnearthedNum:Set[1]
+					NewUnearthedNum:Set[1]
 					Counter:Set[1]
 					while ${Counter:Inc} <= ${UnearthedSpot.Size}
 					{
-						if ${Math.Distance[${UnearthedLoc.X},${UnearthedLoc.Z},${UnearthedSpot[${Counter}].X},${UnearthedSpot[${Counter}].Z}]} < ${Math.Distance[${UnearthedLoc.X},${UnearthedLoc.Z},${UnearthedSpot[${ClosestUnearthedNum}].X},${UnearthedSpot[${ClosestUnearthedNum}].Z}]}
-							ClosestUnearthedNum:Set[${Counter}]
+						if ${Math.Distance[${UnearthedLoc.X},${UnearthedLoc.Z},${UnearthedSpot[${Counter}].X},${UnearthedSpot[${Counter}].Z}]} < ${Math.Distance[${UnearthedLoc.X},${UnearthedLoc.Z},${UnearthedSpot[${NewUnearthedNum}].X},${UnearthedSpot[${NewUnearthedNum}].Z}]}
+							NewUnearthedNum:Set[${Counter}]
 					}
-					; Figure out if we can get from UnearthedNum to ClosestUnearthedNum faster moving in forward or backward direction looping through UnearthedSpots
+					; Figure out if we can get from UnearthedNum to NewUnearthedNum faster moving in forward or backward direction looping through UnearthedSpots
 					UnearthedForwardSteps:Set[0]
 					Counter:Set[${UnearthedNum}]
-					while ${Counter} != ${ClosestUnearthedNum}
+					while ${Counter} != ${NewUnearthedNum}
 					{
 						Counter:Inc
 						if ${Counter} > ${UnearthedSpot.Size}
@@ -1603,7 +1572,7 @@ objectdef Object_Instance
 					}
 					UnearthedBackwardSteps:Set[0]
 					Counter:Set[${UnearthedNum}]
-					while ${Counter} != ${ClosestUnearthedNum}
+					while ${Counter} != ${NewUnearthedNum}
 					{
 						Counter:Dec
 						if ${Counter} < 1
@@ -1614,8 +1583,8 @@ objectdef Object_Instance
 					UnearthedMoveInc:Set[1]
 					if ${UnearthedBackwardSteps} < ${UnearthedForwardSteps}
 						UnearthedMoveInc:Set[-1]
-					; Move between UnearthedSpots to get to ClosestUnearthedNum
-					while ${UnearthedNum} != ${ClosestUnearthedNum}
+					; Move between UnearthedSpots to get to NewUnearthedNum
+					while ${UnearthedNum} != ${NewUnearthedNum}
 					{
 						; Check to make sure a Curse Cure is not needed, otherwise wait for it to be cured
 						while ${OgreBotAPI.Get_Variable["NeedsCurseCure"].Length} > 0 && !${OgreBotAPI.Get_Variable["NeedsCurseCure"].Equal["None"]}
@@ -1644,7 +1613,8 @@ objectdef Object_Instance
 					call Obj_OgreUtilities.HandleWaitForCampSpot 10
 					; Wait a bit to gain aggro on any slugs
 					wait 40
-					while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0 && Target.ID != ${Me.ID}].ID(exists)}
+					Counter:Set[0]
+					while ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0 && Target.ID != ${Me.ID}].ID(exists)} && ${Counter:Inc} <= 40
 					{
 						wait 1
 					}
@@ -1661,7 +1631,12 @@ objectdef Object_Instance
 							NewSpot.Z:Dec[5]
 					}
 					oc !ci -ChangeCampSpotWho ${Me.Name} ${NewSpot.X} ${NewSpot.Y} ${NewSpot.Z}
-					wait 30
+					; Wait a bit to bring slugs back
+					Counter:Set[0]
+					while ${NewUnearthed.ID(exists)} && ${Counter:Inc} <= 30
+					{
+						wait 1
+					}
 					call CalcSpotOffset "${UnearthedSpot[${UnearthedNum}]}" "${UnearthedLoc}" "20"
 					NewSpot:Set[${Return}]
 					; Make sure NewSpot doesn't run fighter off the cliff
@@ -1674,9 +1649,9 @@ objectdef Object_Instance
 							NewSpot.Z:Dec[5]
 					}
 					oc !ci -ChangeCampSpotWho ${Me.Name} ${NewSpot.X} ${NewSpot.Y} ${NewSpot.Z}
-					; Wait as long as cluster exists (up to 60 seconds)
+					; Wait as long as cluster exists (up to 30 seconds)
 					Counter:Set[0]
-					while ${ClosestUnearthed.ID(exists)} && ${Counter:Inc} <= 600
+					while ${NewUnearthed.ID(exists)} && ${Counter:Inc} <= 300
 					{
 						wait 1
 					}
@@ -1691,8 +1666,6 @@ objectdef Object_Instance
 				}
 			}
 		}
-		; Re-enable DPS on the way back to KillSpot to deal with the slugs
-		call SetupAllDPS "TRUE"
 		; Figure out if we can get UnearthedNum back to 1 faster moving in forward or backward direction looping through UnearthedSpots
 		UnearthedForwardSteps:Set[0]
 		Counter:Set[${UnearthedNum}]
@@ -1921,7 +1894,6 @@ objectdef Object_Instance
 				relay ${OgreRelayGroup} eq2execute pet attack
 				oc !ci -CastAbility igw:${Me.Name}+necromancer "Shift of Death"
 				oc !ci -CastAbility igw:${Me.Name}+conjuror "Planar Motion"
-				oc !ci -CastAbility igw:${Me.Name}+beastlord "Warder's Shadow Step"
 				wait 10
 			}
 			; Wait for Celestial Materia to be pulled back to group
@@ -1959,7 +1931,6 @@ objectdef Object_Instance
 				relay ${OgreRelayGroup} eq2execute pet attack
 				oc !ci -CastAbility igw:${Me.Name}+necromancer "Shift of Death"
 				oc !ci -CastAbility igw:${Me.Name}+conjuror "Planar Motion"
-				oc !ci -CastAbility igw:${Me.Name}+beastlord "Warder's Shadow Step"
 				wait 10
 			}
 			; Wait for Celestial Materia to be pulled back to group
@@ -3485,6 +3456,8 @@ objectdef Object_Instance
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+channeler checkbox_settings_disablecaststack_cure FALSE TRUE
 		; Setup Dispels on mages (will selectively call to dispel and dispelling a maedjinn disruptor while targeting a fighter will kill both the mage and fighter)
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_nodispels ${EnableGoldan} TRUE
+		; Disable Ability Collison Checks (have had some weird line of sight issues where characters weren't casting anything)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disableabilitycollisionchecks ${EnableGoldan} TRUE
 		; Set initial HO settings
 		call SetInitialHOSettings
 		; Setup class-specific abilities to use during HO's
@@ -3495,6 +3468,8 @@ objectdef Object_Instance
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+berserker "Body Check" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+paladin "Divine Vengeance" ${SetDisable} TRUE
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+paladin "Heroic Dash" ${SetDisable} TRUE
+		; Setup fighter ascensions (don't want to be in a long recovery period when need to cast an HO)
+		call SetupAscensionsFighter "${SetDisable}"
 	}
 }
 

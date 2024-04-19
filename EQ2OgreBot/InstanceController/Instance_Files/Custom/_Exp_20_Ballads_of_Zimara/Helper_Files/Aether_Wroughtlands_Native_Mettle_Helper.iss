@@ -325,6 +325,7 @@ function Nugget(string _NamedNPC)
 	variable bool CastingFlecksCure=FALSE
 	variable int CurseCounter=0
 	variable string NeedsCurseCure="None"
+	variable int PeelCounter=0
 	variable int NuggetCheckCount=0
 	variable actor Tree
 	variable int AurumCount
@@ -387,13 +388,10 @@ function Nugget(string _NamedNPC)
 						{
 							
 							
-							; **************************
-							; **************************
-							; **************************
+							; **************************************
+							; DEBUG TEXT
 							oc ${Me.Name} Click Tree at distance ${Tree.Distance} away
-							; **************************
-							; **************************
-							; **************************
+							; **************************************
 							
 							
 							; Click Tree
@@ -403,14 +401,10 @@ function Nugget(string _NamedNPC)
 							if ${Me.Effect[Query, "Detrimental" && MainIconID == 187 && BackDropIconID == 187].ID(exists)}
 							{
 								
-								; **************************
-								; **************************
-								; **************************
+								; **************************************
+								; DEBUG TEXT
 								oc ${Me.Name} Have Holding on Tight detrimental
-								; **************************
-								; **************************
-								; **************************
-								
+								; **************************************
 								
 								break
 							}
@@ -491,6 +485,29 @@ function Nugget(string _NamedNPC)
 			}
 			; Check to mine Aurum if needed
 			call MineAurum
+			; Handle Precious Peel (MainIconID: 295, BackDropIconID 295)
+			; 	Damage and forced target to the slug
+			; 	Want to prevent the forced target on fighters so they can get aggro on each slug
+			if ${PeelCounter} < 0
+				PeelCounter:Inc
+			if ${PeelCounter} == 0 && ${Me.Archetype.Equal[fighter]}
+			{
+				; Check to see if fighter has Precious Peel
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 295 && BackDropIconID == 295].ID(exists)}
+				{
+					; Check to see if there is a slug not targeting fighter
+					if ${Actor[Query, Name == "a gleaming goldslug" && Target.ID != 0 && Target.ID != ${Me.ID}].ID(exists)}
+					{
+						; For crusaders, can cast Aura of the Crusader to become immune to forced target
+						if ${Me.Class.Equal[crusader]}
+							oc !ci -CastAbility ${Me.Name} "Aura of the Crusader"
+						; For other characters, use cure pot to remove (don't want to cure and also remove Flecks of Regret)
+						else
+							oc !ci -UseItem ${Me.Name} "Zimaran Cure Elemental"
+					}
+					PeelCounter:Set[-3]
+				}
+			}
 			; Reset SecondLoopCount
 			SecondLoopCount:Set[0]
 		}
@@ -529,6 +546,17 @@ function MineAurum()
 	AurumCluster:Set[${Actor[Query, Name =- "aurum cluster" && Distance < 8].ID}]
 	if ${AurumCluster.ID} == 0
 		return
+	
+	
+	
+	; **************************************
+	; DEBUG TEXT
+	if ${Me.InCombat}
+		oc ${Me.Name} Nearby ore at distance ${AurumCluster.Distance} away
+	; **************************************
+	
+	
+	
 	; Check to see if character needs to mine additional aurum
 	variable int AurumCount
 	variable item AurumOre
@@ -537,8 +565,35 @@ function MineAurum()
 		AurumCount:Set[${AurumOre.Quantity}]
 	else
 		AurumCount:Set[0]
+	
+	
+	
+	; **************************************
+	; DEBUG TEXT
+	if ${Me.InCombat}
+		oc ${Me.Name} My aurum count ${AurumCount} target ${OgreBotAPI.Get_Variable["${Me.Name}TargetAurumCount"]}
+	; **************************************
+	
+	
+	
 	if ${AurumCount} >= ${OgreBotAPI.Get_Variable["${Me.Name}TargetAurumCount"]}
 		return
+	; Check to see if character has Precious Peel, which would prevent them from mining
+	if ${Me.Effect[Query, "Detrimental" && MainIconID == 295 && BackDropIconID == 295].ID(exists)}
+	{
+		; Have priest cure Precious Peel so character can mine
+		oc !ci -CastAbilityOnPlayer igw:${Me.Name}+priest "Cure" "${Me.Name}" "0"
+		return
+	}
+	
+	
+	; **************************************
+	; DEBUG TEXT
+	if ${Me.InCombat}
+		oc ${Me.Name} Mining ore at distance ${AurumCluster.Distance} away
+	; **************************************
+	
+	
 	; Pause Ogre
 	oc !ci -Pause ${Me.Name}
 	wait 3
@@ -626,6 +681,16 @@ function Coppernicus(string _NamedNPC)
 			{
 				; Make sure named is targeted
 				Actor["${_NamedNPC}"]:DoTarget
+				
+				
+				
+				; **************************************
+				; DEBUG TEXT
+				oc ${Me.Name} Interrupt
+				; **************************************
+				
+				
+				
 				; Cast Interrupt
 				call CastInterrupt "FALSE"
 			}
@@ -800,7 +865,7 @@ atom CoppernicusIncomingChatText(int ChatType, string Message, string Speaker, s
 		
 		; **************************************
 		; DEBUG TEXT
-		;oc ${Me.Name} Absorb Inc
+		oc ${Me.Name} Absorb Inc
 		; **************************************
 	}
 	
@@ -814,7 +879,7 @@ atom CoppernicusIncomingChatText(int ChatType, string Message, string Speaker, s
 
 variable bool GoldfeatherRuffledFeathersIncoming=FALSE
 variable bool GoldfeatherExists
-variable bool GoldfeatherFeatheredFrenzyIncoming=FALSE
+variable time GoldfeatherFeatheredFrenzyTime
 function Goldfeather(string _NamedNPC)
 {
 	; Handle text events
@@ -851,25 +916,25 @@ function Goldfeather(string _NamedNPC)
 			; Set Ruffled Feathers as handled
 			GoldfeatherRuffledFeathersIncoming:Set[FALSE]
 		}
-		; Handle Feathered Frenzy
-		; 	Get message Goldfeather's about to go into a Feathered Frenzy!
-		; 	Need to complete Mage HO to prevent it
-		if ${GoldfeatherFeatheredFrenzyIncoming}
-		{
-			; Check to see if character is HOMage
-			if ${OgreBotAPI.Get_Variable["HOMage"].Equal[${Me.Name}]}
-			{
-				; Perform solo Mage HO
-				call PerformSoloMageHO "${Me.Name}"
-				; Re-check No Interrupts
-				oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_nointerrupts TRUE TRUE
-			}
-			; Consider the Feathered Frenzy handled
-			GoldfeatherFeatheredFrenzyIncoming:Set[FALSE]
-		}
 		; Perform checks every second
 		if ${SecondLoopCount:Inc} >= 10
 		{
+			; Handle Feathered Frenzy
+			; 	Get message Goldfeather's about to go into a Feathered Frenzy!
+			; 	Need to complete Mage HO to prevent it
+			if ${GoldfeatherFeatheredFrenzyTime.Timestamp} > 0 && ${Math.Calc[${Time.Timestamp}-${GoldfeatherFeatheredFrenzyTime.Timestamp}]} >=0
+			{
+				; Check to see if character is HOMage
+				if ${OgreBotAPI.Get_Variable["HOMage"].Equal[${Me.Name}]}
+				{
+					; Perform solo Mage HO
+					call PerformSoloMageHO "${Me.Name}"
+					; Re-check No Interrupts
+					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_nointerrupts TRUE TRUE
+				}
+				; Consider the Feathered Frenzy handled
+				GoldfeatherFeatheredFrenzyTime:Set[0]
+			}
 			; Check to see if character has Mutagenesis Disease
 			if ${Me.Effect[Query, "Detrimental" && MainIconID == 257 && BackDropIconID == 257].ID(exists)}
 				oc !ci -Set_Variable igw:${Me.Name} "${Me.Name}HasCurse" "TRUE"
@@ -1107,8 +1172,13 @@ atom GoldfeatherIncomingText(string Text)
 	; Look for message that Feathered Frenzy is incoming
 	; 	Goldfeather's about to go into a Feathered Frenzy! A timely Heroic Opportunity started by Arcane Augur may calm him!
 	; 	Goldfeather's about to go into a Feathered Frenzy!
+	; Note message comes in early, if perform HO to counter too soon it doesn't work, so delaying by 3 seconds
 	if ${Text.Find["Goldfeather's about to go into a Feathered Frenzy!"]}
-		GoldfeatherFeatheredFrenzyIncoming:Set[TRUE]
+	{
+		GoldfeatherFeatheredFrenzyTime:Set[${Time.Timestamp}]
+		GoldfeatherFeatheredFrenzyTime.Second:Inc[3]
+		GoldfeatherFeatheredFrenzyTime:Update
+	}
 }
 
 atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
