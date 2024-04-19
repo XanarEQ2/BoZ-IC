@@ -56,7 +56,7 @@ function SetupAllCures(bool EnableCures)
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_cure ${SetCastStack} TRUE
 	oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disablecaststack_curecurse ${SetCastStack} TRUE
 	; Setup class-specific abilities with cures attached
-	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Crusader's Judgement" ${EnableCures} TRUE
+	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+crusader "Crusader's Judgement" ${EnableCures} TRUE
 	oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+shadowknight "Zealous Smite" ${EnableCures} TRUE
 }
 

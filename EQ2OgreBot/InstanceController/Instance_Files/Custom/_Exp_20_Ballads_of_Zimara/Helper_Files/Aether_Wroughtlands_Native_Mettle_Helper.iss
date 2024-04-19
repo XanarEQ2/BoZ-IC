@@ -386,13 +386,10 @@ function Nugget(string _NamedNPC)
 						; Make sure character is not moving (may pass by another tree on the way to destination tree)
 						if !${Me.IsMoving}
 						{
-							
-							
 							; **************************************
 							; DEBUG TEXT
 							oc ${Me.Name} Click Tree at distance ${Tree.Distance} away
 							; **************************************
-							
 							
 							; Click Tree
 							Tree:DoubleClick
@@ -400,7 +397,6 @@ function Nugget(string _NamedNPC)
 							; Check for Holding on tight detrimental
 							if ${Me.Effect[Query, "Detrimental" && MainIconID == 187 && BackDropIconID == 187].ID(exists)}
 							{
-								
 								; **************************************
 								; DEBUG TEXT
 								oc ${Me.Name} Have Holding on Tight detrimental
@@ -681,16 +677,12 @@ function Coppernicus(string _NamedNPC)
 			{
 				; Make sure named is targeted
 				Actor["${_NamedNPC}"]:DoTarget
-				
-				
-				
+
 				; **************************************
 				; DEBUG TEXT
 				oc ${Me.Name} Interrupt
 				; **************************************
-				
-				
-				
+
 				; Cast Interrupt
 				call CastInterrupt "FALSE"
 			}
@@ -911,8 +903,16 @@ function Goldfeather(string _NamedNPC)
 		; 	Named casts spell that memwipes with damage?, want to interrupt
 		if ${GoldfeatherRuffledFeathersIncoming}
 		{
+			; Disable assist and make sure Goldfeather is targeted
+			oc !ci -ChangeOgreBotUIOption ${Me.Name} checkbox_settings_assist FALSE TRUE
+			wait 1
+			Actor[Query,Name=="Goldfeather" && Type != "Corpse"]:DoTarget
+			wait 5
 			; Cast Interrupt
 			call CastInterrupt "FALSE"
+			; If not a fighter, re-enable assist after 4 seconds
+			if !${Me.Archetype.Equal[fighter]}
+				timedcommand 40 oc !ci -ChangeOgreBotUIOption ${Me.Name} checkbox_settings_assist TRUE TRUE
 			; Set Ruffled Feathers as handled
 			GoldfeatherRuffledFeathersIncoming:Set[FALSE]
 		}
@@ -927,9 +927,15 @@ function Goldfeather(string _NamedNPC)
 				; Check to see if character is HOMage
 				if ${OgreBotAPI.Get_Variable["HOMage"].Equal[${Me.Name}]}
 				{
+					; Disable assist and make sure Goldfeather is targeted
+					oc !ci -ChangeOgreBotUIOption ${Me.Name} checkbox_settings_assist FALSE TRUE
+					wait 1
+					Actor[Query,Name=="Goldfeather" && Type != "Corpse"]:DoTarget
+					wait 5
 					; Perform solo Mage HO
 					call PerformSoloMageHO "${Me.Name}"
-					; Re-check No Interrupts
+					; Re-enable Assist and re-check No Interrupts
+					oc !ci -ChangeOgreBotUIOption ${Me.Name} checkbox_settings_assist TRUE TRUE
 					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_nointerrupts TRUE TRUE
 				}
 				; Consider the Feathered Frenzy handled
@@ -1016,16 +1022,10 @@ function Goldfeather(string _NamedNPC)
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 86 && BackDropIconID == 86].ID(exists)}
 				{
 					
-					
-					
-					; ***************************
-					; ***************************
-					; ***************************
+					; **************************************
+					; DEBUG TEXT
 					oc ${Me.Name} Bellowing Bill at ${Actor["Goldfeather"].Health}
-					; ***************************
-					; ***************************
-					; ***************************
-					
+					; **************************************
 					
 					; Use cure pot to cure
 					oc !ci -UseItem ${Me.Name} "Zimaran Cure Noxious"
@@ -1043,9 +1043,9 @@ function Goldfeather(string _NamedNPC)
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 434 && BackDropIconID == 581].ID(exists)}
 				{
 					; Move character into lake
-					oc !ci -ChangeCampSpotWho ${Me.Name} 600.05 245.78 403.62
+					oc !ci -ChangeCampSpotWho ${Me.Name} 575.49 245.78 352.03
 					; Setup a timedcommand to move character back after 15 seconds (Sitting Duck should have a 15 second duration)
-					timedcommand 150 oc !ci -ChangeCampSpotWho ${Me.Name} 602.36 248.94 416.31
+					timedcommand 150 oc !ci -ChangeCampSpotWho ${Me.Name} 557.77 250.22 325.19
 					SittingDuckCounter:Set[-20]
 				}
 			}
@@ -1063,20 +1063,35 @@ function Goldfeather(string _NamedNPC)
 					; 	Don't want to have cure pots on cooldown when Bellowing Bill hits
 					if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse"].Health} > 40
 					{
-						; Pause Ogre
-						oc !ci -Pause ${Me.Name}
-						wait 1
-						; Clear ability queue
-						eq2execute clearabilityqueue
-						wait 1
-						; Cancel anything currently being cast
-						oc !ci -CancelCasting ${Me.Name}
-						; Use cure pot to cure
-						oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
-						wait 30
-						; Resume Ogre
-						oc !ci -Resume ${Me.Name}
-						DipCounter:Set[-2]
+						; Make sure cure pot is available and not on a cooldown
+						if ${Me.Inventory[Query, Name =- "Zimaran Cure Trauma" && Location == "Inventory"].TimeUntilReady} == -1
+						{
+							; Pause Ogre
+							oc !ci -Pause ${Me.Name}
+							wait 1
+							; Clear ability queue
+							eq2execute clearabilityqueue
+							wait 1
+							; Cancel anything currently being cast
+							oc !ci -CancelCasting ${Me.Name}
+							; Use cure pot to cure
+							oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+							; Wait for pot to start casting (up to 2 seconds)
+							Counter:Set[0]
+							while !${Me.CastingSpell} && ${Counter:Inc} <= 20
+							{
+								wait 1
+							}
+							; Wait for casting to be completed (up to 2 seconds)
+							Counter:Set[0]
+							while ${Me.CastingSpell} && ${Counter:Inc} <= 20
+							{
+								wait 1
+							}
+							; Resume Ogre
+							oc !ci -Resume ${Me.Name}
+							DipCounter:Set[-2]
+						}
 					}
 				}
 			}
@@ -1176,11 +1191,11 @@ atom GoldfeatherIncomingText(string Text)
 	; Look for message that Feathered Frenzy is incoming
 	; 	Goldfeather's about to go into a Feathered Frenzy! A timely Heroic Opportunity started by Arcane Augur may calm him!
 	; 	Goldfeather's about to go into a Feathered Frenzy!
-	; Note message comes in early, if perform HO to counter too soon it doesn't work, so delaying by 3 seconds
+	; Note message comes in early, if perform HO to counter too soon it doesn't work, so delaying by 2 seconds
 	if ${Text.Find["Goldfeather's about to go into a Feathered Frenzy!"]}
 	{
 		GoldfeatherFeatheredFrenzyTime:Set[${Time.Timestamp}]
-		GoldfeatherFeatheredFrenzyTime.Second:Inc[3]
+		GoldfeatherFeatheredFrenzyTime.Second:Inc[2]
 		GoldfeatherFeatheredFrenzyTime:Update
 	}
 }
@@ -1296,10 +1311,8 @@ function Goldan(string _NamedNPC)
 		if ${SecondLoopCount:Inc} >= 10
 		{
 			
-			; ********************************************
-			; ********************************************
-			; ********************************************
-			; FOR DEBUG!!!!
+			; **************************************
+			; DEBUG TEXT
 			;${OgreBotAPI.Get_Variable["PadAllowed"]}
 			oc !ci -Set_Variable ${Me.Name} "PadDisabled" "${PadDisabled}"
 			;${OgreBotAPI.Get_Variable["PadDisabled"]}
@@ -1309,9 +1322,7 @@ function Goldan(string _NamedNPC)
 			;${OgreBotAPI.Get_Variable["GoldanPadTintFlags"]}
 			oc !ci -Set_Variable ${Me.Name} "PadAllowedTintFlag" "${PadAllowedTintFlag}"
 			;${OgreBotAPI.Get_Variable["PadAllowedTintFlag"]}
-			; ********************************************
-			; ********************************************
-			; ********************************************
+			; **************************************
 			
 			; Update PadDisabled
 			if ${GoldanPad.TintFlags} != ${PadAllowedTintFlag}

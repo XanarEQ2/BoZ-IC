@@ -1164,8 +1164,12 @@ objectdef Object_Instance
 						oc !ci -CastAbility ${Me.Name} "Aura of the Crusader"
 				; Move everyone else behind named out of the line of fire
 				call MoveInRelationToNamed "igw:${Me.Name}+-fighter" "${_NamedNPC}" "5" "170"
-				; Wait for sweep to go off
-				wait 40
+				; Wait for sweep to go off (up to 6 seconds)
+				Counter:Set[0]
+				while !${NuggetAbsorbAndCrushArmorIncoming} && !${NuggetAllMineIncoming} && ${Counter:Inc} <= 60
+				{
+					wait 1
+				}
 				; Move everyone back to KillSpot
 				oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				; Set Stupendous Sweep as handled
@@ -1242,16 +1246,10 @@ objectdef Object_Instance
 				; Check to see if there is a mismatch between DPSEnabled and DPSAllowed (^ is XOR, exclusive OR)
 				if ${DPSEnabled}^${DPSAllowed}
 				{
-					
-					; *******************************
-					; *******************************
-					; *******************************
-					oc DPS Enabled ${DPSEnabled} Allowed ${DPSAllowed}
-					oc HP ${NuggetHP} time ${Math.Calc[${Time.Timestamp}-${SweepSlamTime.Timestamp}]}
-					; *******************************
-					; *******************************
-					; *******************************
-					
+					; **************************************
+					; DEBUG TEXT
+					oc DPS Enabled set to ${DPSAllowed} at ${Math.Calc[${Time.Timestamp}-${SweepSlamTime.Timestamp}]}s from Sweep/Slam
+					; **************************************
 					
 					; Enable/disable DPS
 					call SetupAllDPS "${DPSAllowed}"
@@ -2435,7 +2433,7 @@ objectdef Object_Instance
 	function:bool Named4(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[602.36,248.94,416.31]
+		KillSpot:Set[557.77,250.22,325.19]
 		
 		; Undo Coppernicus custom settings
 		call SetupCoppernicus "FALSE"
@@ -2508,15 +2506,7 @@ objectdef Object_Instance
 		if !${GoldfeatherExists}
 		{
 			Obj_OgreIH:Message_NamedDoesNotExistSkipping["${_NamedNPC}"]
-			call move_to_next_waypoint "570.64,256.26,287.82"
-			call move_to_next_waypoint "519.36,256.88,303.53"
-			call move_to_next_waypoint "473.40,256.21,340.62"
-			call move_to_next_waypoint "459.97,257.38,393.92"
-			call move_to_next_waypoint "480.87,252.34,437.96"
-			call move_to_next_waypoint "495.92,261.01,484.20"
-			call move_to_next_waypoint "554.29,250.88,493.65"
-			call move_to_next_waypoint "609.51,251.40,496.74"
-			call move_to_next_waypoint "592.45,249.94,433.45"
+			call move_to_next_waypoint "572.66,256.27,290.51"
 			call move_to_next_waypoint "${KillSpot}"
 			return TRUE
 		}
@@ -2615,20 +2605,11 @@ objectdef Object_Instance
 			call CheckGoldfeatherNeedCurse
 		}
 		
-		; Wait for goldfeather to be clear of path to island
-		while !${Actor[Query,Name=="Goldfeather" && Type != "Corpse" && (X < 580 || X > 640)].ID(exists)}
-		{
-			wait 10
-		}
-		
 		; Disable CA on priests (may aggro extra aurumutations and have characters die because they have the Mutagenesis Disease, just don't want the priests to die)
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disablecaststack_ca TRUE TRUE
 		
-		; Move to island
-		call move_to_next_waypoint "621.33,261.04,318.36"
-		call move_to_next_waypoint "616.91,245.72,340.46"
-		call move_to_next_waypoint "615.65,246.03,364.73"
-		call move_to_next_waypoint "615.26,246.17,392.98"
+		; Move to KillSpot
+		call move_to_next_waypoint "572.66,256.27,290.51"
 		call move_to_next_waypoint "${KillSpot}"
 		
 		; Get Phylacterys
@@ -2683,6 +2664,7 @@ objectdef Object_Instance
 		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
 		
 		; Wait for Goldfeather to path near KillSpot
+		oc Waiting for Goldfeather to path near KillSpot
 		while !${Actor[Query,Name=="Goldfeather" && Type != "Corpse" && Distance < 70].ID(exists)}
 		{
 			wait 10
@@ -2729,7 +2711,7 @@ objectdef Object_Instance
 			if ${GoldfeatherPlumeBoomIncoming}
 			{
 				; Move fighter away from group
-				oc !ci -ChangeCampSpotWho igw:${Me.Name}+fighter 592.81 249.32 427.72
+				oc !ci -ChangeCampSpotWho igw:${Me.Name}+fighter 572.01 250.37 317.15
 				; Setup a timedcommand to move fighter back after 6 seconds (Plume Boom should have a 4 second cast time)
 				timedcommand 60 oc !ci -ChangeCampSpotWho igw:${Me.Name}+fighter ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				; Handled GoldfeatherPlumeBoomIncoming
@@ -2821,10 +2803,10 @@ objectdef Object_Instance
 		; Disable mage lightning and star HO icon abilities so they are available when mage needs to complete an HO
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_25 ${EnableGoldfeather} TRUE
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_29 ${EnableGoldfeather} TRUE
-		; Disable PBAE abilities (don't want to aggro extra roaming aurumutation mobs)
+		; Disable PBAE abilities (don't want to aggro extra roaming mobs)
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_donotsave_dynamicignorepbae ${EnableGoldfeather} TRUE
-		; Setup Interrupts (will selectively interrupt as needed so don't want abilities on cooldown)
-		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nointerrupts ${EnableGoldfeather} TRUE
+		; Setup Interrupt Mode
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_interrupt_mode ${EnableGoldfeather} TRUE
 		; Set Auto Target Out of Combat scanning to enabled by default
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning TRUE TRUE
 	}
@@ -2976,7 +2958,7 @@ objectdef Object_Instance
 		variable float CurrentY
 		
 		; Set first 2 TravelSpots to move out into center of lake (can have pathing issues if try to move from KillSpot to some edge spots)
-		TravelSpots[1]:Set[609.19,245.86,393.23]
+		TravelSpots[1]:Set[599.45,246.99,357.43]
 		TravelSpots[2]:Set[630.26,245.82,379.24]
 		
 		; Search for any Goldfeather's phylactery
@@ -3158,18 +3140,23 @@ objectdef Object_Instance
 			; Enable PreCastTag to allow priest to setup wards before engaging first mob
 			oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
 			wait 60
+			; Move out of Goldfeather area
+			call move_to_next_waypoint "512.75,257.22,301.38" "1"
+			call move_to_next_waypoint "461.27,255.51,340.01" "1"
+			call move_to_next_waypoint "422.35,258.70,380.73" "1"
+			call move_to_next_waypoint "421.49,254.24,428.54" "1"
+			call move_to_next_waypoint "455.65,262.45,487.82" "1"
+			call move_to_next_waypoint "498.32,262.28,533.78" "1"
+			call move_to_next_waypoint "560.37,262.99,601.01" "1"
+			call move_to_next_waypoint "581.85,259.83,623.33" "1"
 			; Set MoveMelee = FALSE while moving to waypoints as mobs have a large knockbock that can cause problems with it
-			call move_to_next_waypoint "592.37,249.74,431.54" "1" "FALSE"
-			call move_to_next_waypoint "607.67,251.22,484.89" "1" "FALSE"
-			call move_to_next_waypoint "601.07,257.18,542.10" "1" "FALSE"
-			call move_to_next_waypoint "623.99,259.70,595.41" "1" "FALSE"
-			call move_to_next_waypoint "693.19,255.31,621.67" "1" "FALSE"
-			call move_to_next_waypoint "666.80,252.64,709.13" "1" "FALSE"
-			call move_to_next_waypoint "623.61,252.64,669.20" "1" "FALSE"
-			call move_to_next_waypoint "580.96,255.43,658.90" "1" "FALSE"
-			call move_to_next_waypoint "564.54,252.64,699.16" "1" "FALSE"
-			call move_to_next_waypoint "603.02,250.00,730.19" "1" "FALSE"
-			call move_to_next_waypoint "624.69,246.49,766.60" "1" "FALSE"
+			call move_to_next_waypoint "578.71,255.40,650.93" "1" "FALSE"
+			call move_to_next_waypoint "563.94,250.37,705.44" "1" "FALSE"
+			call move_to_next_waypoint "599.27,249.98,728.33" "1" "FALSE"
+			call move_to_next_waypoint "625.42,252.81,663.75" "1" "FALSE"
+			call move_to_next_waypoint "696.80,255.31,629.53" "1" "FALSE"
+			call move_to_next_waypoint "667.47,252.85,712.94" "1" "FALSE"
+			call move_to_next_waypoint "629.42,249.90,754.68" "1" "FALSE"
 		}
 		; Otherwise move from respawn point
 		else
