@@ -907,7 +907,6 @@ function Goldfeather(string _NamedNPC)
 			oc !ci -ChangeOgreBotUIOption ${Me.Name} checkbox_settings_assist FALSE TRUE
 			wait 1
 			Actor[Query,Name=="Goldfeather" && Type != "Corpse"]:DoTarget
-			wait 5
 			; Cast Interrupt
 			call CastInterrupt "FALSE"
 			; If not a fighter, re-enable assist after 4 seconds
@@ -1217,30 +1216,42 @@ atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, s
 
 variable bool GoldanExists
 variable point3f PlatformCenterLocation="659.83,270.30,908.93"
-variable actor GoldanPad
-variable bool GoldanFighterPadNotAllowedIncoming=FALSE
-variable bool GoldanScoutPadNotAllowedIncoming=FALSE
-variable bool GoldanMagePadNotAllowedIncoming=FALSE
-variable bool GoldanPriestPadNotAllowedIncoming=FALSE
+variable uint GoldanPadTintFlag
+variable bool GoldanFighterPadDisabledIncoming=FALSE
+variable bool GoldanScoutPadDisabledIncoming=FALSE
+variable bool GoldanMagePadDisabledIncoming=FALSE
+variable bool GoldanPriestPadDisabledIncoming=FALSE
+
+; **************************************
+; DEBUG TEXT
+variable time GoldanStaggerMessageTime
+variable time GoldanTailLashMessageTime
+variable time GoldanVaporizeMessageTime
+; **************************************
+
 function Goldan(string _NamedNPC)
 {
 	; Handle text events
+	Event[EQ2_onIncomingText]:AttachAtom[GoldanIncomingText]
 	Event[EQ2_onIncomingChatText]:AttachAtom[GoldanIncomingChatText]
 	; Setup variables
 	variable int Counter
 	variable int SecondLoopCount=10
 	variable int GoldanExistsCount=0
-	variable uint PadAllowedTintFlag
-	variable bool GoldanAtPad=FALSE
+	variable actor GoldanPad
+	variable bool AtPad=FALSE
 	variable bool PadDisabled=FALSE
 	variable int FangsCounter=0
 	variable bool NeedUpdateFlecksCureTime=FALSE
 	variable int FlecksCounter=0
 	variable time FlecksCureTime=${Time.Timestamp}
 	
-	; Get GoldanPad and PadAllowedTintFlag
-	GoldanPad:Set[${Actor[Query,Name =- "hover_pad_0" && Distance < 10].ID}]
-	PadAllowedTintFlag:Set[${GoldanPad.TintFlags}]
+	; Set default variable
+	oc !ci -Set_Variable ${Me.Name} "PadDisabledIncoming" "FALSE"
+	
+	; Get GoldanPadTintFlag and GoldanPad
+	GoldanPadTintFlag:Set[${Actor[Query,Name =- "hover_pad_0" && Distance < 10].TintFlags}]
+	GoldanPad:Set[${Actor[Query,Name =- "hover_pad_0" && TintFlags == ${GoldanPadTintFlag}].ID}]
 	
 	; At start, jump characters to platform
 	call GoldanJumpPadToPlatform
@@ -1250,52 +1261,52 @@ function Goldan(string _NamedNPC)
 	while ${GoldanExists}
 	{
 		; Handle platforms being made classless
-		if ${GoldanFighterPadNotAllowedIncoming}
+		if ${GoldanFighterPadDisabledIncoming}
 		{
 			if ${Me.Archetype.Equal[fighter]}
-				call GoldanSetPadNotAllowed
-			GoldanFighterPadNotAllowedIncoming:Set[FALSE]
+				call GoldanSetPadDisabledIncoming
+			GoldanFighterPadDisabledIncoming:Set[FALSE]
 		}
-		elseif ${GoldanScoutPadNotAllowedIncoming}
+		elseif ${GoldanScoutPadDisabledIncoming}
 		{
 			if ${Me.Archetype.Equal[scout]}
-				call GoldanSetPadNotAllowed
-			GoldanScoutPadNotAllowedIncoming:Set[FALSE]
+				call GoldanSetPadDisabledIncoming
+			GoldanScoutPadDisabledIncoming:Set[FALSE]
 		}
-		elseif ${GoldanMagePadNotAllowedIncoming}
+		elseif ${GoldanMagePadDisabledIncoming}
 		{
 			if ${Me.Archetype.Equal[mage]}
-				call GoldanSetPadNotAllowed
-			GoldanMagePadNotAllowedIncoming:Set[FALSE]
+				call GoldanSetPadDisabledIncoming
+			GoldanMagePadDisabledIncoming:Set[FALSE]
 		}
-		elseif ${GoldanPriestPadNotAllowedIncoming}
+		elseif ${GoldanPriestPadDisabledIncoming}
 		{
 			if ${Me.Archetype.Equal[priest]}
-				call GoldanSetPadNotAllowed
-			GoldanPriestPadNotAllowedIncoming:Set[FALSE]
+				call GoldanSetPadDisabledIncoming
+			GoldanPriestPadDisabledIncoming:Set[FALSE]
 		}
-		; Jump to pad/platform as needed based on PadAllowed/PadDisabled
-		if ${GoldanAtPad}
+		; Jump to pad/platform as needed based on PadAllowed/PadReset/PadDisabledIncoming/PadDisabled
+		if ${AtPad}
 		{
 			; If not allowed or disabled, need to get off
-			if !${OgreBotAPI.Get_Variable["PadAllowed"]} || ${PadDisabled}
+			if !${OgreBotAPI.Get_Variable["PadAllowed"]} || ${OgreBotAPI.Get_Variable["PadReset"]} || ${OgreBotAPI.Get_Variable["PadDisabledIncoming"]} || ${PadDisabled}
 			{
-				; Make sure character is on the pad not moving
+				; Make sure character is on the ground not moving
 				if !${Me.IsMoving} && ${Me.Y} >= 269 && ${Me.Y} <= 272
 				{
 					call GoldanJumpPadToPlatform
-					GoldanAtPad:Set[FALSE]
+					AtPad:Set[FALSE]
 				}
 			}
 		}
 		; If not at pad, see if pad is available to go to
-		elseif ${OgreBotAPI.Get_Variable["PadAllowed"]} && !${PadDisabled}
+		elseif ${OgreBotAPI.Get_Variable["PadAllowed"]} && !${OgreBotAPI.Get_Variable["PadReset"]} && !${OgreBotAPI.Get_Variable["PadDisabledIncoming"]} && !${PadDisabled}
 		{
-			; Make sure character is on the platform not moving
+			; Make sure character is on the ground not moving
 			if !${Me.IsMoving} && ${Me.Y} >= 269 && ${Me.Y} <= 272
 			{
 				call GoldanJumpPlatformToPad
-				GoldanAtPad:Set[TRUE]
+				AtPad:Set[TRUE]
 			}
 		}
 		; If NeedUpdateFlecksCureTime, check to see that flecks was removed
@@ -1310,46 +1321,33 @@ function Goldan(string _NamedNPC)
 		; Perform checks every second
 		if ${SecondLoopCount:Inc} >= 10
 		{
-			
-			; **************************************
-			; DEBUG TEXT
-			;${OgreBotAPI.Get_Variable["PadAllowed"]}
-			oc !ci -Set_Variable ${Me.Name} "PadDisabled" "${PadDisabled}"
-			;${OgreBotAPI.Get_Variable["PadDisabled"]}
-			oc !ci -Set_Variable ${Me.Name} "GoldanAtPad" "${GoldanAtPad}"
-			;${OgreBotAPI.Get_Variable["GoldanAtPad"]}
-			oc !ci -Set_Variable ${Me.Name} "GoldanPadTintFlags" "${GoldanPad.TintFlags}"
-			;${OgreBotAPI.Get_Variable["GoldanPadTintFlags"]}
-			oc !ci -Set_Variable ${Me.Name} "PadAllowedTintFlag" "${PadAllowedTintFlag}"
-			;${OgreBotAPI.Get_Variable["PadAllowedTintFlag"]}
-			; **************************************
-			
-			; Update PadDisabled
-			if ${GoldanPad.TintFlags} != ${PadAllowedTintFlag}
+			; Update GoldanPad (may change during the fight, so need to update with the pad matching GoldanPadTintFlag)
+			GoldanPad:Set[${Actor[Query,Name =- "hover_pad_0" && TintFlags == ${GoldanPadTintFlag}].ID}]
+			; Update PadDisabled based on whether or not GoldanPad exists
+			if !${GoldanPad.ID(exists)}
 				PadDisabled:Set[TRUE]
 			else
 				PadDisabled:Set[FALSE]
-			; Update GoldanAtPad based on distance to pad
-			if ${Math.Distance[${Me.X},${Me.Z},${GoldanPad.X},${GoldanPad.Z}]} < 10
-				GoldanAtPad:Set[TRUE]
-			else
-				GoldanAtPad:Set[FALSE]
-			; If at pad, monitor character height and if they get knocked into the air send them to platform
-			if ${GoldanAtPad} && ${Me.Y} > 290
+			; If AtPad, monitor character height and if they get knocked into the air send them to platform
+			if ${AtPad} && ${Me.Y} > 290
 			{
+
+				; **************************************
+				; DEBUG TEXT
+				oc ${Me.Name} knocked up, sending to platform
+				; **************************************
 				
-				
-				; ********************************************
-				; ********************************************
-				; ********************************************
-				oc ${Me.Name} knocked up, need to move to platform
-				; ********************************************
-				; ********************************************
-				; ********************************************
-				
-				
-				call GoldanJumpPadToPlatform
+				; Send to center of platform, don't want to miss the platform aiming for an edge spot and fall off
+				oc !ci -campspot ${Me.Name}
+				oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
+				; Set AtPad = FALSE
+				AtPad:Set[FALSE]
 			}
+			; Update AtPad based on distance to pad
+			if ${GoldanPad.ID(exists)} && ${Me.Y} <= 290 && ${Math.Distance[${Me.X},${Me.Z},${GoldanPad.X},${GoldanPad.Z}]} < 10
+				AtPad:Set[TRUE]
+			else
+				AtPad:Set[FALSE]
 			; Handle Spitting Fangs detrimental
 			; 	Curse deals damage, power drains, decrease Fervor/casting speed
 			; 	Can only cure while Divine Providence is active or during Priest HO wheel, otherwise character and priest die
@@ -1359,20 +1357,15 @@ function Goldan(string _NamedNPC)
 			{
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 695 && BackDropIconID == 695].ID(exists)}
 				{
-					; Cure if LatestHO is Priest and HO window is up
+					; Cure if LatestHO is Priest, HO window is up, and nothing is incoming
 					if ${OgreBotAPI.Get_Variable["LatestHO"].Equal[Priest]} && ${EQ2.HOWindowState} != -1
 					{
-						; **************************
-						; **************************
-						; **************************
-						; Set AutoCurse for a priest to cure this character
-						oc !c -AutoCurse igw:${Me.Name}+priest ${Me.Name}
-						; **************************
-						; **************************
-						; **************************
-						
-						
-						FangsCounter:Set[-5]		
+						if !${OgreBotAPI.Get_Variable["GoldanStaggerIncoming"]} && !${OgreBotAPI.Get_Variable["GoldanTailLashIncoming"]} && !${OgreBotAPI.Get_Variable["GoldanVaporizeIncoming"]}
+						{
+							; Set AutoCurse for a priest to cure this character
+							oc !ci -AutoCurse igw:${Me.Name}+priest ${Me.Name}
+							FangsCounter:Set[-6]
+						}
 					}
 				}
 			}
@@ -1389,15 +1382,19 @@ function Goldan(string _NamedNPC)
 			{
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 				{
-					; Cure if not fighter or more than 3 minutes have passed since last cure
-					if !${Me.Archetype.Equal[fighter]} || ${Math.Calc[${Time.Timestamp}-${FlecksCureTime.Timestamp}]} > 180
+					; Cure if not fighter or more than 3 minutes have passed since last cure and Stagger is not incoming
+					if !${Me.Archetype.Equal[fighter]} || (${Math.Calc[${Time.Timestamp}-${FlecksCureTime.Timestamp}]} > 180 && ${OgreBotAPI.Get_Variable["GoldanStaggerIncomingTime"]} == 0)
 					{
-						; Use cure pot to cure
-						oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
-						; For fighter, need to check that flecks was actually removed before setting new FlecksCureTime
-						if ${Me.Archetype.Equal[fighter]}
-							NeedUpdateFlecksCureTime:Set[TRUE]
-						FlecksCounter:Set[-2]		
+						; Make sure character is on the ground not moving
+						if !${Me.IsMoving} && ${Me.Y} >= 269 && ${Me.Y} <= 272
+						{
+							; Use cure pot to cure
+							oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
+							; For fighter, need to check that flecks was actually removed before setting new FlecksCureTime
+							if ${Me.Archetype.Equal[fighter]}
+								NeedUpdateFlecksCureTime:Set[TRUE]
+							FlecksCounter:Set[-2]
+						}
 					}
 				}
 			}
@@ -1414,6 +1411,7 @@ function Goldan(string _NamedNPC)
 		}
 	}
 	; Detach Atoms
+	Event[EQ2_onIncomingText]:DetachAtom[GoldanIncomingText]
 	Event[EQ2_onIncomingChatText]:DetachAtom[GoldanIncomingChatText]
 }
 
@@ -1435,20 +1433,30 @@ function CheckGoldanExists()
 	GoldanExists:Set[FALSE]
 }
 
-function GoldanSetPadNotAllowed()
+function GoldanSetPadDisabledIncoming()
 {
 	; Set pad as not allowed, but change back to allowed 5 seconds later
 	; 	By that point any add should have spawned and PadDisabled would prevent jumping back if not safe
-	oc !ci -Set_Variable ${Me.Name} "PadAllowed" "FALSE"
-	timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
+	oc !ci -Set_Variable ${Me.Name} "PadDisabledIncoming" "TRUE"
+	timedcommand 50 oc !ci -Set_Variable ${Me.Name} "PadDisabledIncoming" "FALSE"
 	wait 1
 }
 
 function GoldanJumpPadToPlatform()
 {
-	; Set Campspot to PlatformCenterLocation
-	oc !ci -campspot ${Me.Name}
-	oc !ci -ChangeCampSpotWho ${Me.Name} ${PlatformCenterLocation.X} ${PlatformCenterLocation.Y} ${PlatformCenterLocation.Z}
+	; Get GoldanPad
+	variable actor GoldanPad
+	GoldanPad:Set[${Actor[Query,Name =- "hover_pad_0" && TintFlags == ${GoldanPadTintFlag}].ID}]
+	; Make sure pad exists
+	if !${GoldanPad.ID(exists)}
+		return
+	; Clear CampSpot and face platform
+	oc !ci -CS_ClearCampSpot ${Me.Name}
+	wait 1
+	face ${PlatformCenterLocation.X} ${PlatformCenterLocation.Z}
+	wait 5
+	; Start moving to platform
+	press -hold "${OgreForwardKey}"
 	; Wait until character starts moving away from pad (up to 4m away, wait for up to 2 seconds)
 	variable time StartTime
 	StartTime:Set[${Time.Timestamp}]
@@ -1457,11 +1465,25 @@ function GoldanJumpPadToPlatform()
 		waitframe
 	}
 	; Jump to platform
-	oc !ci -Jump ${Me.Name}
+	press ${OgreJumpKey}
+	; Wait for the amount of time it takes for character to get to platform, accounting for movement Speed
+	call Wait_ms "${Math.Calc[700 * 340/(${Me.Speed}+100)]}"
+	press -release "${OgreForwardKey}"
+	; Press back for just the right amount of time to stop all forward momentum
+	; 	This should have the character land on the platform, ideally about half way between center and edge
+	press -hold "${OgreBackwardKey}"
+	call Wait_ms "150"
+	press -release "${OgreBackwardKey}"
 }
 
 function GoldanJumpPlatformToPad()
 {
+	; Get GoldanPad
+	variable actor GoldanPad
+	GoldanPad:Set[${Actor[Query,Name =- "hover_pad_0" && TintFlags == ${GoldanPadTintFlag}].ID}]
+	; Make sure pad exists
+	if !${GoldanPad.ID(exists)}
+		return
 	; Clear CampSpot and face pad
 	oc !ci -CS_ClearCampSpot ${Me.Name}
 	wait 1
@@ -1484,24 +1506,42 @@ function GoldanJumpPlatformToPad()
 	; Press back for just the right amount of time to stop all forward momentum
 	; 	This should have the character land at the center of the pad
 	press -hold "${OgreBackwardKey}"
-	
-	
-	
-	; ***********************************
-	; ***********************************
-	; ***********************************
-	
-	; 175 was good out of combat, but characters seemed to pull too far back in combat...
-	
-	;call Wait_ms "175"
 	call Wait_ms "150"
-	; ***********************************
-	; ***********************************
-	; ***********************************
-	
-	
-	
 	press -release "${OgreBackwardKey}"
+}
+
+atom GoldanIncomingText(string Text)
+{
+	; Look for message that Stagger hit
+	; 	Goldan's stagger is absorbed by your shield!
+	; 	Goldan staggers you, and you go flying!
+	if ${Text.Find["Goldan's stagger is absorbed by your shield!"]} || ${Text.Find["Goldan staggers you, and you go flying!"]}
+	{
+		; Set as no longer incoming
+		oc !ci -Set_Variable igw:${Me.Name} "GoldanStaggerIncoming" "FALSE"
+		; Debug message
+		oc ${Me.Name} Stagger hit ${Math.Calc[${Time.Timestamp}-${GoldanStaggerMessageTime.Timestamp}]} seconds after message
+	}
+	; Look for message that Tail Lash hit
+	; 	What a Lucky Break! You get the stunning Tail Slap!
+	; 	What an unlucky break! You get the fearing Tail Slap!
+	elseif ${Text.Find["What a Lucky Break! You get the stunning Tail Slap!"]} || ${Text.Find["What an unlucky break! You get the fearing Tail Slap!"]}
+	{
+		; Set as no longer incoming
+		oc !ci -Set_Variable igw:${Me.Name} "GoldanTailLashIncoming" "FALSE"
+		; Debug message
+		oc ${Me.Name} Tail Slap hit ${Math.Calc[${Time.Timestamp}-${GoldanTailLashMessageTime.Timestamp}]} seconds after message
+	}
+	; Look for message that Vaporize hit
+	; 	You are protected by Divine Providence, and survive being vaporized by Goldan!
+	; 	You are vaporized by Goldan as you lacked protection from Divine Providence!
+	elseif ${Text.Find["You are protected by Divine Providence, and survive being vaporized by Goldan!"]} || ${Text.Find["You are vaporized by Goldan as you lacked protection from Divine Providence!"]}
+	{
+		; Set as no longer incoming
+		oc !ci -Set_Variable igw:${Me.Name} "GoldanVaporizeIncoming" "FALSE"
+		; Debug message
+		oc ${Me.Name} Vaporize hit ${Math.Calc[${Time.Timestamp}-${GoldanVaporizeMessageTime.Timestamp}]} seconds after message
+	}
 }
 
 atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
@@ -1514,13 +1554,23 @@ atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string
 	; 	Any declared archetypes on their hover pads, watch out!
 	; 	This is a classless platform! Nobody can be here, not even you!
 	if ${Message.Find["The maedjinn often wish to test their mettle against fighters!"]}
-		GoldanFighterPadNotAllowedIncoming:Set[TRUE]
+		GoldanFighterPadDisabledIncoming:Set[TRUE]
 	elseif ${Message.Find["The maedjinn keep their secrets, much like scouts."]}
-		GoldanScoutPadNotAllowedIncoming:Set[TRUE]
+		GoldanScoutPadDisabledIncoming:Set[TRUE]
 	elseif ${Message.Find["The maedjinn are attracted to magic and mages."]}
-		GoldanMagePadNotAllowedIncoming:Set[TRUE]
+		GoldanMagePadDisabledIncoming:Set[TRUE]
 	elseif ${Message.Find["The maedjinn think themselves more divine than priests."]}
-		GoldanPriestPadNotAllowedIncoming:Set[TRUE]
+		GoldanPriestPadDisabledIncoming:Set[TRUE]
+	
+	; **************************************
+	; DEBUG TEXT
+	if ${Message.Find["space"]}
+		GoldanStaggerMessageTime:Set[${Time.Timestamp}]
+	elseif ${Message.Find["I should use my tail!"]}
+		GoldanTailLashMessageTime:Set[${Time.Timestamp}]
+	elseif ${Message.Find["vaporize"]}
+		GoldanVaporizeMessageTime:Set[${Time.Timestamp}]
+	; **************************************
 	
 	; Debug text to see messages
 	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}

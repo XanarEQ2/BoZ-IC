@@ -15,7 +15,7 @@
 ; 	Will harvest initial ore, waiting for Nugget to be in a position where you won't get aggro
 ; 	Will then wait until Nugget at a certain location to pull
 ; 	Throughout fight may stop/start dps to try to have have required HO right after a sweep/slam
-; 	Uses Zimaran Cure Trauma cure pots to cure Flecks of Regret
+; 	Uses Zimaran Cure Trauma potions to cure Flecks of Regret
 ; 	Fight has been known to bug out and reset when Nugget goes in the ground after casting "All Mine" to respawn ores
 ; 	If you wipe, end script and clear Campspot then respawn at "The Giltglen" then restart script, will pick up from respawn point
 ; Coppernicus
@@ -23,15 +23,15 @@
 ; 	Tank will then grab aggro on remaining 2 and keep aggro on all 4 throughout the fight
 ; 	A Priest (mystic preferred) will perform HO at start of fight and lock named aggro and tank throughout fight
 ; 	DPS will start/stop to try to make sure "Changing Theory" doesn't expire at the same time as a Heliocentric detrimental
-; 	Uses Zimaran Cure Elemental cure pots to cure Flecks of Regret
+; 	Uses Zimaran Cure Elemental potions to cure Flecks of Regret
 ; 	If you wipe, end script and clear Campspot then respawn at "The Golden Terrace" then restart script, will pick up from respawn point
 ; Goldfeather
 ; 	Will start by getting Mutagenesis Disease curse on all players, which lets them enter the lake without dying
 ; 		Requires Zimaran Energy Inverter on all characters except mystic/mages to dispel the aurumutation to get curse
 ; 	After everyone has curse, will get Goldfeather's Phylactery on 3 characters
 ; 	Characters will use Goldfeather's Phylactery to pull Goldfeather when it is close
-; 	Uses Zimaran Cure Trauma cure pots to cure Flecks of Regret and Take a Dip detrimentals
-; 	Uses Zimaran Cure Noxious cure pots to cure Bellowing Bill detrimental
+; 	Uses Zimaran Cure Trauma potions to cure Flecks of Regret and Take a Dip detrimentals
+; 	Uses Zimaran Cure Noxious potions to cure Bellowing Bill detrimental
 ; 	If you wipe, end script and clear Campspot then respawn at "Eighteen Karat Copse" then restart script, will pick up from respawn point
 ; 		May also accidentally aggro Goldfeather while in the process of getting Goldfeather's Phylacteries, treat it like a wipe
 ; Goldan
@@ -41,7 +41,7 @@
 ; 	This add will be kept up throughout the whole fight as it significantly reduces Goldan's combat mitigation
 ; 	Characters will then all jump to pads (if pad isn't disabled by an add) and start the remainder of the fight
 ; 		Have seen it bug out and not consider all 4 Archetypes on the pad even though they were, if that happens may need to reset
-; 	Uses Zimaran Cure Trauma cure pots to cure Flecks of Regret
+; 	Uses Zimaran Cure Trauma potions to cure Flecks of Regret
 ; 	If you wipe, end script and clear Campspot then respawn at "Goldan's Landing" then restart script, will pick up from respawn point
 ; **************************************************************************************************************************************
 
@@ -71,9 +71,9 @@ variable bool GoldfeatherRespawn=FALSE
 variable bool GoldfeatherPlumeBoomIncoming=FALSE
 ; Custom variables for Goldan
 variable bool GoldanRespawn=FALSE
-variable bool GoldanStaggerIncoming=FALSE
-variable bool GoldanTailLashIncoming=FALSE
-variable bool GoldanVaporizeIncoming=FALSE
+variable bool GoldanStaggerNewIncoming=FALSE
+variable bool GoldanTailLashNewIncoming=FALSE
+variable bool GoldanVaporizeNewIncoming=FALSE
 
 #include "${LavishScript.HomeDirectory}/Scripts/EQ2OgreBot/InstanceController/Ogre_Instance_Include.iss"
 
@@ -198,7 +198,6 @@ objectdef Object_Instance
 			}
 			_StartingPoint:Inc
 		}
-		
 		; Zone Out
 		if ${_StartingPoint} == 6
 		{
@@ -207,7 +206,6 @@ objectdef Object_Instance
 			; Zone Out
 			Ob_AutoTarget:Clear
 			Obj_OgreIH:LetsGo
-			oc ${Me.Name} looted ${ShiniesLooted} shinies
 			call ZoneOut "zone_exit"
 			if !${Return}
 			{
@@ -960,7 +958,7 @@ objectdef Object_Instance
 		call initialize_move_to_next_boss "${_NamedNPC}" "2"
 		
 		; Display note for boss
-		oc For ${_NamedNPC}, have Zimaran Cure Trauma cure pots
+		oc For ${_NamedNPC}, have Zimaran Cure Trauma potions
 		
 		; Set custom settings for Nugget
 		call SetupNugget "TRUE"
@@ -1765,7 +1763,7 @@ objectdef Object_Instance
 		call initialize_move_to_next_boss "${_NamedNPC}" "3"
 		
 		; Display note for boss
-		oc For ${_NamedNPC}, have pet to pull adds and Zimaran Cure Elemental cure pots
+		oc For ${_NamedNPC}, have pet to pull adds and Zimaran Cure Elemental potions
 		
 		; Move to named from Nugget
 		if !${CoppernicusRespawn}
@@ -2433,7 +2431,7 @@ objectdef Object_Instance
 	function:bool Named4(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[557.77,250.22,325.19]
+		KillSpot:Set[563.83,249.25,337.73]
 		
 		; Undo Coppernicus custom settings
 		call SetupCoppernicus "FALSE"
@@ -2467,7 +2465,7 @@ objectdef Object_Instance
 		
 		; Display note for boss
 		oc For ${_NamedNPC}, have Zimaran Energy Inverter on all characters except mystic/mages to get curse
-		oc For ${_NamedNPC}, have Zimaran Cure Trauma/Noxious cure pots
+		oc For ${_NamedNPC}, have Zimaran Cure Trauma/Noxious potions
 		
 		; Enable PreCastTag to allow priest to setup wards before engaging first mob
 		oc !ci -AbilityTag igw:${Me.Name} "PreCastTag" "6" "Allow"
@@ -2547,19 +2545,33 @@ objectdef Object_Instance
 			}
 		}
 		
-		; Determine FlecksCharacter (someone who is not a PhylacteryCharacter and not HOMage, and if possible not a priest)
+		; Determine FlecksCharacter, look for a channeler if they exist
 		GroupNum:Set[0]
 		while ${GroupNum:Inc} < ${Me.GroupCount}
 		{
-			; Skip if FlecksCharacter or HOMage
+			; Skip if PhylacteryCharacter or HOMage
 			if ${PhylacteryCharacter[1].Equal[${Me.Group[${GroupNum}].Name}]} || ${PhylacteryCharacter[2].Equal[${Me.Group[${GroupNum}].Name}]} || ${PhylacteryCharacter[3].Equal[${Me.Group[${GroupNum}].Name}]} || ${HOMage.Equal[${Me.Group[${GroupNum}].Name}]}
 				continue
-			; Set FlecksCharacter
-			FlecksCharacter:Set["${Me.Group[${GroupNum}].Name}"]
-			; Stop search if not a priest
-			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
-			if !${Return.Equal["priest"]}
-				break
+			; Set FlecksCharacter if a channeler
+			if ${Me.Group[${GroupNum}].Class.Equal[channeler]}
+				FlecksCharacter:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		; If no channeler, look for someone who is not a PhylacteryCharacter and not HOMage, and if possible not a priest
+		if ${FlecksCharacter.Length} == 0
+		{
+			GroupNum:Set[0]
+			while ${GroupNum:Inc} < ${Me.GroupCount}
+			{
+				; Skip if PhylacteryCharacter or HOMage
+				if ${PhylacteryCharacter[1].Equal[${Me.Group[${GroupNum}].Name}]} || ${PhylacteryCharacter[2].Equal[${Me.Group[${GroupNum}].Name}]} || ${PhylacteryCharacter[3].Equal[${Me.Group[${GroupNum}].Name}]} || ${HOMage.Equal[${Me.Group[${GroupNum}].Name}]}
+					continue
+				; Set FlecksCharacter
+				FlecksCharacter:Set["${Me.Group[${GroupNum}].Name}"]
+				; Stop search if not a priest
+				call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+				if !${Return.Equal["priest"]}
+					break
+			}
 		}
 		
 		; Set variables to use in helper script
@@ -3093,20 +3105,43 @@ objectdef Object_Instance
 		variable int GroupNum
 		variable int Counter
 		variable string HOScout
-		variable int SecondLoopCount=10
-		variable int GoldanExistsCount=0
-		variable actor Goldan
+		variable string HOPriest
+		variable string DuplicateArchetypeCharacter1
+		variable string DuplicateArchetypeCharacter2
 		variable bool FoundScout=FALSE
 		variable bool FoundMage=FALSE
 		variable bool FoundPriest=FALSE
-		variable actor KeepMaedjinn
+		variable int SecondLoopCount=10
+		variable int GoldanExistsCount=0
+		variable actor Goldan
+		variable actor KeepMaedjinn1
+		variable actor KeepMaedjinn2
 		variable actor KillMaedjinn
-		variable int DispelCounter=0
+		variable int FightPhase=1
+		variable bool ResetCheck
+		variable int ResetCounter=0
+		variable time FightStartTime
+		variable time AddSpawnTime
+		variable int RespawnSeconds=58
+		variable int GoldanAbilityCastingID
+		
+		
+		variable bool StaggerHandled=FALSE
+		variable bool TailLashHandled=FALSE
+		variable time TailLashIncomingTime
+		variable bool VaporizeHandled=FALSE
+		
+		
+		
+		
 		
 		; Set variables to use in helper script
 		oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "FALSE"
-		oc !ci -Set_Variable igw:${Me.Name} "KeepMaedjinnID" "0"
+		oc !ci -Set_Variable igw:${Me.Name} "PadReset" "FALSE"
 		oc !ci -Set_Variable igw:${Me.Name} "LatestHO" "None"
+		oc !ci -Set_Variable igw:${Me.Name} "GoldanStaggerIncoming" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "GoldanTailLashIncoming" "FALSE"
+		oc !ci -Set_Variable igw:${Me.Name} "GoldanVaporizeIncoming" "FALSE"
 		
 		; Determine HOScout
 		GroupNum:Set[0]
@@ -3117,6 +3152,65 @@ objectdef Object_Instance
 			if ${Return.Equal["scout"]}
 			{
 				HOScout:Set["${Me.Group[${GroupNum}].Name}"]
+				break
+			}
+		}
+		
+		; Determine HOPriest
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			; Check if priest
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["priest"]}
+			{
+				HOPriest:Set["${Me.Group[${GroupNum}].Name}"]
+				break
+			}
+		}
+		
+		; Determine DuplicateArchetypeCharacter1
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			; Get Archetype
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["scout"]} && !${FoundScout}
+				FoundScout:Set[TRUE]
+			elseif ${Return.Equal["mage"]} && !${FoundMage}
+				FoundMage:Set[TRUE]
+			elseif ${Return.Equal["priest"]} && !${FoundPriest}
+				FoundPriest:Set[TRUE]
+			; If not a fighter, set DuplicateArchetypeCharacter1
+			elseif !${Return.Equal["fighter"]}
+			{
+				DuplicateArchetypeCharacter1:Set["${Me.Group[${GroupNum}].Name}"]
+				break
+			}
+		}
+		
+		; Determine DuplicateArchetypeCharacter2
+		GroupNum:Set[0]
+		FoundScout:Set[FALSE]
+		FoundMage:Set[FALSE]
+		FoundPriest:Set[FALSE]
+		while ${GroupNum:Inc} < ${Me.GroupCount}
+		{
+			; Skip if DuplicateArchetypeCharacter1
+			if ${Me.Group[${GroupNum}].Name.Equal[${DuplicateArchetypeCharacter1}]}
+				continue
+			; Get Archetype
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["scout"]} && !${FoundScout}
+				FoundScout:Set[TRUE]
+			elseif ${Return.Equal["mage"]} && !${FoundMage}
+				FoundMage:Set[TRUE]
+			elseif ${Return.Equal["priest"]} && !${FoundPriest}
+				FoundPriest:Set[TRUE]
+			; If not a fighter, set DuplicateArchetypeCharacter2
+			elseif !${Return.Equal["fighter"]}
+			{
+				DuplicateArchetypeCharacter2:Set["${Me.Group[${GroupNum}].Name}"]
 				break
 			}
 		}
@@ -3132,7 +3226,7 @@ objectdef Object_Instance
 		call initialize_move_to_next_boss "${_NamedNPC}" "5"
 		
 		; Display note for boss
-		oc For ${_NamedNPC}, have Zimaran Cure Trauma cure pots
+		oc For ${_NamedNPC}, have Zimaran Cure Trauma potions
 		
 		; Move to named from Goldfeather
 		if !${GoldanRespawn}
@@ -3203,6 +3297,9 @@ objectdef Object_Instance
 			wait 1
 		}
 		
+		; Update FightStartTime
+		FightStartTime:Set[${Time.Timestamp}]
+		
 		; Perform solo Scout HO at start of fight to get Extended Reach detrimental
 		wait 20
 		while !${Me.Effect[Query, "Detrimental" && MainIconID == 832 && BackDropIconID == 317].ID(exists)}
@@ -3211,186 +3308,286 @@ objectdef Object_Instance
 			wait 20
 		}
 		
-		; Look for a duplicate non-fighter Archetype to send to platform
-		GroupNum:Set[0]
-		while ${GroupNum:Inc} < ${Me.GroupCount}
-		{
-			; Get Archetype
-			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
-			if ${Return.Equal["scout"]} && !${FoundScout}
-				FoundScout:Set[TRUE]
-			elseif ${Return.Equal["mage"]} && !${FoundMage}
-				FoundMage:Set[TRUE]
-			elseif ${Return.Equal["priest"]} && !${FoundPriest}
-				FoundPriest:Set[TRUE]
-			; When a duplicate non-fighter is found, set PadAllowed = TRUE for that character
-			; 	This will cause them to jump to the pad and eventually spawn a maedjinn disruptor
-			elseif !${Return.Equal["fighter"]}
-			{
-				oc !ci -Set_Variable ${Me.Group[${GroupNum}].Name} "PadAllowed" "TRUE"
-				break
-			}
-		}
-		
-		; Wait for a maedjinn disruptor to spawn (will keep this one alive throughout the fight because we know it is tied to a duplicate Archetype and having it up will increase dps)
-		while !${KeepMaedjinn.ID(exists)}
-		{
-			KeepMaedjinn:Set[${Actor[Query,Name=="a maedjinn disruptor" && Type != "Corpse"].ID}]
-			wait 10
-		}
-		
-		; After the first maedjinn has spawned, update KeepMaedjinnID and set PadAllowed = TRUE on all characters to start killing Goladn
-		wait 20
-		oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "TRUE"
-		oc !ci -Set_Variable igw:${Me.Name} "KeepMaedjinnID" "${KeepMaedjinn.ID}"
-		
 		; Kill named
 		call CheckGoldanExists
 		while ${GoldanExists}
 		{
+			; Update Incoming variables
+			if ${GoldanStaggerNewIncoming}
+			{
+				; Set as incoming and not handled
+				oc !ci -Set_Variable igw:${Me.Name} "GoldanStaggerIncoming" "TRUE"
+				StaggerHandled:Set[FALSE]
+				; Disable fighter cast stack until Stagger is handled (to allow them to react to HO ASAP when it is time)
+				oc !ci -ChangeOgreBotUIOption ${Me.Name} checkbox_settings_disablecaststack TRUE TRUE
+				GoldanStaggerNewIncoming:Set[FALSE]
+			}
+			if ${GoldanTailLashNewIncoming}
+			{
+				; Set as incoming and not handled
+				oc !ci -Set_Variable igw:${Me.Name} "GoldanTailLashIncoming" "TRUE"
+				TailLashHandled:Set[FALSE]
+				; Update TailLashIncomingTime
+				TailLashIncomingTime:Set[${Time.Timestamp}]
+				; Disable HOScout cast stack until Tail Lash is handled (to allow them to react to HO ASAP when it is time)
+				oc !ci -ChangeOgreBotUIOption ${HOScout} checkbox_settings_disablecaststack TRUE TRUE
+				GoldanTailLashNewIncoming:Set[FALSE]
+			}
+			if ${GoldanVaporizeNewIncoming}
+			{
+				; Set as incoming and not handled
+				oc !ci -Set_Variable igw:${Me.Name} "GoldanVaporizeIncoming" "TRUE"
+				VaporizeHandled:Set[FALSE]
+				; Disable HOPriest cast stack until Vaporize is handled (to allow them to react to HO ASAP when it is time)
+				oc !ci -ChangeOgreBotUIOption ${HOPriest} checkbox_settings_disablecaststack TRUE TRUE
+				GoldanVaporizeNewIncoming:Set[FALSE]
+			}
+			; Get GoldanAbilityCastingID
+			GoldanAbilityCastingID:Set[${Goldan.AbilityCastingID}]
+			
+			; Handle Stagger, Tail Lash, and Vaporize
+			; Stagger is cast (id: 575447584, time: 3.0) and lands ~7 seconds after message
+			; 	Complete fighter HO to get detrimental that protects against stagger
+			; Tail Lash is cast and hits ~5-8 seconds after message
+			; 	Must have scout HO up when it hits
+			; Vaporize is cast (id: 1866544000, time: 3.0) and lands ~5-7 seconds after message
+			; 	Must have priest HO up when it hits
+			
+			; Handle Stagger when it is being cast if not handled
+			if ${GoldanAbilityCastingID} == 575447584 && !${StaggerHandled}
+			{
+				; **************************************
+				; DEBUG TEXT
+				oc Handle Stagger
+				; **************************************
+				
+				; Make sure Goldan is targeted
+				Goldan:DoTarget
+				; Cancel any existing HO Starter
+				eq2execute cancel_ho_starter
+				; Perform solo fighter HO
+				call PerformSoloFighterHO "${Me.Name}"
+				; Re-enable fighter cast stack
+				oc !ci -ChangeOgreBotUIOption ${Me.Name} checkbox_settings_disablecaststack FALSE TRUE
+				; Update LatestHO to Fighter
+				oc !ci -Set_Variable igw:${Me.Name} "LatestHO" "Fighter"
+				; Set as handled
+				StaggerHandled:Set[TRUE]
+			}
+			; Handle Vaporize when it is being cast (or already handled, but still incoming because don't want to overwrite until the cast hits)
+			elseif ${GoldanAbilityCastingID} == 1866544000 || (${VaporizeHandled} && ${OgreBotAPI.Get_Variable["GoldanVaporizeIncoming"]})
+			{
+				; Check to see if not already handled
+				if !${VaporizeHandled}
+				{
+					; **************************************
+					; DEBUG TEXT
+					oc Handle Vaporize
+					; **************************************
+					
+					; Make sure Goldan is targeted
+					Goldan:DoTarget
+					; Start Priest HO
+					call GoldanPriestHOStart "${HOPriest}"
+					; Set as handled
+					VaporizeHandled:Set[TRUE]
+				}
+			}
+			; Handle Tail Lash otherwise
+			elseif ${OgreBotAPI.Get_Variable["GoldanTailLashIncoming"]}
+			{
+				; Check to see if not already handled and at least 3 seconds have passed since TailLashIncomingTime
+				if !${TailLashHandled} && ${Math.Calc[${Time.Timestamp}-${TailLashIncomingTime.Timestamp}]} >= 3
+				{
+					; **************************************
+					; DEBUG TEXT
+					oc Handle Tail Lash
+					; **************************************
+					
+					; Make sure Goldan is targeted
+					Goldan:DoTarget
+					; Start Scout HO
+					call GoldanScoutHOStart "${HOScout}"
+					; Set as handled
+					TailLashHandled:Set[TRUE]
+				}
+			}
+			; If LatestHO is not Priest and there is no KillMaedjinn and nothing is incoming, do a Priest HO to allow curse to be cured
+			if !${OgreBotAPI.Get_Variable["LatestHO"].Equal[Priest]} && !${KillMaedjinn.ID(exists)}
+			{
+				if !${OgreBotAPI.Get_Variable["GoldanStaggerIncoming"]} && !${OgreBotAPI.Get_Variable["GoldanTailLashIncoming"]} && !${OgreBotAPI.Get_Variable["GoldanVaporizeIncoming"]}
+				{
+					; Make sure Goldan is targeted
+					Goldan:DoTarget
+					; Start Priest HO
+					call GoldanPriestHOStart "${HOPriest}"
+				}
+			}
 			; Handle updates every second
 			if ${SecondLoopCount:Inc} >= 10
 			{
-				; Handle Tail Lash incoming
-				; 	Need to have scout HO up to counter it (don't complete the HO, just have the Starter up)
-				if ${GoldanTailLashIncoming}
+				; Handle Phase of fight
+				if ${FightPhase} == 1
 				{
-					
-					; *********************************
-					; *********************************
-					; *********************************
-					oc Handle Tail Lash
-					; *********************************
-					; *********************************
-					; *********************************
-					
-					
-					; Cancel any existing HO Starter
-					eq2execute cancel_ho_starter
-					; Disable HO Start/Starter/Wheel for everyone (don't want to actually complete the HO, just leave the starter up)
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_start FALSE TRUE
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
-					; Disable fighter horn/boot, scout coin, and priest chalice to prevent the HO from getting started
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_2 TRUE TRUE
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_4 TRUE TRUE
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 TRUE TRUE
-					wait 1
-					; Clear ability queue (for everyone, make sure no fighter horn/boot, scout coin, or priest chalice abilities queued up)
-					relay ${OgreRelayGroup} eq2execute clearabilityqueue
-					wait 1
-					; Cancel anything currently being cast for fighters/scouts/priests
-					oc !ci -CancelCasting igw:${Me.Name}+-mage
-					wait 1
-					; Cast Lucky Break to bring up HO window
-					oc !ci -CancelCasting igw:${Me.Name}+scout -CastAbility "Lucky Break"
-					; Update LatestHO to Scout
-					oc !ci -Set_Variable igw:${Me.Name} "LatestHO" "Scout"
-					; Handled GoldanTailLashIncoming
-					GoldanTailLashIncoming:Set[FALSE]
+					; **************************************
+					; DEBUG TEXT
+					oc Sending ${DuplicateArchetypeCharacter1} to pad to spawn first add
+					; **************************************
+						
+					; Set PadAllowed = TRUE for DuplicateArchetypeCharacter1 to move them to pad so they can spawn KeepMaedjinn1
+					oc !ci -Set_Variable ${DuplicateArchetypeCharacter1} "PadAllowed" "TRUE"
+					FightPhase:Inc
 				}
-				; Handle Vaporize incoming
-				; 	Need to have priest HO up to counter it (don't complete the HO, just have the Starter up)
-				if ${GoldanVaporizeIncoming}
+				elseif ${FightPhase} == 2
 				{
-					
-					; *********************************
-					; *********************************
-					; *********************************
-					oc Handle Vaporize
-					; *********************************
-					; *********************************
-					; *********************************
-					
-					; Cancel any existing HO Starter
-					eq2execute cancel_ho_starter
-					; Disable HO Start/Starter/Wheel for everyone (don't want to actually complete the HO, just leave the starter up)
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_start FALSE TRUE
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
-					; Disable scout coin and priest hammer to prevent the HO from getting started
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
-					oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 TRUE TRUE
-					wait 1
-					; Clear ability queue (for everyone, make sure no scout coin or priest hammer abilities queued up)
-					relay ${OgreRelayGroup} eq2execute clearabilityqueue
-					wait 1
-					; Cancel anything currently being cast for scouts
-					oc !ci -CancelCasting igw:${Me.Name}+scout
-					wait 1
-					; Cast Divine Providence to bring up HO window
-					oc !ci -CancelCasting igw:${Me.Name}+priest -CastAbility "Divine Providence"
-					; Update LatestHO to Priest
-					oc !ci -Set_Variable igw:${Me.Name} "LatestHO" "Priest"
-					; Handled GoldanVaporizeIncoming
-					GoldanVaporizeIncoming:Set[FALSE]
-				}
-				; Handle Stagger incoming
-				; 	Fighter needs to complete HO to counter it
-				if ${GoldanStaggerIncoming}
-				{
-					
-					; *********************************
-					; *********************************
-					; *********************************
-					oc Handle Stagger
-					; *********************************
-					; *********************************
-					; *********************************
-					
-					
-					; Cancel any existing HO Starter
-					eq2execute cancel_ho_starter
-					; Make sure Goldan is targeted
-					Goldan:DoTarget
-					; Perform solo fighter HO
-					call PerformSoloFighterHO "${Me.Name}"
-					; Update LatestHO to Fighter
-					oc !ci -Set_Variable igw:${Me.Name} "LatestHO" "Fighter"
-					; Handled GoldanStaggerIncoming
-					GoldanStaggerIncoming:Set[FALSE]
-				}
-				; Check to see if there is a maedjinn disruptor add to kill
-				if ${DispelCounter} < 0
-					DispelCounter:Inc
-				if ${KillMaedjinn.ID(exists)}
-				{
-					; If the maedjinn is not targeting this character, need to dispel Aether Adhesive from it
-					if ${KillMaedjinn.Target.ID} != ${Me.ID} && ${DispelCounter} == 0
+					; Check to see if KeepMaedjinn1 was spawned
+					KeepMaedjinn1:Set[${Actor[Query,Name=="a maedjinn disruptor" && Type != "Corpse"].ID}]
+					if ${KeepMaedjinn1.ID(exists)}
 					{
-						; Adding small delay to cast in order to make sure KillMaedjinn is targeted
-						; 	Note need the \ before the " when using timedcommand for it to work properly
-						timedcommand 5 oc !ci -CastAbility igw:${Me.Name}+mage \"Absorb Magic\"
-						; When dispelled, fighter needs to lock aggro in 5 seconds, so stop DPS on other characters for 6 seconds
-						timedcommand 5 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_ca TRUE TRUE
-						timedcommand 5 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_namedca TRUE TRUE
-						; Don't disable Combat on Priests, assume they have wards/buffs listed as Combat
-						timedcommand 5 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-priest+-fighter checkbox_settings_disablecaststack_combat TRUE TRUE
-						timedcommand 5 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_debuff TRUE TRUE
-						timedcommand 5 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_nameddebuff TRUE TRUE
-						timedcommand 5 oc !ci -PetOff igw:${Me.Name}
-						; Setup timedcommands to re-enable in 6 seconds
-						timedcommand 60 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_ca FALSE TRUE
-						timedcommand 60 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_namedca FALSE TRUE
-						timedcommand 60 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-priest+-fighter checkbox_settings_disablecaststack_combat FALSE TRUE
-						timedcommand 60 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_debuff FALSE TRUE
-						timedcommand 60 oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+-fighter checkbox_settings_disablecaststack_nameddebuff FALSE TRUE
-						timedcommand 60 oc !ci -PetAssist igw:${Me.Name}
-						DispelCounter:Set[-3]
+						; **************************************
+						; DEBUG TEXT
+						oc First add spawned in at ${Math.Calc[${Time.Timestamp}-${FightStartTime.Timestamp}]} seconds into fight
+						; **************************************
+						
+						; Update AddSpawnTime
+						AddSpawnTime:Set[${Time.Timestamp}]
+						; Allow pads again for all characters
+						oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "TRUE"
+						; Move to next phase
+						FightPhase:Inc
 					}
 				}
-				; If no maedjinn to kill, look for one
-				elseif ${KillMaedjinn.ID} == 0
-					KillMaedjinn:Set[${Actor[Query,Name=="a maedjinn disruptor" && ID != ${KeepMaedjinn.ID} && Type != "Corpse"].ID}]
-				; After maedjin has been killed, clear KillMaedjinn
-				else
-					KillMaedjinn:Set[0]
-				; Update Target as KillMaedjinn or Goldan
-				if ${KillMaedjinn.ID(exists)}
+				elseif ${FightPhase} == 3
+				{
+					; Check to see if it has been RespawnSeconds since AddSpawnTime
+					if ${Math.Calc[${Time.Timestamp}-${AddSpawnTime.Timestamp}]} >= ${RespawnSeconds}
+					{
+						; **************************************
+						; DEBUG TEXT
+						oc ${Math.Calc[${Time.Timestamp}-${AddSpawnTime.Timestamp}]} seconds since first spawn, moving everyone except ${DuplicateArchetypeCharacter2} off pads
+						; **************************************
+						
+						; Disallow pads for all characters except DuplicateArchetypeCharacter2
+						oc !ci -Set_Variable igw:${Me.Name}+-${DuplicateArchetypeCharacter2} "PadAllowed" "FALSE"
+						; Move to next phase
+						FightPhase:Inc
+					}
+				}
+				elseif ${FightPhase} == 4
+				{
+					; Check to see if KeepMaedjinn2 was spawned
+					KeepMaedjinn2:Set[${Actor[Query,Name=="a maedjinn disruptor" && ID != ${KeepMaedjinn1.ID} && Type != "Corpse"].ID}]
+					if ${KeepMaedjinn2.ID(exists)}
+					{
+						; **************************************
+						; DEBUG TEXT
+						oc Second add spawned in at ${Math.Calc[${Time.Timestamp}-${AddSpawnTime.Timestamp}]} seconds after previous add, ${Math.Calc[${Time.Timestamp}-${FightStartTime.Timestamp}]} seconds into fight
+						; **************************************
+						
+						; Update AddSpawnTime
+						AddSpawnTime:Set[${Time.Timestamp}]
+						; Allow pads again for all characters
+						oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "TRUE"
+						; Move to next phase
+						FightPhase:Inc
+					}
+				}
+				elseif ${FightPhase} == 5
+				{
+					; Check to see if it has been RespawnSeconds since AddSpawnTime
+					if ${Math.Calc[${Time.Timestamp}-${AddSpawnTime.Timestamp}]} >= ${RespawnSeconds}
+					{
+						; **************************************
+						; DEBUG TEXT
+						oc ${Math.Calc[${Time.Timestamp}-${AddSpawnTime.Timestamp}]} seconds since last spawn, moving everyone except ${Me.Name} off pads
+						; **************************************
+						
+						; Disallow pads for all characters except this character
+						oc !ci -Set_Variable ${Me.Name} "PadAllowed" "TRUE"
+						oc !ci -Set_Variable igw:${Me.Name}+-${Me.Name} "PadAllowed" "FALSE"
+						; Increase RespawnSeconds, additional adds seem to take longer to spawn
+						; 	Don't know what this number should be...
+						RespawnSeconds:Set[120]
+						; Move to next phase
+						FightPhase:Inc
+					}
+				}
+				elseif ${FightPhase} == 6
+				{
+					; Check to see if KillMaedjinn was spawned
+					KillMaedjinn:Set[${Actor[Query,Name=="a maedjinn disruptor" && ID != ${KeepMaedjinn1.ID} && ID != ${KeepMaedjinn2.ID} && Type != "Corpse"].ID}]
+					if ${KillMaedjinn.ID(exists)}
+					{
+						; **************************************
+						; DEBUG TEXT
+						oc Kill add spawned in at ${Math.Calc[${Time.Timestamp}-${AddSpawnTime.Timestamp}]} seconds after previous add, ${Math.Calc[${Time.Timestamp}-${FightStartTime.Timestamp}]} seconds into fight
+						; **************************************
+						
+						; Update AddSpawnTime
+						AddSpawnTime:Set[${Time.Timestamp}]
+						; Disable pads for all characters
+						oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "FALSE"
+						; Move to next phase
+						FightPhase:Inc
+					}
+				}
+				elseif ${FightPhase} == 7
+				{
+					; Check to see if KillMaedjinn has been killed
+					if !${KillMaedjinn.ID(exists)}
+					{
+						; **************************************
+						; DEBUG TEXT
+						oc Add Killed after ${Math.Calc[${Time.Timestamp}-${AddSpawnTime.Timestamp}]} seconds
+						; **************************************
+						
+						; Allow pads again for all characters only if it has been less than RespawnSeconds since AddSpawnTime
+						if ${Math.Calc[${Time.Timestamp}-${AddSpawnTime.Timestamp}]} < ${RespawnSeconds}
+							oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "TRUE"
+						; Move to back to phase 5 (waiting for another add to spawn)
+						FightPhase:Set[5]
+					}
+				}
+				; If KillMaedjinn exists and nothing is incoming then target it
+				if ${KillMaedjinn.ID(exists)} && !${OgreBotAPI.Get_Variable["GoldanStaggerIncoming"]} && !${OgreBotAPI.Get_Variable["GoldanTailLashIncoming"]} && !${OgreBotAPI.Get_Variable["GoldanVaporizeIncoming"]}
 					KillMaedjinn:DoTarget
+				; Otherwise target Goldan
 				else
 					Goldan:DoTarget
+				; Look to see if a pad reset is needed (can be a bug where the Aether Awareness increments doesn't match up correctly with Archetpyes on the pad)
+				; See if not in FightPhase 2, 4, 6 (expect Aether Awareness to not be 0 in those phases)
+				ResetCheck:Set[FALSE]
+				if ${FightPhase} != 2 && ${FightPhase} != 4 && ${FightPhase} != 6
+				{
+					; See if there are no maedjinn other than KeepMaedjinn1/KeepMaedjinn2
+					if !${Actor[Query,Name=="a maedjinn disruptor" && ID != ${KeepMaedjinn1.ID} && ID != ${KeepMaedjinn2.ID} && Type != "Corpse"].ID(exists)}
+					{
+						; Check to see if Goldan has Aether Awareness with more than 0 increments (should always be first effect)
+						call GetActorEffectIncrements "${Goldan.ID}" "Aether Awareness" "1"
+						if ${Return} > 0
+							ResetCheck:Set[TRUE]
+					}
+				}
+				; If ResetCheck = TRUE, increment ResetCounter
+				if ${ResetCheck}
+					ResetCounter:Inc
+				; Otherwise clear ResetCounter
+				else
+					ResetCounter:Set[0]
+				; If more than 10 seconds have passed, do a reset
+				if ${ResetCounter} >= 10
+				{
+					
+					; **************************************
+					; DEBUG TEXT
+					oc Reset pad positions, Aether Awareness seems bugged out
+					; **************************************
+					
+					; Set variable to reset, then clear 3 seconds later
+					oc !ci -Set_Variable igw:${Me.Name} "PadReset" "TRUE"
+					timedcommand 30 oc !ci -Set_Variable igw:${Me.Name} "PadReset" "FALSE"
+					ResetCounter:Set[-5]
+				}
 				; Reset SecondLoopCount
 				SecondLoopCount:Set[0]
 			}
@@ -3403,6 +3600,9 @@ objectdef Object_Instance
 				GoldanExistsCount:Set[0]
 			}
 		}
+		
+		; Make sure dps is re-enabled after fight
+		call SetupAllDPS "TRUE"
 		
 		; Detach Atoms
 		Event[EQ2_onIncomingChatText]:DetachAtom[GoldanIncomingChatText]
@@ -3424,6 +3624,9 @@ objectdef Object_Instance
 		eq2execute summon
 		wait 10
 		call Obj_OgreIH.Get_Chest
+		
+		; Undo Goldan custom settings
+		call SetupGoldan "FALSE"
 		
 		; Finished with named
 		return TRUE
@@ -3456,7 +3659,7 @@ objectdef Object_Instance
 		; Leave cures enabled for channeler
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+channeler checkbox_settings_disablecaststack_cure FALSE TRUE
 		; Setup Dispels on mages (will selectively call to dispel and dispelling a maedjinn disruptor while targeting a fighter will kill both the mage and fighter)
-		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_nodispels ${EnableGoldan} TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_nodispels ${EnableGoldan} TRUE
 		; Disable Ability Collison Checks (have had some weird line of sight issues where characters weren't casting anything)
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_disableabilitycollisionchecks ${EnableGoldan} TRUE
 		; Set initial HO settings
@@ -3471,6 +3674,76 @@ objectdef Object_Instance
 		oc !ci -ChangeCastStackListBoxItem igw:${Me.Name}+paladin "Heroic Dash" ${SetDisable} TRUE
 		; Setup fighter ascensions (don't want to be in a long recovery period when need to cast an HO)
 		call SetupAscensionsFighter "${SetDisable}"
+	}
+	
+	function GoldanPriestHOStart(string HOPriest)
+	{
+		; Cancel any existing HO Starter
+		eq2execute cancel_ho_starter
+		; Disable HO Start/Starter/Wheel for everyone (don't want to actually complete the HO, just leave the starter up)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_start FALSE TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
+		; Disable scout coin and priest hammer to prevent the HO from getting started
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_14 TRUE TRUE
+		wait 1
+		; Clear ability queue (for everyone, make sure no scout coin or priest hammer abilities queued up)
+		relay ${OgreRelayGroup} eq2execute clearabilityqueue
+		wait 1
+		; Cancel anything currently being cast for scouts
+		oc !ci -CancelCasting igw:${Me.Name}+scout
+		wait 1
+		; Cast Divine Providence to bring up HO window
+		; 	Using CastAbilityNoChecks because if changing targets the HO abilities can get greyed out and not cast with the normal CastAbility
+		oc !ci -CancelCasting igw:${Me.Name}+priest
+		oc !ci -CastAbilityNoChecks igw:${Me.Name}+priest "Divine Providence"
+		; Wait for HO window to pop up (up to 4 seconds)
+		variable int Counter=0
+		while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
+		{
+			wait 1
+		}
+		; Re-enable cast stack for HOPriest
+		oc !ci -ChangeOgreBotUIOption ${HOPriest} checkbox_settings_disablecaststack FALSE TRUE
+		; Update LatestHO to Priest
+		oc !ci -Set_Variable igw:${Me.Name} "LatestHO" "Priest"
+	}
+	
+	function GoldanScoutHOStart(string HOScout)
+	{
+		; Cancel any existing HO Starter
+		eq2execute cancel_ho_starter
+		; Disable HO Start/Starter/Wheel for everyone (don't want to actually complete the HO, just leave the starter up)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_start FALSE TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_starter FALSE TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_ho_wheel FALSE TRUE
+		; Disable fighter horn/boot, scout coin, and priest chalice to prevent the HO from getting started
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_2 TRUE TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_settings_disable_fighter_hoicon_4 TRUE TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+scout checkbox_settings_disable_scout_hoicon_41 TRUE TRUE
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disable_priest_hoicon_12 TRUE TRUE
+		wait 1
+		; Clear ability queue (for everyone, make sure no fighter horn/boot, scout coin, or priest chalice abilities queued up)
+		relay ${OgreRelayGroup} eq2execute clearabilityqueue
+		wait 1
+		; Cancel anything currently being cast for fighters/scouts/priests
+		oc !ci -CancelCasting igw:${Me.Name}+-mage
+		wait 1
+		; Cast Lucky Break to bring up HO window
+		; 	Using CastAbilityNoChecks because if changing targets the HO abilities can get greyed out and not cast with the normal CastAbility
+		oc !ci -CancelCasting igw:${Me.Name}+scout
+		oc !ci -CastAbilityNoChecks igw:${Me.Name}+scout "Lucky Break"
+		; Wait for HO window to pop up (up to 4 seconds)
+		variable int Counter=0
+		while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
+		{
+			wait 1
+		}
+		; Re-enable cast stack for HOScout
+		oc !ci -ChangeOgreBotUIOption ${HOScout} checkbox_settings_disablecaststack FALSE TRUE
+		; Update LatestHO to Scout
+		oc !ci -Set_Variable igw:${Me.Name} "LatestHO" "Scout"
 	}
 }
 
@@ -3594,20 +3867,23 @@ atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string
 	; Look for message that Stagger is being cast
 	; 	Goldan says, "Give me space I say!"
 	; 	Goldan is about to stagger you all!
-	if ${Message.Find["Give me space I say!"]}
-		GoldanStaggerIncoming:Set[TRUE]
+	; 	Goldan says, "I need some space!"
+	; 	Goldan doesn't want any Heroic Opportunities completed that were started by Fighting Chance.
+	; Note message comes in early, if perform HO to counter too soon it doesn't work, so delaying by 3 seconds
+	if ${Message.Find["space"]}
+		GoldanStaggerNewIncoming:Set[TRUE]
 	; Look for message that Tail Lash is being cast
 	; 	Goldan says, "I should use my tail!"
 	; 	Goldan will soon slap <Character> and one other near them. What a Lucky Break!
 	elseif ${Message.Find["I should use my tail!"]}
-		GoldanTailLashIncoming:Set[TRUE]
+		GoldanTailLashNewIncoming:Set[TRUE]
 	; Look for message that Vaporize is being cast
 	; 	Goldan says, "I can vaporize you where you stand!"
 	; 	Goldan targets <Character> and those around them, and hoping nobody uses Divine Providence.
 	; 	Goldan says, "Vaporize!"
 	; 	Goldan targets <Character> and those around them!
 	elseif ${Message.Find["vaporize"]}
-		GoldanVaporizeIncoming:Set[TRUE]
+		GoldanVaporizeNewIncoming:Set[TRUE]
 	
 	; Debug text to see messages
 	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}

@@ -1227,7 +1227,9 @@ function PerformSoloFighterHO(string CharacterName)
 	oc !ci -CancelCasting igw:${Me.Name}+-fighter
 	wait 1
 	; Cast Fighting Chance to bring up HO window
-	oc !ci -CancelCasting ${CharacterName} -CastAbility "Fighting Chance"
+	; 	Using CastAbilityNoChecks because if changing targets the HO abilities can get greyed out and not cast with the normal CastAbility
+	oc !ci -CancelCasting ${CharacterName}
+	oc !ci -CastAbilityNoChecks ${CharacterName} "Fighting Chance"
 	; Wait for HO window to pop up (up to 4 seconds)
 	variable int Counter=0
 	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
@@ -1273,7 +1275,9 @@ function PerformSoloScoutHO(string CharacterName)
 	oc !ci -CancelCasting igw:${Me.Name}+-scout+-mage
 	wait 1
 	; Cast Lucky Break to bring up HO window
-	oc !ci -CancelCasting ${CharacterName} -CastAbility "Lucky Break"
+	; 	Using CastAbilityNoChecks because if changing targets the HO abilities can get greyed out and not cast with the normal CastAbility
+	oc !ci -CancelCasting ${CharacterName}
+	oc !ci -CastAbilityNoChecks ${CharacterName} "Lucky Break"
 	; Wait for HO window to pop up (up to 4 seconds)
 	variable int Counter=0
 	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
@@ -1320,7 +1324,9 @@ function PerformSoloMageHO(string CharacterName)
 	oc !ci -CancelCasting igw:${Me.Name}+-fighter+-mage
 	wait 1
 	; Cast Arcane Augur to bring up HO window
-	oc !ci -CancelCasting ${CharacterName} -CastAbility "Arcane Augur"
+	; 	Using CastAbilityNoChecks because if changing targets the HO abilities can get greyed out and not cast with the normal CastAbility
+	oc !ci -CancelCasting ${CharacterName}
+	oc !ci -CastAbilityNoChecks ${CharacterName} "Arcane Augur"
 	; Wait for HO window to pop up (up to 4 seconds)
 	variable int Counter=0
 	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
@@ -1362,7 +1368,9 @@ function PerformSoloPriestHO(string CharacterName)
 	oc !ci -CancelCasting igw:${Me.Name}+scout
 	wait 1
 	; Cast Divine Providence to bring up HO window
-	oc !ci -CancelCasting ${CharacterName} -CastAbility "Divine Providence"
+	; 	Using CastAbilityNoChecks because if changing targets the HO abilities can get greyed out and not cast with the normal CastAbility
+	oc !ci -CancelCasting ${CharacterName}
+	oc !ci -CastAbilityNoChecks ${CharacterName} "Divine Providence"
 	; Wait for HO window to pop up (up to 4 seconds)
 	variable int Counter=0
 	while ${EQ2.HOWindowState} == -1 && ${Counter:Inc} <= 40
