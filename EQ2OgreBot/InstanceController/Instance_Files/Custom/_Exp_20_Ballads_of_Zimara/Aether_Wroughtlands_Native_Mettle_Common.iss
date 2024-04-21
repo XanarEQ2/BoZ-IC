@@ -69,6 +69,7 @@ variable time CoppernicusExpectedHelioTime
 ; Custom variables for Goldfeather
 variable bool GoldfeatherRespawn=FALSE
 variable bool GoldfeatherPlumeBoomIncoming=FALSE
+variable string GoldfeatherPlumeBoomCharacter
 ; Custom variables for Goldan
 variable bool GoldanRespawn=FALSE
 variable bool GoldanStaggerNewIncoming=FALSE
@@ -600,7 +601,7 @@ objectdef Object_Instance
 			; Kill Bandit, re-adjusting position of the scouts as needed to stay at flank
 			variable point3f BanditNewLoc
 			variable float BanditLocDistanceChange
-			while ${Bandit.ID(exists)}
+			while ${Bandit.ID(exists)} && !${Bandit.Type.Equal[Corpse]}
 			{
 				; If MoveToBandit, re-adjust position if needed (as long as Bandit within 10m of BanditInitialLoc)
 				if ${MoveToBandit}
@@ -624,7 +625,7 @@ objectdef Object_Instance
 			oc !ci -PetAssist igw:${Me.Name}
 			wait 30
 			; Kill Aeraquis
-			while ${Aeraquis.ID(exists)}
+			while ${Aeraquis.ID(exists)} && !${Aeraquis.Type.Equal[Corpse]}
 			{
 				wait 10
 			}
@@ -1714,7 +1715,7 @@ objectdef Object_Instance
 	function:bool Named3(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[904.63,328.05,82.13]
+		KillSpot:Set[858.22,329.09,86.62]
 		
 		; Undo Nugget custom settings
 		call SetupNugget "FALSE"
@@ -2017,7 +2018,7 @@ objectdef Object_Instance
 		
 		; Send everyone back to KillSpot
 		oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
-		wait 20
+		wait 50
 		
 		; ***********************************************
 		; Complete Priest HO to lock aggro
@@ -2121,13 +2122,9 @@ objectdef Object_Instance
 					PriestTankLoc.Z:Inc[${Math.Calc[5*${Math.Sin[22]}]}]
 					; Set FighterJoustOutPriestLoc
 					; 	For when fighter is out, to still be within 25m of priest for heals
-					PriestTankLoc:Set[${Actor[PC,"${CoppernicusPriestTank}"].Loc}]
-					if ${PriestTankLoc.X}!=0 || ${PriestTankLoc.Y}!=0 || ${PriestTankLoc.Z}!=0
-					{
-						FighterJoustOutPriestLoc:Set[${PriestTankLoc}]
-						FighterJoustOutPriestLoc.X:Dec[${Math.Calc[24*${Math.Cos[22]}]}]
-						FighterJoustOutPriestLoc.Z:Inc[${Math.Calc[24*${Math.Sin[22]}]}]
-					}
+					FighterJoustOutPriestLoc:Set[${PriestTankLoc}]
+					FighterJoustOutPriestLoc.X:Dec[${Math.Calc[24*${Math.Cos[22]}]}]
+					FighterJoustOutPriestLoc.Z:Inc[${Math.Calc[24*${Math.Sin[22]}]}]
 					; Clear JoustCharacterPositionSet
 					GroupNum:Set[0]
 					while ${GroupNum:Inc} <= ${JoustCharacter.Size}
@@ -2146,8 +2143,8 @@ objectdef Object_Instance
 						; Remove MateriaTotalCount from TargetIncrements for materia, assuming all will be in
 						TargetIncrements:Dec[${MateriaTotalCount}]
 					}
-					; If Helio set to expire within 10 seconds, move to HelioDistance away from Coppernicus
-					elseif ${HelioDistance} > 0 && ${OgreBotAPI.Get_Variable["${Me.Name}HelioDuration"]} <= 10
+					; If Helio set to expire within 10 seconds (and changing theory not set to expire within 10 seconds), move to HelioDistance away from Coppernicus
+					elseif ${HelioDistance} > 0 && ${OgreBotAPI.Get_Variable["${Me.Name}HelioDuration"]} <= 10 && (${ChangingTheoryIncrements} == -1 || ${Math.Calc[${ChangingTheoryExpirationTimestamp.Timestamp}-${Time.Timestamp}]} > 10)
 					{
 						; Set HelioLoc
 						HelioLoc:Set[${CoppernicusLoc}]
@@ -2718,14 +2715,14 @@ objectdef Object_Instance
 		while ${GoldfeatherExists}
 		{
 			; Handle Plume Boom incoming
-			; 	Will cause damage and knock up characters around fighter
-			; 	Move fighter away from group to avoid it
+			; 	Will cause damage and knock up characters around GoldfeatherPlumeBoomCharacter
+			; 	Move GoldfeatherPlumeBoomCharacter away from group to avoid it
 			if ${GoldfeatherPlumeBoomIncoming}
 			{
-				; Move fighter away from group
-				oc !ci -ChangeCampSpotWho igw:${Me.Name}+fighter 572.01 250.37 317.15
-				; Setup a timedcommand to move fighter back after 6 seconds (Plume Boom should have a 4 second cast time)
-				timedcommand 60 oc !ci -ChangeCampSpotWho igw:${Me.Name}+fighter ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
+				; Move GoldfeatherPlumeBoomCharacter away from group
+				oc !ci -ChangeCampSpotWho ${GoldfeatherPlumeBoomCharacter} 578.48 250.17 325.64
+				; Setup a timedcommand to move GoldfeatherPlumeBoomCharacter back after 6 seconds (Plume Boom should have a 4 second cast time)
+				timedcommand 60 oc !ci -ChangeCampSpotWho ${GoldfeatherPlumeBoomCharacter} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				; Handled GoldfeatherPlumeBoomIncoming
 				GoldfeatherPlumeBoomIncoming:Set[FALSE]
 			}
@@ -3124,16 +3121,10 @@ objectdef Object_Instance
 		variable time AddSpawnTime
 		variable int RespawnSeconds=58
 		variable int GoldanAbilityCastingID
-		
-		
 		variable bool StaggerHandled=FALSE
 		variable bool TailLashHandled=FALSE
 		variable time TailLashIncomingTime
 		variable bool VaporizeHandled=FALSE
-		
-		
-		
-		
 		
 		; Set variables to use in helper script
 		oc !ci -Set_Variable igw:${Me.Name} "PadAllowed" "FALSE"
@@ -3352,6 +3343,12 @@ objectdef Object_Instance
 			; 	Must have scout HO up when it hits
 			; Vaporize is cast (id: 1866544000, time: 3.0) and lands ~5-7 seconds after message
 			; 	Must have priest HO up when it hits
+			
+			
+			; ***********************************
+			; could potentially update to fire off the Stagger early if it has been a couple seconds and vaporize/tail slap not incoming
+			; should check detrimental with tail slap, coule maybe do an immunity rune swap to handle effect?
+			; ***********************************
 			
 			; Handle Stagger when it is being cast if not handled
 			if ${GoldanAbilityCastingID} == 575447584 && !${StaggerHandled}
@@ -3856,10 +3853,19 @@ atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, s
 	; Look for message that Plume Boom is being cast
 	; 	Goldfeather targets <Target> and those around them to go boom!
 	if ${Message.Find["and those around them to go boom!"]}
+	{
 		GoldfeatherPlumeBoomIncoming:Set[TRUE]
+		GoldfeatherPlumeBoomCharacter:Set["${Message.ReplaceSubstring[targets,].ReplaceSubstring[and those around them to go boom!,].Trim}"]
+		
+		; **************************************
+		; DEBUG TEXT
+		oc GoldfeatherPlumeBoomCharacter set to "${GoldfeatherPlumeBoomCharacter}"
+		; **************************************
+		
+	}
 	
 	; Debug text to see messages
-	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
+	echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
 }
 
 atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)

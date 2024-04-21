@@ -663,10 +663,26 @@ function Coppernicus(string _NamedNPC)
 	variable int FlecksCounter=0
 	variable time NeedFlecksCureTime=${Time.Timestamp}
 	variable string NeedsMezzyCure="None"
+	
+	; **************************************
+	; DEBUG TEXT
+	variable time AggroTime
+	variable time LastInterruptTime
+	; **************************************
+	
 	; Run as long as named is alive
 	call CheckCoppernicusExists
 	while ${CoppernicusExists}
 	{
+		
+		; **************************************
+		; DEBUG TEXT
+		; Set AggroTime
+		if ${AggroTime.Timestamp} == 0
+			if ${Actor["Coppernicus"].Target.ID} != 0
+				AggroTime:Set[${Time.Timestamp}]
+		; **************************************
+		
 		; Handle "Absorb Celestial Materia"
 		; 	Named casts spell that consumes a celestial materia and heals/buffs him
 		; 	After interrupt, will charge towards the character who interrupted him
@@ -677,10 +693,14 @@ function Coppernicus(string _NamedNPC)
 			{
 				; Make sure named is targeted
 				Actor["${_NamedNPC}"]:DoTarget
-
+				
 				; **************************************
 				; DEBUG TEXT
-				oc ${Me.Name} Interrupt
+				if ${LastInterruptTime.Timestamp} > 0
+					oc ${Me.Name} Interrupt at ${Actor["Coppernicus"].Health} HP after ${Math.Calc[${Time.Timestamp}-${LastInterruptTime.Timestamp}]} seconds from last
+				else
+					oc ${Me.Name} Interrupt at ${Actor["Coppernicus"].Health} HP after ${Math.Calc[${Time.Timestamp}-${AggroTime.Timestamp}]} seconds from start
+				LastInterruptTime:Set[${Time.Timestamp}]
 				; **************************************
 
 				; Cast Interrupt
@@ -793,32 +813,37 @@ function Coppernicus(string _NamedNPC)
 				{
 					if ${Me.Effect[Query, "Detrimental" && MainIconID == 1127 && BackDropIconID == 313].ID(exists)}
 					{
-						; If character is CoppernicusFlecksCharacter, only cure themselves if 3 minutes have passed since last cure
-						if ${Me.Name.Equal[${OgreBotAPI.Get_Variable["CoppernicusFlecksCharacter"]}]}
+						; Make sure Absorb is not incoming
+						if !${CoppernicusAbsorbIncoming}
 						{
-							if ${Math.Calc[${Time.Timestamp}-${NeedFlecksCureTime.Timestamp}]} > 180
+							; If character is CoppernicusFlecksCharacter, only cure themselves if 3 minutes have passed since last cure
+							if ${Me.Name.Equal[${OgreBotAPI.Get_Variable["CoppernicusFlecksCharacter"]}]}
 							{
-								oc !ci -UseItem ${Me.Name} "Zimaran Cure Elemental"
-								NeedFlecksCureTime:Set[${Time.Timestamp}]
+								if ${Math.Calc[${Time.Timestamp}-${NeedFlecksCureTime.Timestamp}]} > 180
+								{
+									oc !ci -UseItem ${Me.Name} "Zimaran Cure Elemental"
+									NeedFlecksCureTime:Set[${Time.Timestamp}]
+								}
 							}
+							; Have mages cure themselves
+							elseif ${Me.Archetype.Equal[mage]}
+								oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure Magic" "${Me.Name}" "0"
+							; Have everyone else use a cure pot
+							else
+								oc !ci -UseItem ${Me.Name} "Zimaran Cure Elemental"
+							FlecksCounter:Set[-2]
 						}
-						; Have mages cure themselves
-						elseif ${Me.Archetype.Equal[mage]}
-							oc !ci -CastAbilityOnPlayer ${Me.Name} "Cure Magic" "${Me.Name}" "0"
-						; Have everyone else use a cure pot
-						else
-							oc !ci -UseItem ${Me.Name} "Zimaran Cure Elemental"
-						FlecksCounter:Set[-2]
 					}
 				}
 			}
 			; Reset SecondLoopCount
 			SecondLoopCount:Set[0]
 		}
-		; Short wait before looping (to respond as quickly as possible to events)
-		wait 1
-		; Update CoppernicusExists every 3 seconds
-		if ${CoppernicusExistsCount:Inc} >= 30
+		; If Absorb is not incoming, short wait before looping (to respond as quickly as possible to events)
+		if !${CoppernicusAbsorbIncoming}
+			wait 1
+		; If Absorb is not incoming, update CoppernicusExists every 3 seconds
+		if !${CoppernicusAbsorbIncoming} && ${CoppernicusExistsCount:Inc} >= 30
 		{
 			call CheckCoppernicusExists
 			CoppernicusExistsCount:Set[0]
@@ -1044,7 +1069,7 @@ function Goldfeather(string _NamedNPC)
 					; Move character into lake
 					oc !ci -ChangeCampSpotWho ${Me.Name} 575.49 245.78 352.03
 					; Setup a timedcommand to move character back after 15 seconds (Sitting Duck should have a 15 second duration)
-					timedcommand 150 oc !ci -ChangeCampSpotWho ${Me.Name} 557.77 250.22 325.19
+					timedcommand 150 oc !ci -ChangeCampSpotWho ${Me.Name} 563.83 249.25 337.73
 					SittingDuckCounter:Set[-20]
 				}
 			}
@@ -1065,6 +1090,11 @@ function Goldfeather(string _NamedNPC)
 						; Make sure cure pot is available and not on a cooldown
 						if ${Me.Inventory[Query, Name =- "Zimaran Cure Trauma" && Location == "Inventory"].TimeUntilReady} == -1
 						{
+							; **************************************
+							; DEBUG TEXT
+							oc ${Me.Name} curing Take a Dip
+							; **************************************
+							
 							; Pause Ogre
 							oc !ci -Pause ${Me.Name}
 							wait 1
@@ -1076,6 +1106,7 @@ function Goldfeather(string _NamedNPC)
 							; Use cure pot to cure
 							oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
 							; Wait for pot to start casting (up to 2 seconds)
+							wait 5
 							Counter:Set[0]
 							while !${Me.CastingSpell} && ${Counter:Inc} <= 20
 							{
@@ -1087,6 +1118,7 @@ function Goldfeather(string _NamedNPC)
 							{
 								wait 1
 							}
+							wait 5
 							; Resume Ogre
 							oc !ci -Resume ${Me.Name}
 							DipCounter:Set[-2]
@@ -1331,7 +1363,7 @@ function Goldan(string _NamedNPC)
 			; If AtPad, monitor character height and if they get knocked into the air send them to platform
 			if ${AtPad} && ${Me.Y} > 290
 			{
-
+				
 				; **************************************
 				; DEBUG TEXT
 				oc ${Me.Name} knocked up, sending to platform
