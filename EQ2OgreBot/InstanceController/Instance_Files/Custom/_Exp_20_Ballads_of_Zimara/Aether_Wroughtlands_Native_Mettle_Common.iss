@@ -2580,9 +2580,9 @@ objectdef Object_Instance
 		}
 		; **************************************
 		; DEBUG TEXT
-		oc PhylacteryCharacter1 set to ${PhylacteryCharacter1}
-		oc PhylacteryCharacter2 set to ${PhylacteryCharacter2}
-		oc PhylacteryCharacter3 set to ${PhylacteryCharacter3}
+		oc PhylacteryCharacter1 set to ${PhylacteryCharacter[1]}
+		oc PhylacteryCharacter2 set to ${PhylacteryCharacter[2]}
+		oc PhylacteryCharacter3 set to ${PhylacteryCharacter[3]}
 		oc FlecksCharacter set to ${FlecksCharacter}
 		; **************************************
 		
@@ -2645,6 +2645,10 @@ objectdef Object_Instance
 			; Check again to see if anyone else needs curse
 			call CheckGoldfeatherNeedPhylactery
 		}
+		
+		; Move to Plume Boom location before pull to make sure it is clear of adds
+		call move_to_next_waypoint "553.26,248.58,351.96"
+		call move_to_next_waypoint "${KillSpot}"
 		
 		; Kill any auramutation around KillSpot
 		Aurumutation:Set[${Actor[Query,Name=="an aurumutation" && Type != "Corpse" && Distance < 35].ID}]
@@ -2735,7 +2739,7 @@ objectdef Object_Instance
 			if ${GoldfeatherPlumeBoomIncoming}
 			{
 				; Move GoldfeatherPlumeBoomCharacter away from group
-				oc !ci -ChangeCampSpotWho ${GoldfeatherPlumeBoomCharacter} 578.48 250.17 325.64
+				oc !ci -ChangeCampSpotWho ${GoldfeatherPlumeBoomCharacter} 553.26 248.58 351.96
 				; Setup a timedcommand to move GoldfeatherPlumeBoomCharacter back after 6 seconds (Plume Boom should have a 4 second cast time)
 				timedcommand 60 oc !ci -ChangeCampSpotWho ${GoldfeatherPlumeBoomCharacter} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				; Handled GoldfeatherPlumeBoomIncoming
