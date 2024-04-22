@@ -2521,9 +2521,17 @@ objectdef Object_Instance
 		GroupNum:Set[0]
 		while ${GroupNum:Inc} < ${Me.GroupCount} && ${Counter} <= ${PhylacteryCharacter.Size}
 		{
-			; Check if mage or priest
+			; Check if mage
 			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
-			if ${Return.Equal["mage"]} || ${Return.Equal["priest"]}
+			if ${Return.Equal["mage"]}
+				PhylacteryCharacter[${Counter:Inc}]:Set["${Me.Group[${GroupNum}].Name}"]
+		}
+		GroupNum:Set[0]
+		while ${GroupNum:Inc} < ${Me.GroupCount} && ${Counter} <= ${PhylacteryCharacter.Size}
+		{
+			; Check if priest
+			call GetArchetypeFromClass "${Me.Group[${GroupNum}].Class}"
+			if ${Return.Equal["priest"]}
 				PhylacteryCharacter[${Counter:Inc}]:Set["${Me.Group[${GroupNum}].Name}"]
 		}
 		
@@ -2570,6 +2578,13 @@ objectdef Object_Instance
 					break
 			}
 		}
+		; **************************************
+		; DEBUG TEXT
+		oc PhylacteryCharacter1 set to ${PhylacteryCharacter1}
+		oc PhylacteryCharacter2 set to ${PhylacteryCharacter2}
+		oc PhylacteryCharacter3 set to ${PhylacteryCharacter3}
+		oc FlecksCharacter set to ${FlecksCharacter}
+		; **************************************
 		
 		; Set variables to use in helper script
 		oc !ci -Set_Variable igw:${Me.Name} "PhylacteryCharacter1" "${PhylacteryCharacter[1]}"
@@ -3865,7 +3880,7 @@ atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, s
 	}
 	
 	; Debug text to see messages
-	echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
+	;echo ${ChatType}, ${Message}, ${Speaker}, ${TargetName}, ${SpeakerIsNPC}, ${ChannelName}
 }
 
 atom GoldanIncomingChatText(int ChatType, string Message, string Speaker, string TargetName, string SpeakerIsNPC, string ChannelName)
