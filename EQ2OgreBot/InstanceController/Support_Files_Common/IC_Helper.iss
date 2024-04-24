@@ -1611,3 +1611,52 @@ function Wait_ms(int WaitTime_ms)
 		waitframe
 	}
 }
+
+function QuickUseItem(string ItemName)
+{
+	; Get UseItem from ItemName
+	variable item UseItem
+	UseItem:Set[${Me.Inventory[Query, Name =- "${ItemName}" && Location == "Inventory"].ID}]
+	; Make sure UseItem exits
+	if !${UseItem.ID(exists)}
+		return
+	; Make sure UseItem is a vailable to use
+	if ${UseItem.TimeUntilReady} != -1
+		return
+	; Pause Ogre
+	oc !ci -Pause ${Me.Name}
+	wait 1
+	; Clear ability queue
+	eq2execute clearabilityqueue
+	wait 1
+	; Cancel anything currently being cast
+	oc !ci -CancelCasting ${Me.Name}
+	; Wait for any current casting to be completed (up to 2 seconds)
+	variable int Counter=0
+	while ${Me.CastingSpell} && ${Counter:Inc} <= 20
+	{
+		wait 1
+	}
+	
+	; **************************************
+	; DEBUG TEXT
+	oc ${Me.Name} using ${UseItem.Name}
+	; **************************************
+	
+	; Use item (keep trying until there is a cast)
+	Counter:Set[0]
+	while !${Me.CastingSpell} && ${Counter:Inc} <= 10
+	{
+		UseItem:Use
+		wait 5
+	}
+	; Wait for casting to be completed (up to 2 seconds)
+	Counter:Set[0]
+	while ${Me.CastingSpell} && ${Counter:Inc} <= 20
+	{
+		wait 1
+	}
+	wait 5
+	; Resume Ogre
+	oc !ci -Resume ${Me.Name}
+}

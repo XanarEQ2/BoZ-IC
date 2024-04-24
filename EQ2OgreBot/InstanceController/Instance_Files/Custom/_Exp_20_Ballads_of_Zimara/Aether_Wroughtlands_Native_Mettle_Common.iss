@@ -27,7 +27,7 @@
 ; 	If you wipe, end script and clear Campspot then respawn at "The Golden Terrace" then restart script, will pick up from respawn point
 ; Goldfeather
 ; 	Will start by getting Mutagenesis Disease curse on all players, which lets them enter the lake without dying
-; 		Requires Zimaran Energy Inverter on all characters except mystic/mages to dispel the aurumutation to get curse
+; 		Requires Zimaran Energy Inverter on all characters except mystic/swash/mages to dispel the aurumutation to get curse
 ; 	After everyone has curse, will get Goldfeather's Phylactery on 3 characters
 ; 	Characters will use Goldfeather's Phylactery to pull Goldfeather when it is close
 ; 	Uses Zimaran Cure Trauma potions to cure Flecks of Regret and Take a Dip detrimentals
@@ -2271,8 +2271,9 @@ objectdef Object_Instance
 					{
 						; Check to see if Coppernicus HP is close to next trigger point (should be when the remainder is 1)
 						; 	Health%10 gives the remainder after dividing by 10 (e.g. 74%10 = 4)
+						; 	Don't bother stopping dps when at the final <= 3% HP. just finish off the fight
 						CoppernicusHPRemainder:Set[${Math.Calc[${Actor[${CoppernicusID}].Health}%10]}]
-						if ${CoppernicusHPRemainder} > 0 && ${CoppernicusHPRemainder} <= 3
+						if ${CoppernicusHPRemainder} > 0 && ${CoppernicusHPRemainder} <= 3 && ${Actor[${CoppernicusID}].Health} > 10
 						{
 							; If anyone has Helio with Duration > 5 seconds, set DPSAllowed = FALSE
 							if ${OgreBotAPI.Get_Variable["${Me.Name}HelioDistance"]} > 0 && ${OgreBotAPI.Get_Variable["${Me.Name}HelioDuration"]} > 5
@@ -2428,6 +2429,7 @@ objectdef Object_Instance
 	function:bool Named4(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
+		; 	If updating, update in Handle Sitting Duck detrimental section of Helper script as well
 		KillSpot:Set[563.83,249.25,337.73]
 		
 		; Undo Coppernicus custom settings
@@ -2461,7 +2463,7 @@ objectdef Object_Instance
 		call initialize_move_to_next_boss "${_NamedNPC}" "4"
 		
 		; Display note for boss
-		oc For ${_NamedNPC}, have Zimaran Energy Inverter on all characters except mystic/mages to get curse
+		oc For ${_NamedNPC}, have Zimaran Energy Inverter on all characters except mystic/swash/mages to get curse
 		oc For ${_NamedNPC}, have Zimaran Cure Trauma/Noxious potions
 		
 		; Enable PreCastTag to allow priest to setup wards before engaging first mob
@@ -2578,6 +2580,17 @@ objectdef Object_Instance
 					break
 			}
 		}
+		
+		; **************************************
+		; If you want to manually set characters, uncomment and edit these lines
+		; 	Phylactery characers will loot and use Phylacteries throughout the fight
+		; 	Flecks characer will keep Flecks of Regret detrimental on them throughout the fight while rest of group cures it
+		;PhylacteryCharacter[1]:Set["NameOfFirstPhylacteryCharacter"]
+		;PhylacteryCharacter[2]:Set["NameOfSecondPhylacteryCharacter"]
+		;PhylacteryCharacter[3]:Set["NameOfThirdPhylacteryCharacter"]
+		;FlecksCharacter:Set["NameOfFlecksCharacter"]
+		; **************************************
+		
 		; **************************************
 		; DEBUG TEXT
 		oc PhylacteryCharacter1 set to ${PhylacteryCharacter[1]}
@@ -2646,7 +2659,7 @@ objectdef Object_Instance
 			call CheckGoldfeatherNeedPhylactery
 		}
 		
-		; Move to Plume Boom location before pull to make sure it is clear of adds
+		; Move to side spot before pull to make sure it is clear of adds
 		call move_to_next_waypoint "553.26,248.58,351.96"
 		call move_to_next_waypoint "${KillSpot}"
 		
@@ -2717,6 +2730,9 @@ objectdef Object_Instance
 		; Re-enable CA on priests
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+priest checkbox_settings_disablecaststack_ca FALSE TRUE
 		
+		; Enable Interrupt Mode
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_interrupt_mode TRUE TRUE
+		
 		; Enable AutoTarget (but disable Out of Combat scanning)
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning FALSE TRUE
 		wait 1
@@ -2739,7 +2755,7 @@ objectdef Object_Instance
 			if ${GoldfeatherPlumeBoomIncoming}
 			{
 				; Move GoldfeatherPlumeBoomCharacter away from group
-				oc !ci -ChangeCampSpotWho ${GoldfeatherPlumeBoomCharacter} 553.26 248.58 351.96
+				oc !ci -ChangeCampSpotWho ${GoldfeatherPlumeBoomCharacter} 574.25 245.80 352.95
 				; Setup a timedcommand to move GoldfeatherPlumeBoomCharacter back after 6 seconds (Plume Boom should have a 4 second cast time)
 				timedcommand 60 oc !ci -ChangeCampSpotWho ${GoldfeatherPlumeBoomCharacter} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
 				; Handled GoldfeatherPlumeBoomIncoming
@@ -2833,8 +2849,8 @@ objectdef Object_Instance
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+mage checkbox_settings_disable_mage_hoicon_29 ${EnableGoldfeather} TRUE
 		; Disable PBAE abilities (don't want to aggro extra roaming mobs)
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_donotsave_dynamicignorepbae ${EnableGoldfeather} TRUE
-		; Setup Interrupt Mode
-		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_interrupt_mode ${EnableGoldfeather} TRUE
+		; Disable Interrupt Mode (will enable before fight)
+		oc !ci -ChangeOgreBotUIOption igw:${Me.Name} checkbox_settings_interrupt_mode FALSE TRUE
 		; Set Auto Target Out of Combat scanning to enabled by default
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning TRUE TRUE
 	}
@@ -2913,8 +2929,14 @@ objectdef Object_Instance
 			; Set this character as PullCharacter
 			PullCharacter:Set[${Me.Name}]
 		}
-		; Pause Ogre
-		oc !ci -Pause igw:${Me.Name}
+		
+		; **************************************
+		; DEBUG TEXT
+		oc ${PullCharacter} set to dispel ${TargetAurumutation.Name}
+		; **************************************
+		
+		; Stop all DPS (don't want characters to die attacking aurumutation before dispel)
+		call SetupAllDPS "FALSE"
 		wait 1
 		; Pull TargetAurumutation
 		TargetAurumutation:DoTarget
@@ -2934,8 +2956,6 @@ objectdef Object_Instance
 		; Target self again (don't want to attack TargetAurumutation until it is dispelled)
 		Me:DoTarget
 		wait 5
-		; Resume 
-		oc !ci -Resume igw:${Me.Name}
 		; Set DispelTargetID
 		oc !ci -Set_Variable igw:${Me.Name} "${PullCharacter}DispelTargetID" "${TargetAurumutation.ID}"
 		; Wait for PullCharacter to dispel the aurumutation from helper script
@@ -2945,16 +2965,19 @@ objectdef Object_Instance
 			wait 10
 		}
 		while ${Return} == 0
+		; Resume DPS
+		call SetupAllDPS "TRUE"
 		; Kill aurumutation
 		TargetAurumutation:DoTarget
-		oc !ci -PetAssist igw:${Me.Name}
-		while ${TargetAurumutation.ID(exists)}
+		while ${TargetAurumutation.ID(exists)} && !${TargetAurumutation.Type.Equal[Corpse]}
 		{
 			wait 10
 		}
 		call Obj_OgreUtilities.HandleWaitForCombat
 		call Obj_OgreUtilities.WaitWhileGroupMembersDead
 		wait 10
+		; Clear DispelTargetID
+		oc !ci -Set_Variable igw:${Me.Name} "${PullCharacter}DispelTargetID" "0"
 	}
 	
 	function CheckGoldfeatherNeedPhylactery()
@@ -2985,10 +3008,6 @@ objectdef Object_Instance
 		variable actor ClosestSafePhylactery
 		variable float CurrentY
 		
-		; Set first 2 TravelSpots to move out into center of lake (can have pathing issues if try to move from KillSpot to some edge spots)
-		TravelSpots[1]:Set[599.45,246.99,357.43]
-		TravelSpots[2]:Set[630.26,245.82,379.24]
-		
 		; Search for any Goldfeather's phylactery
 		EQ2:QueryActors[Phylacterys, Name=="Goldfeather's phylactery" && Type == "NoKill NPC"]
 		Phylacterys:GetIterator[PhylacteryIterator]
@@ -3001,6 +3020,19 @@ objectdef Object_Instance
 				PhylacteryLoc:Set[${PhylacteryIterator.Value.Loc}]
 				if ${PhylacteryLoc.X}==0 && ${PhylacteryLoc.Y}==0 && ${PhylacteryLoc.Z}==0
 					continue
+				; Set first 2 TravelSpots based on PhylacteryLoc
+				; If PhylacteryLoc on far side of lake, set first 2 TravelSpots to move out into center of lake (can have pathing issues if try to move from KillSpot to some edge spots)
+				if ${PhylacteryLoc.X} > 630
+				{
+					TravelSpots[1]:Set[599.45,246.99,357.43]
+					TravelSpots[2]:Set[630.26,245.82,379.24]
+				}
+				; Otehrwise just set as KillSpot and will use remaining spots to travel to PhylacteryLoc
+				else
+				{
+					TravelSpots[1]:Set[${KillSpot}]
+					TravelSpots[2]:Set[${KillSpot}]
+				}
 				; Setup list of points between TravelSpots[2] and phylactery
 				Slope:Set[(${PhylacteryLoc.Z}-${TravelSpots[2].Z})/(${PhylacteryLoc.X}-${TravelSpots[2].X})]
 				Intercept:Set[${TravelSpots[2].Z}-${Slope}*${TravelSpots[2].X}]
@@ -3026,6 +3058,9 @@ objectdef Object_Instance
 					NewLoc:Set[${GoldfeatherLoc.X},${GoldfeatherLoc.Y},${GoldfeatherLoc.Z}]
 					NewLoc.X:Dec[5*${NumSteps}*${Math.Sin[${GoldfeatherHeading}]}]
 					NewLoc.Z:Dec[5*${NumSteps}*${Math.Cos[${GoldfeatherHeading}]}]
+					; Check to see if Distance is within 50m of KillSpot
+					if ${Math.Distance[${KillSpot.X},${KillSpot.Z},${NewLoc.X},${NewLoc.Z}]} < 50
+						CollisionFound:Set[TRUE]
 					; Check to see if Distance is within 30m of a TravelSpot
 					Counter:Set[0]
 					while ${Counter:Inc} <= ${TravelSpots.Size}
@@ -3049,7 +3084,6 @@ objectdef Object_Instance
 			wait 10
 			return
 		}
-		
 		; Get ClosestSafePhylactery Location, make sure it is valid
 		PhylacteryLoc:Set[${ClosestSafePhylactery.Loc}]
 		if ${PhylacteryLoc.X}==0 && ${PhylacteryLoc.Y}==0 && ${PhylacteryLoc.Z}==0
@@ -3523,7 +3557,7 @@ objectdef Object_Instance
 						oc !ci -Set_Variable igw:${Me.Name}+-${Me.Name} "PadAllowed" "FALSE"
 						; Increase RespawnSeconds, additional adds seem to take longer to spawn
 						; 	Don't know what this number should be...
-						RespawnSeconds:Set[120]
+						RespawnSeconds:Set[95]
 						; Move to next phase
 						FightPhase:Inc
 					}
@@ -3878,7 +3912,7 @@ atom GoldfeatherIncomingChatText(int ChatType, string Message, string Speaker, s
 		
 		; **************************************
 		; DEBUG TEXT
-		oc GoldfeatherPlumeBoomCharacter set to "${GoldfeatherPlumeBoomCharacter}"
+		oc Plume Bloom on "${GoldfeatherPlumeBoomCharacter}"
 		; **************************************
 		
 	}

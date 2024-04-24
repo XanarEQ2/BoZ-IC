@@ -912,6 +912,7 @@ function Goldfeather(string _NamedNPC)
 	variable int SittingDuckCounter=0
 	variable int DipCounter=0
 	variable int PhylacteryCounter=0
+	variable item CurePot
 	; Get PhylacteryNum if character is a PhylacteryCharacter
 	variable int PhylacteryNum=0
 	if ${OgreBotAPI.Get_Variable["PhylacteryCharacter1"].Equal[${Me.Name}]}
@@ -986,12 +987,14 @@ function Goldfeather(string _NamedNPC)
 				wait 5
 				; Dispel Metallic Mutagenesis depending on class/archetype
 				if ${Me.SubClass.Equal[mystic]}
-					oc !ci -CastAbility ${Me.Name} "Scourge"
+					oc !c -CastAbility ${Me.Name} "Scourge"
+				elseif ${Me.SubClass.Equal[swashbuckler]}
+					oc !c -CastAbility ${Me.Name} "Tease"
 				elseif ${Me.Archetype.Equal[mage]}
-					oc !ci -CastAbility ${Me.Name} "Absorb Magic"
+					oc !c -CastAbility ${Me.Name} "Absorb Magic"
 				; Have everyone else use an energy inverter item to dispel
 				else
-					oc !ci -UseItem ${Me.Name} "Zimaran Energy Inverter"
+					oc !c -UseItem ${Me.Name} "Zimaran Energy Inverter"
 				; Check to see if Metallic Mutagenesis was dispelled
 				Counter:Set[0]
 				while ${Counter:Inc} <= 5
@@ -1067,7 +1070,7 @@ function Goldfeather(string _NamedNPC)
 				if ${Me.Effect[Query, "Detrimental" && MainIconID == 434 && BackDropIconID == 581].ID(exists)}
 				{
 					; Move character into lake
-					oc !ci -ChangeCampSpotWho ${Me.Name} 575.49 245.78 352.03
+					oc !ci -ChangeCampSpotWho ${Me.Name} 574.25 245.80 352.95
 					; Setup a timedcommand to move character back after 15 seconds (Sitting Duck should have a 15 second duration)
 					timedcommand 150 oc !ci -ChangeCampSpotWho ${Me.Name} 563.83 249.25 337.73
 					SittingDuckCounter:Set[-20]
@@ -1087,42 +1090,9 @@ function Goldfeather(string _NamedNPC)
 					; 	Don't want to have cure pots on cooldown when Bellowing Bill hits
 					if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse"].Health} > 40
 					{
-						; Make sure cure pot is available and not on a cooldown
-						if ${Me.Inventory[Query, Name =- "Zimaran Cure Trauma" && Location == "Inventory"].TimeUntilReady} == -1
-						{
-							; **************************************
-							; DEBUG TEXT
-							oc ${Me.Name} curing Take a Dip
-							; **************************************
-							
-							; Pause Ogre
-							oc !ci -Pause ${Me.Name}
-							wait 1
-							; Clear ability queue
-							eq2execute clearabilityqueue
-							wait 1
-							; Cancel anything currently being cast
-							oc !ci -CancelCasting ${Me.Name}
-							; Use cure pot to cure
-							oc !ci -UseItem ${Me.Name} "Zimaran Cure Trauma"
-							; Wait for pot to start casting (up to 2 seconds)
-							wait 5
-							Counter:Set[0]
-							while !${Me.CastingSpell} && ${Counter:Inc} <= 20
-							{
-								wait 1
-							}
-							; Wait for casting to be completed (up to 2 seconds)
-							Counter:Set[0]
-							while ${Me.CastingSpell} && ${Counter:Inc} <= 20
-							{
-								wait 1
-							}
-							wait 5
-							; Resume Ogre
-							oc !ci -Resume ${Me.Name}
-							DipCounter:Set[-2]
-						}
+						; Use Zimaran Cure Trauma ASAP to cure detrimental and return
+						call QuickUseItem "Zimaran Cure Trauma"
+						DipCounter:Set[-2]
 					}
 				}
 			}
@@ -1147,7 +1117,7 @@ function Goldfeather(string _NamedNPC)
 				if ${Actor[Query,Name=="Goldfeather" && Type != "Corpse" && Target.ID != 0].ID(exists)}
 				{
 					; Make sure not in combat with an add (will effectively pause dps on the named while dealing with the add)
-					if !${Actor[Query,(Name=-"aurumutation" || Name=-"ick") && Type != "Corpse" && Target.ID != 0].ID(exists)}
+					if !${Actor[Query,(Name=-"aurumutation" || Name=-"ick") && Type != "Corpse" && Target.ID != 0 && Distance < 30].ID(exists)}
 					{
 						; If character is missing Feather for a Feather detrimental, have them Use Goldfeather's Phylactery to re-acquire it
 						if !${Me.Effect[Query, "Detrimental" && MainIconID == 233 && BackDropIconID == 873].ID(exists)}
@@ -1523,10 +1493,10 @@ function GoldanJumpPlatformToPad()
 	wait 5
 	; Start moving to pad
 	press -hold "${OgreForwardKey}"
-	; Wait until within 14m of pad (for up to 5 seconds)
+	; Wait until within 13m of pad (for up to 5 seconds)
 	variable time StartTime
 	StartTime:Set[${Time.Timestamp}]
-	while ${Math.Distance[${Me.X},${Me.Z},${GoldanPad.X},${GoldanPad.Z}]} > 14 && ${Math.Calc[${Time.Timestamp}-${StartTime.Timestamp}]} < 5
+	while ${Math.Distance[${Me.X},${Me.Z},${GoldanPad.X},${GoldanPad.Z}]} > 13 && ${Math.Calc[${Time.Timestamp}-${StartTime.Timestamp}]} < 5
 	{
 		waitframe
 	}
