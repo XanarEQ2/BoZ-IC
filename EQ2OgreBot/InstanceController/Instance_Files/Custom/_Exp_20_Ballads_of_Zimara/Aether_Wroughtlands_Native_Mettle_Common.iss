@@ -2018,7 +2018,7 @@ objectdef Object_Instance
 		
 		; Send everyone back to KillSpot
 		oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
-		wait 50
+		wait 40
 		
 		; ***********************************************
 		; Complete Priest HO to lock aggro
@@ -2737,6 +2737,7 @@ objectdef Object_Instance
 		oc !ci -ChangeOgreBotUIOption igw:${Me.Name}+fighter checkbox_autotarget_outofcombatscanning FALSE TRUE
 		wait 1
 		Ob_AutoTarget:AddActor["a molten golden ick",0,FALSE,FALSE]
+		Ob_AutoTarget:AddActor["a malleable golden ick",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["an aurumutation",0,FALSE,FALSE]
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
 		
@@ -3259,8 +3260,8 @@ objectdef Object_Instance
 			}
 		}
 		
-		; Repair if needed
-		call mend_and_rune_swap "noswap" "noswap" "noswap" "noswap"
+		; Swap immunity runes
+		call mend_and_rune_swap "stun" "stun" "stun" "stun"
 		
 		; Use Painlinks if desired
 		if ${Ogre_Instance_Controller.bICFileOption_1}

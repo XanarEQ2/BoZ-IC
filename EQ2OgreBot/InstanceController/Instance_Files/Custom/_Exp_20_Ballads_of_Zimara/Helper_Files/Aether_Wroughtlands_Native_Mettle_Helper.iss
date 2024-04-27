@@ -1192,11 +1192,11 @@ atom GoldfeatherIncomingText(string Text)
 	; Look for message that Feathered Frenzy is incoming
 	; 	Goldfeather's about to go into a Feathered Frenzy! A timely Heroic Opportunity started by Arcane Augur may calm him!
 	; 	Goldfeather's about to go into a Feathered Frenzy!
-	; Note message comes in early, if perform HO to counter too soon it doesn't work, so delaying by 2 seconds
+	; Note message comes in early, if perform HO to counter too soon it doesn't work, so delaying by 1 second
 	if ${Text.Find["Goldfeather's about to go into a Feathered Frenzy!"]}
 	{
 		GoldfeatherFeatheredFrenzyTime:Set[${Time.Timestamp}]
-		GoldfeatherFeatheredFrenzyTime.Second:Inc[2]
+		GoldfeatherFeatheredFrenzyTime.Second:Inc[1]
 		GoldfeatherFeatheredFrenzyTime:Update
 	}
 }
