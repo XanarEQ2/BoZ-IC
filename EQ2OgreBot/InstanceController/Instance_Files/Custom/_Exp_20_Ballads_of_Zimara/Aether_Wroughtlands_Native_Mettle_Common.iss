@@ -37,10 +37,10 @@
 ; Goldan
 ; 	At start of fight will move everyone to main platform
 ; 	Scout will perform HO to get Extended Reach detrimental
-; 	A character that is an Archetype duplicate will move to pad and wait to spawn a maedjinn disruptor
-; 	This add will be kept up throughout the whole fight as it significantly reduces Goldan's combat mitigation
-; 	Characters will then all jump to pads (if pad isn't disabled by an add) and start the remainder of the fight
-; 		Have seen it bug out and not consider all 4 Archetypes on the pad even though they were, if that happens may need to reset
+; 	For first 2 adds, will try to have them spawn when only a duplicate Archetype is on a pad
+; 		Will leave these adds up throughout the fight as they significantly reduce Goldan's combat mitigation
+; 	Remaining adds will try to have spawn on fighter and will kill these adds
+; 		If they spawn tied to the wrong character, may need to intervene and dispel to get fighter aggro, or wipe and reset
 ; 	Uses Zimaran Cure Trauma potions to cure Flecks of Regret
 ; 	If you wipe, end script and clear Campspot then respawn at "Goldan's Landing" then restart script, will pick up from respawn point
 ; **************************************************************************************************************************************
