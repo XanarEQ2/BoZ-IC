@@ -1227,7 +1227,7 @@ objectdef Object_Instance
 				DPSAllowed:Set[TRUE]
 				; Get Nugget HP, see if at near 76%, 51%, 26%
 				NuggetHP:Set[${Actor[Query,Name=="Nugget" && Type != "Corpse"].Health}]
-				if (${NuggetHP} >= 77 && ${NuggetHP} <= 80) || (${NuggetHP} == 52 && ${NuggetHP} <= 55) || (${NuggetHP} >= 27 && ${NuggetHP} <= 30)
+				if (${NuggetHP} >= 77 && ${NuggetHP} <= 80) || (${NuggetHP} >= 52 && ${NuggetHP} <= 55) || (${NuggetHP} >= 27 && ${NuggetHP} <= 30)
 				{
 					; Check SweepSlamTime, if not between 30 seconds to a minute after SweepSlamTime want to stop DPS
 					; 	May either be right after a Sweep/Slam and have to deal with adds/power issues
