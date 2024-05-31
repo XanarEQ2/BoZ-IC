@@ -323,6 +323,7 @@ function Nugget(string _NamedNPC)
 	variable string GroupMembers[6]
 	variable int FlecksCounter=0
 	variable bool CastingFlecksCure=FALSE
+	variable int SweepCounter=0
 	variable int CurseCounter=0
 	variable string NeedsCurseCure="None"
 	variable int PeelCounter=0
@@ -434,6 +435,20 @@ function Nugget(string _NamedNPC)
 					FlecksCounter:Set[-2]
 				}
 			}
+			; Handle Stupendous Sweep (MainIconID: 29, BackDropIconID 860)
+			; 	Knockback, damage, and power drain
+			; 	Fighter doesn't try to joust the sweep, so have them use a cure pot to remove
+			if ${SweepCounter} < 0
+				SweepCounter:Inc
+			if ${SweepCounter} == 0 && ${Me.Archetype.Equal[fighter]}
+			{
+				if ${Me.Effect[Query, "Detrimental" && MainIconID == 29 && BackDropIconID == 860].ID(exists)}
+				{
+					; Use cure pot to cure
+					oc !ci -UseItem ${Me.Name} "Zimaran Cure Noxious"
+					SweepCounter:Set[-2]
+				}
+			}
 			; Handle All Mine curse (MainIconID: 773, BackDropIconID 773)
 			; 	Cast on everyone when named buries itself and spawns unearthed aurum clusters
 			; 	Allows harvesting of a single unearthed aurum cluster
@@ -473,7 +488,16 @@ function Nugget(string _NamedNPC)
 					; Set AutoCurse for this character to cure NeedsCurseCure character
 					oc !ci -AutoCurse ${Me.Name} ${NeedsCurseCure}
 					; Add wait time for curse to be cured
-					wait 30
+					Counter:Set[0]
+					while ${Counter:Inc} <= 5
+					{
+						; Move to NeedsCurseCure character location to make sure no line of sight issue
+						ActorLoc:Set[${Actor["${NeedsCurseCure}"].Loc}]
+						if ${ActorLoc.X}!=0 || ${ActorLoc.Y}!=0 || ${ActorLoc.Z}!=0
+							oc !ci -ChangeCampSpotWho ${Me.Name} ${ActorLoc.X} ${ActorLoc.Y} ${ActorLoc.Z}
+						; Wait a second
+						wait 10
+					}
 					; Set NeedsCurseCure back to None
 					oc !ci -Set_Variable igw:${Me.Name} "NeedsCurseCure" "None"
 					wait 1
@@ -1055,7 +1079,7 @@ function Goldfeather(string _NamedNPC)
 					; **************************************
 					
 					; Use cure pot to cure
-					oc !ci -UseItem ${Me.Name} "Zimaran Cure Noxious"
+					call QuickUseItem "Zimaran Cure Noxious"
 					BellowCounter:Set[-2]
 				}
 			}

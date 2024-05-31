@@ -165,7 +165,7 @@ objectdef Object_Instance
 		call move_to_next_waypoint "-501.11,118.27,577.38" "1"
 		Ob_AutoTarget:Clear
 		Ob_AutoTarget:AddActor["${_NamedNPC}",0,FALSE,FALSE]
-		call move_to_next_waypoint "${KillSpot}" "1"
+		call Tank_at_KillSpot "${_NamedNPC}" "${KillSpot}"
 		
 		; Finished with named
 		return TRUE

@@ -1715,7 +1715,7 @@ objectdef Object_Instance
 	function:bool Named3(string _NamedNPC="Doesnotexist")
 	{
 		; Update KillSpot
-		KillSpot:Set[858.22,329.09,86.62]
+		KillSpot:Set[904.63,328.05,82.13]
 		
 		; Undo Nugget custom settings
 		call SetupNugget "FALSE"
@@ -2018,7 +2018,7 @@ objectdef Object_Instance
 		
 		; Send everyone back to KillSpot
 		oc !ci -ChangeCampSpotWho igw:${Me.Name} ${KillSpot.X} ${KillSpot.Y} ${KillSpot.Z}
-		wait 40
+		wait 20
 		
 		; ***********************************************
 		; Complete Priest HO to lock aggro
